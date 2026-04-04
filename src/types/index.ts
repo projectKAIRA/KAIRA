@@ -1,0 +1,128 @@
+// ─── Email types ────────────────────────────────────────────────────────────
+
+export interface EmailMessage {
+  id: string;
+  subject: string;
+  bodyText: string;
+  bodyHtml: string;
+  sender: string;
+  receivedAt: string;
+  hasAttachments: boolean;
+  attachments: EmailAttachment[];
+}
+
+export interface EmailAttachment {
+  id: string;
+  name: string;
+  contentType: string;
+  contentBytes: string; // base64-encoded
+  size: number;
+}
+
+// ─── Classification ──────────────────────────────────────────────────────────
+
+export type EmailCategory = "RFQ" | "General Inquiry" | "Text PO";
+
+export interface EmailClassification {
+  category: EmailCategory;
+  confidence: "high" | "medium" | "low";
+  reasoning: string;
+  extractedData: Record<string, unknown>;
+}
+
+// ─── PO Extraction ───────────────────────────────────────────────────────────
+
+export interface PurchaseOrderData {
+  poNumber: string | null;
+  orderDate: string | null;
+  requestedDeliveryDate: string | null;
+  vendor: VendorInfo | null;
+  buyer: BuyerInfo | null;
+  lineItems: POLineItem[];
+  subtotal: number | null;
+  tax: number | null;
+  shippingCost: number | null;
+  total: number | null;
+  currency: string | null;
+  paymentTerms: string | null;
+  shippingAddress: string | null;
+  billingAddress: string | null;
+  notes: string | null;
+  rawConfidence: "high" | "medium" | "low";
+}
+
+export interface VendorInfo {
+  name: string | null;
+  address: string | null;
+  contact: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface BuyerInfo {
+  name: string | null;
+  company: string | null;
+  address: string | null;
+  contact: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface POLineItem {
+  lineNumber: number | null;
+  partNumber: string | null;
+  description: string;
+  quantity: number | null;
+  unitOfMeasure: string | null;
+  unitPrice: number | null;
+  totalPrice: number | null;
+}
+
+// ─── Notification ─────────────────────────────────────────────────────────────
+
+export interface NotificationPayload {
+  type: "pdf_po" | "rfq" | "general_inquiry" | "text_po";
+  email: EmailMessage;
+  classification?: EmailClassification;
+  purchaseOrder?: PurchaseOrderData;
+  attachmentName?: string;
+}
+
+// ─── Notification result ─────────────────────────────────────────────────────
+
+export interface NotificationResult {
+  // Populated when a PO is posted via the Slack Web API
+  poTrackingId?: string;
+  slackMessageTs?: string;
+  slackChannelId?: string;
+}
+
+// ─── PO claim tracking ────────────────────────────────────────────────────────
+
+export type POStatus = "unclaimed" | "claimed";
+
+export interface TrackedPO {
+  id: string;
+  emailId: string;
+  purchaseOrder: PurchaseOrderData;
+  email: EmailMessage;
+  pdfBase64: string;
+  pdfName: string;
+  status: POStatus;
+  claimedBy?: string;       // Slack user ID
+  claimedByName?: string;   // Slack display name
+  claimedAt?: string;
+  slackMessageTs?: string;
+  slackChannelId?: string;
+  receivedAt: string;
+}
+
+// ─── Processing result ───────────────────────────────────────────────────────
+
+export interface ProcessingResult {
+  emailId: string;
+  success: boolean;
+  action: "pdf_po_extracted" | "email_classified" | "skipped" | "error";
+  details?: string;
+  error?: string;
+}
