@@ -118,8 +118,27 @@ Always return valid JSON. Be concise in reasoning (1-2 sentences).`;
     const schema = `{
   "category": "RFQ" | "General Inquiry" | "Text PO",
   "confidence": "high" | "medium" | "low",
-  "reasoning": string,
-  "extractedData": object  // Any structured data extracted (e.g., product names, quantities, contact info)
+  "reasoning": string,         // 1-2 sentence summary of the email
+  "extractedData": {
+    // For RFQ — populate as many fields as you can find in the email:
+    "contactName": string | null,
+    "contactTitle": string | null,
+    "company": string | null,
+    "email": string | null,
+    "phone": string | null,
+    "directPhone": string | null,
+    "cellPhone": string | null,
+    "lineItems": [
+      {
+        "partNumber": string | null,
+        "description": string,
+        "quantity": number | null,
+        "unit": string | null
+      }
+    ] | null,
+    // For General Inquiry or Text PO — include any relevant structured data found
+    [key: string]: any
+  }
 }`;
 
     const emailContext = [

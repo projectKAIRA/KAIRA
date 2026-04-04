@@ -272,8 +272,32 @@ export class SlackNotificationService implements NotificationService {
 
   private buildRfqBlocks(payload: NotificationPayload): unknown[] {
     const { email, classification } = payload;
+    const d = (classification?.extractedData ?? {}) as RfqExtractedData;
+
+    const lineItemsText = d.lineItems && d.lineItems.length > 0
+      ? d.lineItems.map((li, i) =>
+          [
+            `*${i + 1}*`,
+            li.partNumber ? `PN: ${li.partNumber}` : null,
+            li.description,
+            li.quantity != null ? `Qty: ${li.quantity}${li.unit ? ` ${li.unit}` : ""}` : null,
+          ]
+            .filter(Boolean)
+            .join("  |  ")
+        ).join("\n")
+      : null;
+
+    const contactFields: ReturnType<typeof field>[] = [];
+    if (d.contactName) contactFields.push(field("Contact", d.contactName));
+    if (d.contactTitle) contactFields.push(field("Title", d.contactTitle));
+    if (d.company) contactFields.push(field("Company", d.company));
+    if (d.email) contactFields.push(field("Email", d.email));
+    if (d.phone) contactFields.push(field("Phone", d.phone));
+    if (d.directPhone) contactFields.push(field("Direct", d.directPhone));
+    if (d.cellPhone) contactFields.push(field("Cell", d.cellPhone));
+
     return [
-      { type: "header", text: { type: "plain_text", text: "📋 RFQ Received", emoji: true } },
+      { type: "header", text: { type: "plain_text", text: "📋 Request for Quote Received", emoji: true } },
       {
         type: "section",
         fields: [
@@ -283,8 +307,21 @@ export class SlackNotificationService implements NotificationService {
           field("Confidence", classification?.confidence.toUpperCase() ?? "—"),
         ],
       },
-      ...(classification?.reasoning ? [{ type: "section", text: mrkdwn(`*Summary:* ${classification.reasoning}`) }] : []),
-      ...extractedDataBlocks(classification?.extractedData),
+      ...(classification?.reasoning
+        ? [{ type: "section", text: mrkdwn(`*Summary:* ${classification.reasoning}`) }]
+        : []),
+      { type: "divider" },
+      ...(lineItemsText
+        ? [
+            { type: "section", text: mrkdwn(`*Requested Items*\n\`\`\`${lineItemsText}\`\`\``) },
+          ]
+        : []),
+      ...(contactFields.length > 0
+        ? [
+            { type: "divider" },
+            { type: "section", fields: contactFields.slice(0, 10) },
+          ]
+        : []),
       { type: "context", elements: [{ type: "mrkdwn", text: `_Classified as *RFQ* by KAIRA • ${new Date().toISOString()}_` }] },
     ];
   }
@@ -303,7 +340,6 @@ export class SlackNotificationService implements NotificationService {
         ],
       },
       ...(classification?.reasoning ? [{ type: "section", text: mrkdwn(`*Summary:* ${classification.reasoning}`) }] : []),
-      ...extractedDataBlocks(classification?.extractedData),
       { type: "context", elements: [{ type: "mrkdwn", text: `_Classified as *Text PO* by KAIRA • ${new Date().toISOString()}_` }] },
     ];
   }
@@ -332,6 +368,24 @@ export class SlackNotificationService implements NotificationService {
   }
 }
 
+// ─── RFQ extracted data shape ─────────────────────────────────────────────────
+
+interface RfqExtractedData {
+  contactName?: string | null;
+  contactTitle?: string | null;
+  company?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  directPhone?: string | null;
+  cellPhone?: string | null;
+  lineItems?: Array<{
+    partNumber?: string | null;
+    description: string;
+    quantity?: number | null;
+    unit?: string | null;
+  }> | null;
+}
+
 // ─── Block helpers ────────────────────────────────────────────────────────────
 
 function field(label: string, value: string): { type: string; text: string } {
@@ -342,11 +396,6 @@ function mrkdwn(text: string): { type: string; text: string } {
   return { type: "mrkdwn", text };
 }
 
-function extractedDataBlocks(data?: Record<string, unknown>): unknown[] {
-  if (!data || Object.keys(data).length === 0) return [];
-  const text = Object.entries(data).map(([k, v]) => `*${k}:* ${JSON.stringify(v)}`).join("\n");
-  return [{ type: "section", text: mrkdwn(text) }];
-}
 
 function formatCurrency(amount: number, currency: string | null): string {
   const symbol = currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : "";
