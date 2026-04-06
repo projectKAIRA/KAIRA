@@ -1,13 +1,8 @@
 import "dotenv/config";
 import cron from "node-cron";
 import { config } from "./config/index.js";
-import { GraphService } from "./services/graph/GraphService.js";
-import { ClaudeService } from "./services/claude/ClaudeService.js";
-import { POTracker } from "./services/po/POTracker.js";
-import { createNotificationService } from "./services/notifications/createNotificationService.js";
-import { SlackNotificationService } from "./services/notifications/SlackNotificationService.js";
-import { SlackInteractionService } from "./services/notifications/SlackInteractionService.js";
-import { EmailProcessor } from "./services/email/EmailProcessor.js";
+import { TenantRuntime } from "./services/tenant/TenantRuntime.js";
+import { TenantConfig } from "./types/tenant.js";
 import { createApp } from "./app.js";
 
 async function main() {
@@ -16,44 +11,63 @@ async function main() {
   console.log("╚══════════════════════════════════════════════════╝");
   console.log();
 
-  // ─── Core services ────────────────────────────────────────────────────────
+  // ─── Build a TenantConfig from the single-tenant .env settings ───────────
+  // This shim keeps the single-tenant workflow alive until Phase 6 (TenantScheduler)
+  // loads tenants from the database instead.
 
-  // "single-tenant" is a stable placeholder key used for the DeltaLink FK
-  // until the multi-tenant scheduler (Phase 4) takes over wiring.
-  const graphService = new GraphService("single-tenant", {
-    tenantId:           config.graph.tenantId,
-    clientId:           config.graph.clientId,
-    clientSecret:       config.graph.clientSecret,
-    userEmail:          config.graph.userEmail,
-    inboxFolder:        config.graph.inboxFolderName,
-    pollIntervalSeconds: config.graph.pollIntervalSeconds,
-  });
+  const singleTenantConfig: TenantConfig = {
+    id:       "single-tenant",
+    name:     "Default (single-tenant)",
+    isActive: true,
 
-  const claudeService = new ClaudeService(config.claude.apiKey, config.claude.model);
+    graph: {
+      clientId:            config.graph.clientId,
+      clientSecret:        config.graph.clientSecret,
+      tenantId:            config.graph.tenantId,
+      userEmail:           config.graph.userEmail,
+      inboxFolder:         config.graph.inboxFolderName,
+      pollIntervalSeconds: config.graph.pollIntervalSeconds,
+    },
 
-  const tracker = new POTracker("single-tenant");
+    notification: {
+      provider: config.notification.provider,
+    },
 
-  const notifier = createNotificationService(tracker);
-  console.log(`[KAIRA] Notification provider: ${notifier.name}`);
+    slack: {
+      botToken:       config.notification.slack.botToken       || null,
+      signingSecret:  config.notification.slack.signingSecret  || null,
+      webhookRfq:     config.notification.slack.webhookRfq     || null,
+      webhookInquiry: config.notification.slack.webhookInquiry || null,
+      poChannelId:    config.notification.slack.poChannel      || null,
+      botName:        config.notification.slack.botName,
+    },
 
-  // ─── Slack interaction service (only when using Slack) ────────────────────
+    teams: {
+      webhookUrl: config.notification.teams.webhookUrl || null,
+    },
 
-  let interactions: SlackInteractionService | null = null;
-  if (notifier instanceof SlackNotificationService) {
-    const { signingSecret } = config.notification.slack;
-    if (signingSecret) {
-      interactions = new SlackInteractionService(signingSecret, notifier, tracker);
-      console.log("[KAIRA] Slack interactions enabled → POST /slack/interactions");
-    } else {
-      console.warn("[KAIRA] SLACK_SIGNING_SECRET not set — Claim Order button will not work.");
-    }
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // ─── Instantiate all services via TenantRuntime ───────────────────────────
+
+  const runtime = new TenantRuntime(
+    singleTenantConfig,
+    config.claude.apiKey,
+    config.claude.model,
+  );
+
+  console.log(`[KAIRA] Notification provider: ${runtime.notifier.name}`);
+  if (runtime.interactions) {
+    console.log("[KAIRA] Slack interactions enabled → POST /slack/interactions");
+  } else if (config.notification.provider === "slack") {
+    console.warn("[KAIRA] SLACK_SIGNING_SECRET not set — Claim Order button will not work.");
   }
-
-  const processor = new EmailProcessor(graphService, claudeService, notifier);
 
   // ─── HTTP server ──────────────────────────────────────────────────────────
 
-  const app = createApp(processor, tracker, interactions);
+  const app = createApp(runtime.processor, runtime.tracker, runtime.interactions);
   const server = app.listen(config.server.port, config.server.host, () => {
     console.log(`[KAIRA] HTTP server listening on http://${config.server.host}:${config.server.port}`);
     console.log(`[KAIRA] Endpoints:`);
@@ -84,7 +98,7 @@ async function main() {
     }
     cycleRunning = true;
     try {
-      const results = await processor.runCycle();
+      const results = await runtime.processor.runCycle();
       const summary = results.map((r) => `${r.action}:${r.details ?? r.error ?? "ok"}`).join(", ") || "none";
       console.log(`[KAIRA] Cycle complete. Results: [${summary}]`);
     } catch (err) {
