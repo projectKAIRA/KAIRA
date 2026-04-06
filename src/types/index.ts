@@ -103,6 +103,7 @@ export type POStatus = "unclaimed" | "claimed";
 
 export interface TrackedPO {
   id: string;
+  tenantId: string;         // KAIRA internal tenant UUID
   emailId: string;
   purchaseOrder: PurchaseOrderData;
   email: EmailMessage;

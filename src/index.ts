@@ -31,7 +31,7 @@ async function main() {
 
   const claudeService = new ClaudeService(config.claude.apiKey, config.claude.model);
 
-  const tracker = new POTracker();
+  const tracker = new POTracker("single-tenant");
 
   const notifier = createNotificationService(tracker);
   console.log(`[KAIRA] Notification provider: ${notifier.name}`);

@@ -48,7 +48,7 @@ export class SlackNotificationService implements NotificationService {
     if (!purchaseOrder || !email) return {};
 
     // Register in tracker first so we have an ID for the button
-    const tracked = this.tracker.track({
+    const tracked = await this.tracker.track({
       emailId: email.id,
       purchaseOrder,
       email,
@@ -69,7 +69,7 @@ export class SlackNotificationService implements NotificationService {
 
       const ts = result.ts ?? "";
       const channelId = typeof result.channel === "string" ? result.channel : "";
-      this.tracker.setSlackMessage(tracked.id, ts, channelId);
+      await this.tracker.setSlackMessage(tracked.id, ts, channelId);
 
       return { poTrackingId: tracked.id, slackMessageTs: ts, slackChannelId: channelId };
     } catch (err) {

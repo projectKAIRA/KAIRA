@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { WebClient } from "@slack/web-api";
 import { SlackNotificationService, CLAIM_ACTION_ID } from "./SlackNotificationService.js";
 import { POTracker } from "../po/POTracker.js";
+import { TrackedPO } from "../../types/index.js";
 
 /**
  * Handles interactive payloads from Slack (button clicks).
@@ -70,10 +71,10 @@ export class SlackInteractionService {
     const channelId = payload.channel.id;
 
     // Mark as claimed
-    const tracked = this.tracker.claim(trackingId, slackUserId, slackUserName);
+    const tracked = await this.tracker.claim(trackingId, slackUserId, slackUserName);
     if (!tracked) {
       // Already claimed — update the message to reflect current state and return
-      const existing = this.tracker.get(trackingId);
+      const existing = await this.tracker.get(trackingId);
       if (existing) await this.updateChannelMessage(existing, channelId, messageTs);
       return;
     }
@@ -85,7 +86,7 @@ export class SlackInteractionService {
     await this.sendClaimDM(tracked, slackUserId);
   }
 
-  private async updateChannelMessage(tracked: ReturnType<POTracker["get"]>, channelId: string, messageTs: string): Promise<void> {
+  private async updateChannelMessage(tracked: TrackedPO | undefined, channelId: string, messageTs: string): Promise<void> {
     if (!tracked) return;
     try {
       await this.web.chat.update({
@@ -99,7 +100,7 @@ export class SlackInteractionService {
     }
   }
 
-  private async sendClaimDM(tracked: NonNullable<ReturnType<POTracker["get"]>>, slackUserId: string): Promise<void> {
+  private async sendClaimDM(tracked: TrackedPO, slackUserId: string): Promise<void> {
     // Open a DM channel with the claiming user
     let dmChannelId: string;
     try {

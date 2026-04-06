@@ -24,8 +24,12 @@ export function createApp(
 
   // ─── Status (includes PO claim summary) ──────────────────────────────────
 
-  app.get("/status", (_req: Request, res: Response) => {
-    const poSummary = tracker.summary();
+  app.get("/status", async (_req: Request, res: Response) => {
+    const [poSummary, unclaimed, claimed] = await Promise.all([
+      tracker.summary(),
+      tracker.getUnclaimed(),
+      tracker.getClaimed(),
+    ]);
     res.json({
       service: "KAIRA",
       isRunning,
@@ -34,7 +38,7 @@ export function createApp(
       lastResults: lastResults.slice(0, 20),
       purchaseOrders: {
         ...poSummary,
-        unclaimed: tracker.getUnclaimed().map((po) => ({
+        unclaimed: unclaimed.map((po) => ({
           id: po.id,
           poNumber: po.purchaseOrder.poNumber,
           from: po.email.sender,
@@ -42,7 +46,7 @@ export function createApp(
           total: po.purchaseOrder.total,
           currency: po.purchaseOrder.currency,
         })),
-        recentlyClaimed: tracker.getClaimed().slice(0, 5).map((po) => ({
+        recentlyClaimed: claimed.slice(0, 5).map((po) => ({
           id: po.id,
           poNumber: po.purchaseOrder.poNumber,
           claimedBy: po.claimedByName,
