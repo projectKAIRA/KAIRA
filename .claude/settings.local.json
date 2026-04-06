@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Skill(claude-api)",
-      "Skill(claude-api:*)"
+      "Skill(claude-api:*)",
+      "Bash(export PATH=\"/usr/local/bin:/usr/bin:/opt/homebrew/bin:$PATH\")",
+      "Bash(/usr/local/bin/node node_modules/.bin/tsc)"
     ]
   }
 }
