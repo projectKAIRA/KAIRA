@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import { TenantScheduler } from "./services/tenant/TenantScheduler.js";
 import { CLAIM_ACTION_ID } from "./services/notifications/SlackNotificationService.js";
+import { POTracker } from "./services/po/POTracker.js";
 
 export function createApp(scheduler: TenantScheduler): express.Application {
   const app = express();
@@ -12,26 +13,47 @@ export function createApp(scheduler: TenantScheduler): express.Application {
     res.json({ status: "ok", service: "KAIRA", timestamp: new Date().toISOString() });
   });
 
-  // ─── Status ───────────────────────────────────────────────────────────────
+  // ─── Status (all tenants) ─────────────────────────────────────────────────
   // Returns a snapshot of every registered tenant: cycle state, last results,
-  // and a PO claim summary.
+  // and a full PO claim summary with unclaimed/recently-claimed detail lists.
 
   app.get("/status", async (_req: Request, res: Response) => {
     const tenantStatuses = scheduler.getStatus();
 
-    // Augment each tenant entry with PO claim counts from its tracker
     const enriched = await Promise.all(
       tenantStatuses.map(async (ts) => {
         const runtime = scheduler.getRuntime(ts.tenantId);
-        const poSummary = runtime ? await runtime.tracker.summary() : null;
-        return { ...ts, purchaseOrders: poSummary };
+        const purchaseOrders = runtime ? await buildPoSummary(runtime.tracker) : null;
+        return { ...ts, purchaseOrders };
       }),
     );
 
     res.json({
-      service:  "KAIRA",
-      tenants:  enriched,
+      service:     "KAIRA",
       tenantCount: enriched.length,
+      tenants:     enriched,
+    });
+  });
+
+  // ─── Status (single tenant) ───────────────────────────────────────────────
+  // GET /status/:tenantId
+  // Detailed view for one tenant — same shape as a single entry in /status.
+
+  app.get("/status/:tenantId", async (req: Request, res: Response) => {
+    const tenantId = req.params["tenantId"] as string;
+    const runtime = scheduler.getRuntime(tenantId);
+
+    if (!runtime) {
+      res.status(404).json({ error: `Tenant not found or not active: ${tenantId}` });
+      return;
+    }
+
+    const cycleStatus  = scheduler.getStatus().find((s) => s.tenantId === tenantId) ?? null;
+    const purchaseOrders = await buildPoSummary(runtime.tracker);
+
+    res.json({
+      ...cycleStatus,
+      purchaseOrders,
     });
   });
 
@@ -120,6 +142,38 @@ export function createApp(scheduler: TenantScheduler): express.Application {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Build a rich PO summary for a single tenant's tracker.
+ * Returned as the `purchaseOrders` field in both /status and /status/:tenantId.
+ */
+async function buildPoSummary(tracker: POTracker) {
+  const [summary, unclaimed, claimed] = await Promise.all([
+    tracker.summary(),
+    tracker.getUnclaimed(),
+    tracker.getClaimed(),
+  ]);
+
+  return {
+    total:    summary.total,
+    unclaimed: summary.unclaimed,
+    claimed:  summary.claimed,
+    unclaimedOrders: unclaimed.map((po) => ({
+      id:         po.id,
+      poNumber:   po.purchaseOrder.poNumber,
+      from:       po.email.sender,
+      receivedAt: po.receivedAt,
+      total:      po.purchaseOrder.total,
+      currency:   po.purchaseOrder.currency,
+    })),
+    recentlyClaimed: claimed.slice(0, 5).map((po) => ({
+      id:        po.id,
+      poNumber:  po.purchaseOrder.poNumber,
+      claimedBy: po.claimedByName,
+      claimedAt: po.claimedAt,
+    })),
+  };
+}
 
 /**
  * Pull the tracking ID out of a URL-encoded Slack interaction payload without
