@@ -63,6 +63,7 @@ export class TenantRegistry {
         azureClientId: input.graph.clientId,
         azureClientSecret: input.graph.clientSecret,
         azureTenantId: input.graph.tenantId,
+        userEmail: input.graph.userEmail,
         inboxFolder: input.graph.inboxFolder,
         pollIntervalSeconds: input.graph.pollIntervalSeconds,
 
@@ -104,6 +105,7 @@ export class TenantRegistry {
         ...(input.graph?.clientId !== undefined && { azureClientId: input.graph.clientId }),
         ...(input.graph?.clientSecret !== undefined && { azureClientSecret: input.graph.clientSecret }),
         ...(input.graph?.tenantId !== undefined && { azureTenantId: input.graph.tenantId }),
+        ...(input.graph?.userEmail !== undefined && { userEmail: input.graph.userEmail }),
         ...(input.graph?.inboxFolder !== undefined && { inboxFolder: input.graph.inboxFolder }),
         ...(input.graph?.pollIntervalSeconds !== undefined && {
           pollIntervalSeconds: input.graph.pollIntervalSeconds,
@@ -164,6 +166,7 @@ function toConfig(row: TenantRow): TenantConfig {
       clientId: row.azureClientId,
       clientSecret: row.azureClientSecret,
       tenantId: row.azureTenantId,
+      userEmail: row.userEmail,
       inboxFolder: row.inboxFolder,
       pollIntervalSeconds: row.pollIntervalSeconds,
     },

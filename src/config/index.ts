@@ -15,10 +15,13 @@ function optional(key: string, defaultValue: string): string {
 export const config = {
   // ─── Microsoft Graph (Azure AD app registration) ────────────────────────
   graph: {
-    // "consumers" targets personal Microsoft accounts (outlook.com, hotmail.com)
-    // Use your actual tenant ID for Microsoft 365 / work accounts
+    // Azure AD directory (tenant) ID for the customer's Microsoft 365 org
     tenantId: optional("AZURE_TENANT_ID", "consumers"),
     clientId: required("AZURE_CLIENT_ID"),
+    // Client secret for app-only (non-interactive) authentication
+    clientSecret: optional("AZURE_CLIENT_SECRET", ""),
+    // UPN / email of the mailbox to monitor (e.g. orders@leespring.com)
+    userEmail: optional("GRAPH_USER_EMAIL", ""),
     // Folder to watch (defaults to "inbox")
     inboxFolderName: optional("GRAPH_INBOX_FOLDER", "inbox"),
     // How often to poll for new messages (seconds)

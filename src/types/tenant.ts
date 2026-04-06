@@ -9,8 +9,11 @@ export interface TenantGraphConfig {
   clientId: string;
   /** Azure AD client secret */
   clientSecret: string;
-  /** Azure AD tenant ID — "consumers" for personal Outlook accounts */
+  /** Azure AD tenant ID (directory ID) for the customer's Microsoft 365 org */
   tenantId: string;
+  /** UPN / email address of the mailbox to monitor (e.g. orders@leespring.com).
+   *  Used to construct app-only /users/{userEmail}/ Graph API endpoints. */
+  userEmail: string;
   /** Mail folder to monitor, e.g. "inbox" */
   inboxFolder: string;
   /** Polling interval in seconds */

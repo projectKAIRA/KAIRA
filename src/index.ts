@@ -18,10 +18,15 @@ async function main() {
 
   // ─── Core services ────────────────────────────────────────────────────────
 
-  const graphService = new GraphService({
-    tenantId: config.graph.tenantId,
-    clientId: config.graph.clientId,
-    inboxFolderName: config.graph.inboxFolderName,
+  // "single-tenant" is a stable placeholder key used for the DeltaLink FK
+  // until the multi-tenant scheduler (Phase 4) takes over wiring.
+  const graphService = new GraphService("single-tenant", {
+    tenantId:           config.graph.tenantId,
+    clientId:           config.graph.clientId,
+    clientSecret:       config.graph.clientSecret,
+    userEmail:          config.graph.userEmail,
+    inboxFolder:        config.graph.inboxFolderName,
+    pollIntervalSeconds: config.graph.pollIntervalSeconds,
   });
 
   const claudeService = new ClaudeService(config.claude.apiKey, config.claude.model);
@@ -63,8 +68,6 @@ async function main() {
 
   const intervalSeconds = config.graph.pollIntervalSeconds;
   console.log(`[KAIRA] Polling every ${intervalSeconds}s for new messages in "${config.graph.inboxFolderName}"...`);
-
-  await graphService.authenticate();
 
   let cycleRunning = false;
 

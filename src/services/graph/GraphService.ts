@@ -1,35 +1,49 @@
-import { DeviceCodeCredential } from "@azure/identity";
+import { ClientSecretCredential } from "@azure/identity";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js";
+import { getPrismaClient } from "../../lib/prisma.js";
+import { TenantGraphConfig } from "../../types/tenant.js";
 import { EmailAttachment, EmailMessage } from "../../types/index.js";
 
-const SCOPES = ["https://graph.microsoft.com/Mail.Read", "offline_access"];
+// App-only scope — uses whatever application permissions are granted in Azure.
+const SCOPES = ["https://graph.microsoft.com/.default"];
 
-interface GraphConfig {
-  tenantId: string;
-  clientId: string;
-  inboxFolderName: string;
-}
-
+/**
+ * GraphService — tenant-aware Microsoft Graph client.
+ *
+ * Auth:    ClientSecretCredential (app-only, non-interactive).
+ *          Requires the Azure app to have Mail.Read *application* permission
+ *          (not delegated) and admin consent granted.
+ *
+ * Routing: All endpoints use /users/{userEmail}/ instead of /me/,
+ *          because app-only tokens have no "me" context.
+ *
+ * Delta links are persisted to the DeltaLink table so polling survives
+ * process restarts and can be shared across future horizontal replicas.
+ */
 export class GraphService {
   private client: Client;
-  private credential: DeviceCodeCredential;
-  private deltaLink: string | null = null;
+  private readonly userEmail: string;
+  private readonly folderName: string;
 
-  constructor(private readonly cfg: GraphConfig) {
-    this.credential = new DeviceCodeCredential({
-      tenantId: cfg.tenantId,
-      clientId: cfg.clientId,
-      userPromptCallback: (info) => {
-        console.log("\n════════════════════════════════════════════════════════");
-        console.log("  KAIRA — Microsoft Account Sign-In Required");
-        console.log("════════════════════════════════════════════════════════");
-        console.log(info.message);
-        console.log("════════════════════════════════════════════════════════\n");
-      },
-    });
+  /**
+   * @param kairaTenantId  Internal KAIRA tenant UUID — used as the DeltaLink FK.
+   * @param cfg            Per-tenant Graph configuration from TenantConfig.graph.
+   */
+  constructor(
+    private readonly kairaTenantId: string,
+    cfg: TenantGraphConfig,
+  ) {
+    this.userEmail  = cfg.userEmail;
+    this.folderName = cfg.inboxFolder;
 
-    const authProvider = new TokenCredentialAuthenticationProvider(this.credential, {
+    const credential = new ClientSecretCredential(
+      cfg.tenantId,
+      cfg.clientId,
+      cfg.clientSecret,
+    );
+
+    const authProvider = new TokenCredentialAuthenticationProvider(credential, {
       scopes: SCOPES,
     });
 
@@ -37,28 +51,16 @@ export class GraphService {
   }
 
   /**
-   * Explicitly trigger the device code flow before the first API call.
-   * Call this once at startup so the sign-in prompt appears on its own line.
-   */
-  async authenticate(): Promise<void> {
-    await this.credential.getToken(SCOPES);
-    console.log("[GraphService] Authentication successful.\n");
-  }
-
-  /**
    * Fetch all messages that have arrived since the last poll.
-   * Uses /me/ endpoints (delegated auth — acts as the signed-in user).
+   * Uses /users/{userEmail}/ endpoints (app-only auth).
+   * Persists the returned deltaLink to the database for the next call.
    */
   async fetchNewMessages(): Promise<EmailMessage[]> {
-    const folder = this.cfg.inboxFolderName;
+    const savedLink = await this.loadDeltaLink();
 
-    let url: string;
-
-    if (this.deltaLink) {
-      url = this.deltaLink;
-    } else {
-      url = `/me/mailFolders/${folder}/messages/delta?$select=id,subject,body,sender,receivedDateTime,hasAttachments&$top=50`;
-    }
+    let url: string = savedLink
+      ?? `/users/${this.userEmail}/mailFolders/${this.folderName}/messages/delta`
+        + `?$select=id,subject,body,sender,receivedDateTime,hasAttachments&$top=50`;
 
     const messages: EmailMessage[] = [];
 
@@ -74,7 +76,7 @@ export class GraphService {
       if (response["@odata.nextLink"]) {
         url = response["@odata.nextLink"];
       } else if (response["@odata.deltaLink"]) {
-        this.deltaLink = response["@odata.deltaLink"];
+        await this.saveDeltaLink(response["@odata.deltaLink"] as string);
         break;
       } else {
         break;
@@ -89,10 +91,43 @@ export class GraphService {
    */
   async downloadAttachment(messageId: string, attachmentId: string): Promise<string> {
     const attachment = await this.client
-      .api(`/me/messages/${messageId}/attachments/${attachmentId}`)
+      .api(`/users/${this.userEmail}/messages/${messageId}/attachments/${attachmentId}`)
       .get();
 
     return (attachment.contentBytes as string) ?? "";
+  }
+
+  // ─── Delta link persistence ───────────────────────────────────────────────
+
+  private async loadDeltaLink(): Promise<string | null> {
+    const db = getPrismaClient();
+    const row = await db.deltaLink.findUnique({
+      where: {
+        tenantId_folderName: {
+          tenantId: this.kairaTenantId,
+          folderName: this.folderName,
+        },
+      },
+    });
+    return row?.deltaLink ?? null;
+  }
+
+  private async saveDeltaLink(link: string): Promise<void> {
+    const db = getPrismaClient();
+    await db.deltaLink.upsert({
+      where: {
+        tenantId_folderName: {
+          tenantId: this.kairaTenantId,
+          folderName: this.folderName,
+        },
+      },
+      update: { deltaLink: link },
+      create: {
+        tenantId:   this.kairaTenantId,
+        folderName: this.folderName,
+        deltaLink:  link,
+      },
+    });
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
@@ -102,11 +137,10 @@ export class GraphService {
 
     if (raw.hasAttachments) {
       const attachResponse = await this.client
-        .api(`/me/messages/${raw.id}/attachments`)
+        .api(`/users/${this.userEmail}/messages/${raw.id}/attachments`)
         .get();
 
       for (const att of (attachResponse.value ?? []) as GraphAttachment[]) {
-        // Only include file attachments (not item/reference attachments)
         if (att["@odata.type"] === "#microsoft.graph.fileAttachment") {
           attachments.push({
             id: att.id,
@@ -136,8 +170,7 @@ export class GraphService {
   }
 }
 
-
-// ─── Graph API shape types ─────────────────────────────────────────────────
+// ─── Graph API shape types ────────────────────────────────────────────────────
 
 interface GraphMessage {
   id: string;
@@ -157,7 +190,7 @@ interface GraphAttachment {
   size?: number;
 }
 
-// ─── Utility ──────────────────────────────────────────────────────────────────
+// ─── Utility ─────────────────────────────────────────────────────────────────
 
 function stripHtml(html: string): string {
   return html
