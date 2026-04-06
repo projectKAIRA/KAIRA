@@ -12,13 +12,15 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.51.0",
-    "@slack/web-api": "^7.8.0",
     "@azure/identity": "^4.6.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@prisma/client": "^7.6.0",
+    "@slack/web-api": "^7.8.0",
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "prisma": "^7.6.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

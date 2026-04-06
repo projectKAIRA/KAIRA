@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum NotificationProvider {
+  SLACK
+  TEAMS
+}
+
+enum OrderStatus {
+  UNCLAIMED
+  CLAIMED
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+/// One customer of the KAIRA SaaS platform.
+/// Holds all per-tenant credentials and configuration.
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String                         // Human-readable customer name
+  isActive  Boolean  @default(true)
+
+  // ── Microsoft Graph (email inbox) ──────────────────────────────────────────
+  azureClientId     String
+  azureClientSecret String
+  azureTenantId     String  @default("consumers")
+  inboxFolder       String  @default("inbox")
+  pollIntervalSeconds Int   @default(60)
+
+  // ── Notification routing ───────────────────────────────────────────────────
+  notificationProvider NotificationProvider @default(SLACK)
+
+  // ── Slack ──────────────────────────────────────────────────────────────────
+  slackBotToken      String?
+  slackSigningSecret String?
+  slackWebhookRfq    String?
+  slackWebhookInquiry String?
+  slackPoChannelId   String?
+  slackBotName       String  @default("KAIRA")
+
+  // ── Microsoft Teams ────────────────────────────────────────────────────────
+  teamsWebhookUrl    String?
+
+  // ── Timestamps ─────────────────────────────────────────────────────────────
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ── Relations ──────────────────────────────────────────────────────────────
+  orders     TrackedOrder[]
+  deltaLinks DeltaLink[]
+}
+
+/// A purchase order detected and tracked by KAIRA.
+/// Replaces the in-memory POTracker Map — persisted per tenant.
+model TrackedOrder {
+  id       String      @id @default(uuid())
+  tenantId String
+
+  emailId  String      // Microsoft Graph message ID
+  status   OrderStatus @default(UNCLAIMED)
+
+  // Serialised JSON blobs (PurchaseOrderData and EmailMessage types)
+  purchaseOrderJson String
+  emailJson         String
+
+  // Original PDF
+  pdfBase64 String
+  pdfName   String
+
+  // Claim metadata
+  claimedBy     String?   // Slack user ID
+  claimedByName String?
+  claimedAt     DateTime?
+
+  // Slack posting coordinates (needed to update the message on claim)
+  slackMessageTs  String?
+  slackChannelId  String?
+
+  receivedAt String    // ISO timestamp from the email
+  createdAt  DateTime  @default(now())
+
+  // ── Relations ──────────────────────────────────────────────────────────────
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+/// Persists the Microsoft Graph API delta query bookmark per tenant.
+/// Replaces the in-memory deltaLink cache in GraphService.
+model DeltaLink {
+  id         String   @id @default(uuid())
+  tenantId   String
+  folderName String
+  deltaLink  String
+  updatedAt  DateTime @updatedAt
+
+  // ── Relations ──────────────────────────────────────────────────────────────
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, folderName])
+}
