@@ -86,6 +86,9 @@ export interface NotificationPayload {
   classification?: EmailClassification;
   purchaseOrder?: PurchaseOrderData;
   attachmentName?: string;
+  /** Raw base64 bytes of the source document (PDF, image, DOCX, XLSX) stored
+   *  in the DB and uploaded to the claiming user via Slack DM. */
+  documentBase64?: string;
 }
 
 // ─── Notification result ─────────────────────────────────────────────────────

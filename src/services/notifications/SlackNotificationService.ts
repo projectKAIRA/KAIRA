@@ -47,12 +47,19 @@ export class SlackNotificationService implements NotificationService {
     const { email, purchaseOrder, attachmentName } = payload;
     if (!purchaseOrder || !email) return {};
 
-    // Register in tracker first so we have an ID for the button
+    // Register in tracker first so we have an ID for the button.
+    // Use the explicit documentBase64 if provided (for linked/non-PDF docs),
+    // otherwise fall back to looking up by attachment name.
+    const storedBase64 =
+      payload.documentBase64 ??
+      email.attachments.find((a) => a.name === attachmentName)?.contentBytes ??
+      "";
+
     const tracked = await this.tracker.track({
       emailId: email.id,
       purchaseOrder,
       email,
-      pdfBase64: email.attachments.find((a) => a.name === attachmentName)?.contentBytes ?? "",
+      pdfBase64: storedBase64,
       pdfName: attachmentName ?? "purchase_order.pdf",
     });
 

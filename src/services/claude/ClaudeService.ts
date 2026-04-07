@@ -1,11 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { EmailClassification, EmailMessage, PurchaseOrderData } from "../../types/index.js";
+import { SupportedImageMime } from "../attachments/AttachmentExtractor.js";
 
 /**
  * All Claude API calls live here.
  *
- * - extractPurchaseOrderFromPdf  → parses PDF attachment bytes into structured PO data
- * - classifyEmail               → classifies a plain-text email into RFQ / General Inquiry / Text PO
+ * - extractPurchaseOrderFromPdf   → parses PDF bytes into structured PO data
+ * - extractPurchaseOrderFromImage → parses an image (JPEG/PNG/GIF/WebP) into PO data
+ * - extractPurchaseOrderFromText  → parses extracted document text (DOCX/XLSX) into PO data
+ * - classifyEmail                 → classifies a plain-text email into RFQ / General Inquiry / Text PO
  */
 export class ClaudeService {
   private client: Anthropic;
@@ -22,60 +25,12 @@ export class ClaudeService {
     pdfBase64: string,
     attachmentName: string
   ): Promise<PurchaseOrderData> {
-    const systemPrompt = `You are an expert at parsing purchase order documents.
-Your job is to extract structured data from purchase order PDFs with high accuracy.
-Always return valid JSON matching the schema exactly.
-If a field is not present or cannot be determined, use null.
-For line items, extract every item listed in the document.`;
-
-    const schema = `{
-  "poNumber": string | null,
-  "orderDate": string | null,          // ISO-8601 date or human-readable
-  "requestedDeliveryDate": string | null,
-  "vendor": {
-    "name": string | null,
-    "address": string | null,
-    "contact": string | null,
-    "email": string | null,
-    "phone": string | null
-  } | null,
-  "buyer": {
-    "name": string | null,
-    "company": string | null,
-    "address": string | null,
-    "contact": string | null,
-    "email": string | null,
-    "phone": string | null
-  } | null,
-  "lineItems": [
-    {
-      "lineNumber": number | null,
-      "partNumber": string | null,
-      "description": string,
-      "quantity": number | null,
-      "unitOfMeasure": string | null,
-      "unitPrice": number | null,
-      "totalPrice": number | null
-    }
-  ],
-  "subtotal": number | null,
-  "tax": number | null,
-  "shippingCost": number | null,
-  "total": number | null,
-  "currency": string | null,           // ISO-4217 code, e.g. "USD"
-  "paymentTerms": string | null,
-  "shippingAddress": string | null,
-  "billingAddress": string | null,
-  "notes": string | null,
-  "rawConfidence": "high" | "medium" | "low"  // your confidence in the extraction
-}`;
-
     const stream = this.client.messages.stream({
       model: this.model,
       max_tokens: 4096,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       thinking: { type: "adaptive" } as any,
-      system: systemPrompt,
+      system: PO_SYSTEM_PROMPT,
       messages: [
         {
           role: "user",
@@ -91,7 +46,7 @@ For line items, extract every item listed in the document.`;
             },
             {
               type: "text",
-              text: `Extract all purchase order data from this PDF and return ONLY a JSON object matching this schema:\n\n${schema}\n\nReturn only the JSON object — no markdown fences, no explanation.`,
+              text: `Extract all purchase order data from this PDF and return ONLY a JSON object matching this schema:\n\n${PO_SCHEMA}\n\nReturn only the JSON object — no markdown fences, no explanation.`,
             },
           ],
         },
@@ -99,8 +54,76 @@ For line items, extract every item listed in the document.`;
     });
 
     const response = await stream.finalMessage();
-    const rawText = extractText(response);
-    return parseJson<PurchaseOrderData>(rawText, defaultPurchaseOrder());
+    return parseJson<PurchaseOrderData>(extractText(response), defaultPurchaseOrder());
+  }
+
+  // ─── Image Purchase Order Extraction ─────────────────────────────────────
+
+  /**
+   * Extracts PO data from a scanned document image (JPEG, PNG, GIF, WebP).
+   * TIFF files should be converted to PNG by AttachmentExtractor before calling this.
+   */
+  async extractPurchaseOrderFromImage(
+    imageBase64: string,
+    mimeType: SupportedImageMime,
+    attachmentName: string
+  ): Promise<PurchaseOrderData> {
+    const stream = this.client.messages.stream({
+      model: this.model,
+      max_tokens: 4096,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      thinking: { type: "adaptive" } as any,
+      system: PO_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mimeType,
+                data: imageBase64,
+              },
+            },
+            {
+              type: "text",
+              text: `Extract all purchase order data from this scanned document image (${attachmentName}) and return ONLY a JSON object matching this schema:\n\n${PO_SCHEMA}\n\nReturn only the JSON object — no markdown fences, no explanation.`,
+            },
+          ],
+        },
+      ],
+    });
+
+    const response = await stream.finalMessage();
+    return parseJson<PurchaseOrderData>(extractText(response), defaultPurchaseOrder());
+  }
+
+  // ─── Text Document Purchase Order Extraction ──────────────────────────────
+
+  /**
+   * Extracts PO data from plain text extracted from a DOCX or XLSX attachment.
+   */
+  async extractPurchaseOrderFromText(
+    textContent: string,
+    attachmentName: string
+  ): Promise<PurchaseOrderData> {
+    const response = await this.client.messages.create({
+      model: this.model,
+      max_tokens: 4096,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      thinking: { type: "adaptive" } as any,
+      system: PO_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content:
+            `Extract all purchase order data from this document (${attachmentName}) and return ONLY a JSON object matching this schema:\n\n${PO_SCHEMA}\n\nDocument content:\n\n${textContent.slice(0, 8000)}\n\nReturn only the JSON object — no markdown fences, no explanation.`,
+        },
+      ],
+    });
+
+    return parseJson<PurchaseOrderData>(extractText(response), defaultPurchaseOrder());
   }
 
   // ─── Email Classification ─────────────────────────────────────────────────
@@ -147,7 +170,7 @@ Always return valid JSON. Be concise in reasoning (1-2 sentences).`;
       `Received: ${email.receivedAt}`,
       "",
       "Body:",
-      email.bodyText.slice(0, 3000), // cap to avoid excessive tokens
+      email.bodyText.slice(0, 3000),
     ].join("\n");
 
     const response = await this.client.messages.create({
@@ -174,6 +197,56 @@ Always return valid JSON. Be concise in reasoning (1-2 sentences).`;
   }
 }
 
+// ─── Shared PO extraction constants ───────────────────────────────────────────
+
+const PO_SYSTEM_PROMPT = `You are an expert at parsing purchase order documents.
+Your job is to extract structured data from purchase orders with high accuracy.
+Always return valid JSON matching the schema exactly.
+If a field is not present or cannot be determined, use null.
+For line items, extract every item listed in the document.`;
+
+const PO_SCHEMA = `{
+  "poNumber": string | null,
+  "orderDate": string | null,          // ISO-8601 date or human-readable
+  "requestedDeliveryDate": string | null,
+  "vendor": {
+    "name": string | null,
+    "address": string | null,
+    "contact": string | null,
+    "email": string | null,
+    "phone": string | null
+  } | null,
+  "buyer": {
+    "name": string | null,
+    "company": string | null,
+    "address": string | null,
+    "contact": string | null,
+    "email": string | null,
+    "phone": string | null
+  } | null,
+  "lineItems": [
+    {
+      "lineNumber": number | null,
+      "partNumber": string | null,
+      "description": string,
+      "quantity": number | null,
+      "unitOfMeasure": string | null,
+      "unitPrice": number | null,
+      "totalPrice": number | null
+    }
+  ],
+  "subtotal": number | null,
+  "tax": number | null,
+  "shippingCost": number | null,
+  "total": number | null,
+  "currency": string | null,           // ISO-4217 code, e.g. "USD"
+  "paymentTerms": string | null,
+  "shippingAddress": string | null,
+  "billingAddress": string | null,
+  "notes": string | null,
+  "rawConfidence": "high" | "medium" | "low"  // your confidence in the extraction
+}`;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function extractText(response: Anthropic.Message): string {
@@ -184,7 +257,6 @@ function extractText(response: Anthropic.Message): string {
 }
 
 function parseJson<T>(raw: string, fallback: T): T {
-  // Strip markdown code fences if Claude added them despite instructions
   const cleaned = raw
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")

@@ -1,5 +1,5 @@
 import { ClientSecretCredential } from "@azure/identity";
-import { Client } from "@microsoft/microsoft-graph-client";
+import { Client, ResponseType } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js";
 import { getPrismaClient } from "../../lib/prisma.js";
 import { TenantGraphConfig } from "../../types/tenant.js";
@@ -97,6 +97,68 @@ export class GraphService {
     return (attachment.contentBytes as string) ?? "";
   }
 
+  // ─── OneDrive / SharePoint link handling ──────────────────────────────────
+
+  /**
+   * Scan email body text and HTML for the first OneDrive or SharePoint
+   * sharing URL and return it, or null if none is found.
+   */
+  findLinkedDocumentUrl(bodyText: string, bodyHtml: string): string | null {
+    const LINK_PATTERNS = [
+      /https?:\/\/1drv\.ms\/\S+/i,
+      /https?:\/\/onedrive\.live\.com\/\S+/i,
+      /https?:\/\/[\w-]+-my\.sharepoint\.com\/\S+/i,
+      /https?:\/\/[\w-]+\.sharepoint\.com\/\S+/i,
+    ];
+
+    const stripped = bodyHtml.replace(/<[^>]+>/g, " ");
+
+    for (const pattern of LINK_PATTERNS) {
+      // Check plain text first, then stripped HTML
+      const match = bodyText.match(pattern) ?? stripped.match(pattern);
+      if (match) {
+        // Strip trailing punctuation that may have been captured
+        return match[0].replace(/['")\]>,;]+$/, "");
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Download a file from a OneDrive or SharePoint sharing URL using the
+   * Graph /shares/ endpoint. Returns null if the download fails (e.g. the
+   * app lacks Files.Read.All permission or the link has expired).
+   */
+  async downloadSharedFile(
+    sharingUrl: string
+  ): Promise<{ base64: string; contentType: string; name: string } | null> {
+    const shareId = encodeSharingUrl(sharingUrl);
+
+    try {
+      // Fetch metadata to get file name and MIME type
+      const item = await this.client.api(`/shares/${shareId}/driveItem`).get();
+      const name: string = (item.name as string | undefined) ?? "linked_document";
+      const contentType: string =
+        (item.file?.mimeType as string | undefined) ?? "application/octet-stream";
+
+      // Download the raw bytes
+      const content: ArrayBuffer = await this.client
+        .api(`/shares/${shareId}/driveItem/content`)
+        .responseType(ResponseType.ARRAYBUFFER)
+        .get();
+
+      const base64 = Buffer.from(content).toString("base64");
+      console.log(`[GraphService] Downloaded linked file "${name}" (${contentType})`);
+      return { base64, contentType, name };
+    } catch (err) {
+      console.warn(
+        `[GraphService] Could not download shared file from ${sharingUrl}:`,
+        (err as Error).message ?? err
+      );
+      return null;
+    }
+  }
+
   // ─── Delta link persistence ───────────────────────────────────────────────
 
   private async loadDeltaLink(): Promise<string | null> {
@@ -191,6 +253,19 @@ interface GraphAttachment {
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
+
+/**
+ * Encode a sharing URL into the base64url format expected by the Graph
+ * /shares/ endpoint: "u!" + base64url(url) with padding stripped.
+ */
+function encodeSharingUrl(url: string): string {
+  const b64 = Buffer.from(url)
+    .toString("base64")
+    .replace(/=/g, "")
+    .replace(/\//g, "_")
+    .replace(/\+/g, "-");
+  return `u!${b64}`;
+}
 
 function stripHtml(html: string): string {
   return html
