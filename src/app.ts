@@ -2,10 +2,15 @@ import express, { Request, Response } from "express";
 import { TenantScheduler } from "./services/tenant/TenantScheduler.js";
 import { CLAIM_ACTION_ID } from "./services/notifications/SlackNotificationService.js";
 import { POTracker } from "./services/po/POTracker.js";
+import { createTenantsRouter } from "./routes/tenants.js";
 
 export function createApp(scheduler: TenantScheduler): express.Application {
   const app = express();
   app.use(express.json());
+
+  // ─── Tenant CRUD ─────────────────────────────────────────────────────────
+
+  app.use("/tenants", createTenantsRouter(scheduler));
 
   // ─── Health ───────────────────────────────────────────────────────────────
 
