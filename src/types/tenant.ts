@@ -11,8 +11,16 @@ export interface TenantGraphConfig {
   clientSecret: string;
   /** Azure AD tenant ID (directory ID) for the customer's Microsoft 365 org */
   tenantId: string;
+  /**
+   * Authentication mode.
+   * - "app_only"    — ClientSecretCredential. Requires a work/school Azure AD account.
+   *                   Use this in production.
+   * - "device_code" — DeviceCodeCredential. Works with personal @outlook.com accounts.
+   *                   Prompts for an interactive login on first run. Use for testing only.
+   */
+  authMode: "app_only" | "device_code";
   /** UPN / email address of the mailbox to monitor (e.g. orders@leespring.com).
-   *  Used to construct app-only /users/{userEmail}/ Graph API endpoints. */
+   *  Used to construct /users/{userEmail}/ Graph API endpoints. */
   userEmail: string;
   /** Mail folder to monitor, e.g. "inbox" */
   inboxFolder: string;

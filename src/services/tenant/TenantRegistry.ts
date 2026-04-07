@@ -63,6 +63,7 @@ export class TenantRegistry {
         azureClientId: input.graph.clientId,
         azureClientSecret: input.graph.clientSecret,
         azureTenantId: input.graph.tenantId,
+        azureAuthMode: input.graph.authMode ?? "app_only",
         userEmail: input.graph.userEmail,
         inboxFolder: input.graph.inboxFolder,
         pollIntervalSeconds: input.graph.pollIntervalSeconds,
@@ -105,6 +106,7 @@ export class TenantRegistry {
         ...(input.graph?.clientId !== undefined && { azureClientId: input.graph.clientId }),
         ...(input.graph?.clientSecret !== undefined && { azureClientSecret: input.graph.clientSecret }),
         ...(input.graph?.tenantId !== undefined && { azureTenantId: input.graph.tenantId }),
+        ...(input.graph?.authMode !== undefined && { azureAuthMode: input.graph.authMode }),
         ...(input.graph?.userEmail !== undefined && { userEmail: input.graph.userEmail }),
         ...(input.graph?.inboxFolder !== undefined && { inboxFolder: input.graph.inboxFolder }),
         ...(input.graph?.pollIntervalSeconds !== undefined && {
@@ -166,6 +168,7 @@ function toConfig(row: TenantRow): TenantConfig {
       clientId: row.azureClientId,
       clientSecret: row.azureClientSecret,
       tenantId: row.azureTenantId,
+      authMode: (row.azureAuthMode === "device_code" ? "device_code" : "app_only"),
       userEmail: row.userEmail,
       inboxFolder: row.inboxFolder,
       pollIntervalSeconds: row.pollIntervalSeconds,

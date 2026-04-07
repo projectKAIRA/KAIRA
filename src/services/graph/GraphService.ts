@@ -1,4 +1,4 @@
-import { ClientSecretCredential } from "@azure/identity";
+import { ClientSecretCredential, DeviceCodeCredential } from "@azure/identity";
 import { Client, ResponseType } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js";
 import { getPrismaClient } from "../../lib/prisma.js";
@@ -37,11 +37,27 @@ export class GraphService {
     this.userEmail  = cfg.userEmail;
     this.folderName = cfg.inboxFolder;
 
-    const credential = new ClientSecretCredential(
-      cfg.tenantId,
-      cfg.clientId,
-      cfg.clientSecret,
-    );
+    let credential: ClientSecretCredential | DeviceCodeCredential;
+
+    if (cfg.authMode === "device_code") {
+      // Personal @outlook.com accounts — interactive device code flow.
+      // On first run the user visits aka.ms/devicelogin and enters the printed code.
+      credential = new DeviceCodeCredential({
+        tenantId: "consumers",
+        clientId: cfg.clientId,
+        userPromptCallback: (info) => {
+          console.log("\n[GraphService] ── Device code login required ──────────────────");
+          console.log(info.message);
+          console.log("────────────────────────────────────────────────────────────────\n");
+        },
+      });
+    } else {
+      credential = new ClientSecretCredential(
+        cfg.tenantId,
+        cfg.clientId,
+        cfg.clientSecret,
+      );
+    }
 
     const authProvider = new TokenCredentialAuthenticationProvider(credential, {
       scopes: SCOPES,

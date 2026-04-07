@@ -61,9 +61,11 @@ async function main() {
   const azureTenantId = process.env["AZURE_TENANT_ID"] ?? "consumers";
   const inboxFolder   = process.env["GRAPH_INBOX_FOLDER"] ?? "inbox";
   const pollInterval  = parseInt(process.env["POLL_INTERVAL_SECONDS"] ?? "60", 10);
+  const authMode      = (process.env["GRAPH_AUTH_MODE"] === "device_code" ? "device_code" : "app_only") as "app_only" | "device_code";
 
   console.log(`  Azure client ID : ${clientId}`);
   console.log(`  Azure tenant ID : ${azureTenantId}`);
+  console.log(`  Auth mode       : ${authMode}`);
   console.log(`  Mailbox         : ${userEmail}`);
   console.log(`  Inbox folder    : ${inboxFolder}`);
   console.log(`  Poll interval   : ${pollInterval}s`);
@@ -91,6 +93,7 @@ async function main() {
         clientId,
         clientSecret,
         tenantId: azureTenantId,
+        authMode,
         userEmail,
         inboxFolder,
         pollIntervalSeconds: pollInterval,

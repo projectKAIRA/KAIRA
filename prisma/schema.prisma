@@ -31,6 +31,9 @@ model Tenant {
   azureClientId     String
   azureClientSecret String
   azureTenantId     String  @default("consumers")
+  /// "app_only" uses ClientSecretCredential (work/school accounts, production).
+  /// "device_code" uses DeviceCodeCredential (personal @outlook.com accounts, testing).
+  azureAuthMode     String  @default("app_only")
   /// The UPN / email address of the mailbox to monitor (e.g. orders@leespring.com)
   /// Used for app-only /users/{userEmail}/ Graph API endpoints.
   userEmail         String
