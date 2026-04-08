@@ -3,10 +3,19 @@ import { TenantScheduler } from "./services/tenant/TenantScheduler.js";
 import { CLAIM_ACTION_ID } from "./services/notifications/SlackNotificationService.js";
 import { POTracker } from "./services/po/POTracker.js";
 import { createTenantsRouter } from "./routes/tenants.js";
+import { createOnboardingRouter } from "./routes/onboarding.js";
 
 export function createApp(scheduler: TenantScheduler): express.Application {
   const app = express();
   app.use(express.json());
+
+  // ─── Self-serve onboarding ────────────────────────────────────────────────
+  // All onboarding pages and OAuth callbacks are under /onboarding.
+  // Configure your OAuth app redirect URIs as:
+  //   Microsoft: https://<host>/onboarding/auth/microsoft/callback
+  //   Slack:     https://<host>/onboarding/auth/slack/callback
+
+  app.use("/onboarding", createOnboardingRouter(scheduler));
 
   // ─── Tenant CRUD ─────────────────────────────────────────────────────────
 

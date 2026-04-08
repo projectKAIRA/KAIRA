@@ -68,6 +68,11 @@ export class TenantRegistry {
         inboxFolder:        input.graph?.inboxFolder    ?? input.imap?.inboxFolder ?? "inbox",
         pollIntervalSeconds: input.graph?.pollIntervalSeconds ?? input.imap?.pollIntervalSeconds ?? 60,
 
+        // OAuth delegated tokens
+        azureRefreshToken:   input.graph?.refreshToken   ?? null,
+        azureAccessToken:    input.graph?.accessToken    ?? null,
+        azureTokenExpiresAt: input.graph?.tokenExpiresAt ?? null,
+
         // IMAP (only used when providerType === "imap")
         imapHost:     input.imap?.host     ?? null,
         imapPort:     input.imap?.port     ?? null,
@@ -104,13 +109,17 @@ export class TenantRegistry {
         ...(input.providerType !== undefined && { providerType: input.providerType }),
 
         // Graph
-        ...(input.graph?.clientId           !== undefined && { azureClientId: input.graph.clientId }),
-        ...(input.graph?.clientSecret       !== undefined && { azureClientSecret: input.graph.clientSecret }),
-        ...(input.graph?.tenantId           !== undefined && { azureTenantId: input.graph.tenantId }),
-        ...(input.graph?.authMode           !== undefined && { azureAuthMode: input.graph.authMode }),
-        ...(input.graph?.userEmail          !== undefined && { userEmail: input.graph.userEmail }),
-        ...(input.graph?.inboxFolder        !== undefined && { inboxFolder: input.graph.inboxFolder }),
+        ...(input.graph?.clientId            !== undefined && { azureClientId: input.graph.clientId }),
+        ...(input.graph?.clientSecret        !== undefined && { azureClientSecret: input.graph.clientSecret }),
+        ...(input.graph?.tenantId            !== undefined && { azureTenantId: input.graph.tenantId }),
+        ...(input.graph?.authMode            !== undefined && { azureAuthMode: input.graph.authMode }),
+        ...(input.graph?.userEmail           !== undefined && { userEmail: input.graph.userEmail }),
+        ...(input.graph?.inboxFolder         !== undefined && { inboxFolder: input.graph.inboxFolder }),
         ...(input.graph?.pollIntervalSeconds !== undefined && { pollIntervalSeconds: input.graph.pollIntervalSeconds }),
+        // OAuth delegated tokens
+        ...(input.graph?.refreshToken   !== undefined && { azureRefreshToken: input.graph.refreshToken }),
+        ...(input.graph?.accessToken    !== undefined && { azureAccessToken: input.graph.accessToken }),
+        ...(input.graph?.tokenExpiresAt !== undefined && { azureTokenExpiresAt: input.graph.tokenExpiresAt }),
 
         // IMAP
         ...(input.imap?.host     !== undefined && { imapHost: input.imap.host }),
@@ -172,10 +181,16 @@ function toConfig(row: TenantRow): TenantConfig {
       clientId:           row.azureClientId,
       clientSecret:       row.azureClientSecret,
       tenantId:           row.azureTenantId,
-      authMode:           row.azureAuthMode === "device_code" ? "device_code" : "app_only",
+      authMode:           row.azureAuthMode === "device_code" ? "device_code"
+                        : row.azureAuthMode === "oauth"       ? "oauth"
+                        : "app_only",
       userEmail:          row.userEmail,
       inboxFolder:        row.inboxFolder,
       pollIntervalSeconds: row.pollIntervalSeconds,
+      // OAuth delegated tokens (null when authMode !== "oauth")
+      refreshToken:   row.azureRefreshToken   ?? null,
+      accessToken:    row.azureAccessToken    ?? null,
+      tokenExpiresAt: row.azureTokenExpiresAt ?? null,
     },
 
     imap: providerType === "imap" && row.imapHost && row.imapUser && row.imapPassword

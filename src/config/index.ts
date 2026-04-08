@@ -60,6 +60,33 @@ export const config = {
     },
   },
 
+  // ─── Self-serve OAuth app credentials ───────────────────────────────────
+  // These are KAIRA's own Azure/Slack app registrations used for the
+  // onboarding authorization code flow.  Different from per-tenant credentials.
+  oauth: {
+    microsoft: {
+      clientId:     optional("OAUTH_MICROSOFT_CLIENT_ID", ""),
+      clientSecret: optional("OAUTH_MICROSOFT_CLIENT_SECRET", ""),
+      redirectUri:  optional(
+        "OAUTH_MICROSOFT_REDIRECT_URI",
+        "http://localhost:3000/onboarding/auth/microsoft/callback",
+      ),
+    },
+    slack: {
+      clientId:      optional("OAUTH_SLACK_CLIENT_ID", ""),
+      clientSecret:  optional("OAUTH_SLACK_CLIENT_SECRET", ""),
+      redirectUri:   optional(
+        "OAUTH_SLACK_REDIRECT_URI",
+        "http://localhost:3000/onboarding/auth/slack/callback",
+      ),
+      // Signing secret for verifying Slack interaction payloads.
+      // Same for every installation of the KAIRA Slack app.
+      signingSecret: optional("OAUTH_SLACK_SIGNING_SECRET", ""),
+    },
+    // Public base URL of this server (used to build redirect URIs)
+    baseUrl: optional("APP_BASE_URL", "http://localhost:3000"),
+  },
+
   // ─── App server ─────────────────────────────────────────────────────────
   server: {
     port: parseInt(optional("PORT", "3000"), 10),

@@ -1,13 +1,69 @@
 import { ClientSecretCredential, DeviceCodeCredential } from "@azure/identity";
+import type { TokenCredential, AccessToken } from "@azure/identity";
 import { Client, ResponseType } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js";
 import { getPrismaClient } from "../../lib/prisma.js";
 import { TenantGraphConfig } from "../../types/tenant.js";
 import { EmailAttachment, EmailMessage } from "../../types/index.js";
 import { EmailFetcher } from "../email/EmailFetcher.js";
+import { refreshMicrosoftToken } from "../auth/OAuthService.js";
 
 // App-only scope — uses whatever application permissions are granted in Azure.
 const SCOPES = ["https://graph.microsoft.com/.default"];
+
+// ─── OAuth delegated credential ───────────────────────────────────────────────
+
+/**
+ * TokenCredential implementation for delegated OAuth tokens obtained via the
+ * self-serve onboarding flow.  Automatically refreshes the access token using
+ * the stored refresh token and writes the new token pair back to the database.
+ */
+class OAuthTokenCredential implements TokenCredential {
+  private accessToken: string;
+  private expiresAt: number;
+
+  constructor(
+    private readonly kairaTenantId: string,
+    private readonly azureTenantId: string,
+    private readonly refreshToken: string,
+    initialAccessToken: string,
+    initialExpiresAt: Date,
+  ) {
+    this.accessToken = initialAccessToken;
+    this.expiresAt   = initialExpiresAt.getTime();
+  }
+
+  async getToken(_scopes: string | string[]): Promise<AccessToken | null> {
+    // Refresh 60 s before expiry to avoid using a token that expires in-flight.
+    if (Date.now() < this.expiresAt - 60_000) {
+      return { token: this.accessToken, expiresOnTimestamp: this.expiresAt };
+    }
+
+    const result = await refreshMicrosoftToken(this.azureTenantId, this.refreshToken);
+
+    if (!result.access_token) {
+      throw new Error(
+        `[OAuthTokenCredential] Token refresh failed: ${result.error ?? "unknown"} — ${result.error_description ?? ""}`,
+      );
+    }
+
+    this.accessToken = result.access_token;
+    this.expiresAt   = Date.now() + (result.expires_in ?? 3600) * 1000;
+
+    // Persist the refreshed token to the database.
+    const db = getPrismaClient();
+    await db.tenant.update({
+      where: { id: this.kairaTenantId },
+      data: {
+        azureAccessToken:    this.accessToken,
+        azureTokenExpiresAt: new Date(this.expiresAt),
+      },
+    });
+
+    console.log(`[OAuthTokenCredential] Refreshed access token for tenant ${this.kairaTenantId}`);
+    return { token: this.accessToken, expiresOnTimestamp: this.expiresAt };
+  }
+}
 
 /**
  * GraphService — tenant-aware Microsoft Graph client.
@@ -38,7 +94,7 @@ export class GraphService implements EmailFetcher {
     this.userEmail  = cfg.userEmail;
     this.folderName = cfg.inboxFolder;
 
-    let credential: ClientSecretCredential | DeviceCodeCredential;
+    let credential: TokenCredential;
 
     if (cfg.authMode === "device_code") {
       // Personal @outlook.com accounts — interactive device code flow.
@@ -52,6 +108,19 @@ export class GraphService implements EmailFetcher {
           console.log("────────────────────────────────────────────────────────────────\n");
         },
       });
+    } else if (cfg.authMode === "oauth") {
+      if (!cfg.accessToken || !cfg.refreshToken || !cfg.tokenExpiresAt) {
+        throw new Error(
+          `[GraphService] authMode "oauth" requires accessToken, refreshToken, and tokenExpiresAt`,
+        );
+      }
+      credential = new OAuthTokenCredential(
+        kairaTenantId,
+        cfg.tenantId,
+        cfg.refreshToken,
+        cfg.accessToken,
+        cfg.tokenExpiresAt,
+      );
     } else {
       credential = new ClientSecretCredential(
         cfg.tenantId,

@@ -18,11 +18,17 @@ export interface TenantGraphConfig {
   /**
    * Authentication mode.
    * - "app_only"    — ClientSecretCredential. Requires a work/school Azure AD account.
-   *                   Use this in production.
    * - "device_code" — DeviceCodeCredential. Works with personal @outlook.com accounts.
-   *                   Prompts for an interactive login on first run. Use for testing only.
+   * - "oauth"       — Delegated OAuth 2.0 via self-serve onboarding. Uses a refresh
+   *                   token stored in the DB; tokens are auto-renewed on expiry.
    */
-  authMode: "app_only" | "device_code";
+  authMode: "app_only" | "device_code" | "oauth";
+  /** Delegated OAuth refresh token (authMode === "oauth" only). */
+  refreshToken?: string | null;
+  /** Delegated OAuth access token (authMode === "oauth" only). */
+  accessToken?: string | null;
+  /** Access token expiry (authMode === "oauth" only). */
+  tokenExpiresAt?: Date | null;
   /** UPN / email address of the mailbox to monitor (e.g. orders@leespring.com).
    *  Used to construct /users/{userEmail}/ Graph API endpoints. */
   userEmail: string;

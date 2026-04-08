@@ -36,14 +36,20 @@ model Tenant {
   azureClientId     String  @default("")
   azureClientSecret String  @default("")
   azureTenantId     String  @default("consumers")
-  /// "app_only" uses ClientSecretCredential (work/school accounts, production).
-  /// "device_code" uses DeviceCodeCredential (personal @outlook.com accounts, testing).
+  /// "app_only"    — ClientSecretCredential (work/school accounts, production).
+  /// "device_code" — DeviceCodeCredential (personal @outlook.com, testing).
+  /// "oauth"       — Delegated OAuth 2.0 via self-serve onboarding flow.
   azureAuthMode     String  @default("app_only")
   /// The UPN / email address of the mailbox to monitor.
   /// Used for /users/{userEmail}/ Graph API endpoints (Microsoft provider only).
   userEmail         String  @default("")
   inboxFolder       String  @default("inbox")
   pollIntervalSeconds Int   @default(60)
+
+  // ── OAuth delegated tokens (azureAuthMode = "oauth") ──────────────────────
+  azureRefreshToken   String?
+  azureAccessToken    String?
+  azureTokenExpiresAt DateTime?
 
   // ── IMAP (Gmail, Yahoo, any IMAP server) ───────────────────────────────────
   imapHost     String?
