@@ -87,6 +87,11 @@ export const config = {
     baseUrl: optional("APP_BASE_URL", "http://localhost:3000"),
   },
 
+  // ─── Admin dashboard ─────────────────────────────────────────────────────
+  admin: {
+    password: optional("ADMIN_PASSWORD", ""),
+  },
+
   // ─── App server ─────────────────────────────────────────────────────────
   server: {
     port: parseInt(optional("PORT", "3000"), 10),

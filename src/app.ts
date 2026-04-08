@@ -4,10 +4,15 @@ import { CLAIM_ACTION_ID } from "./services/notifications/SlackNotificationServi
 import { POTracker } from "./services/po/POTracker.js";
 import { createTenantsRouter } from "./routes/tenants.js";
 import { createOnboardingRouter } from "./routes/onboarding.js";
+import { createAdminRouter } from "./routes/admin.js";
 
 export function createApp(scheduler: TenantScheduler): express.Application {
   const app = express();
   app.use(express.json());
+
+  // ─── Admin dashboard ─────────────────────────────────────────────────────
+
+  app.use("/admin", createAdminRouter());
 
   // ─── Self-serve onboarding ────────────────────────────────────────────────
   // All onboarding pages and OAuth callbacks are under /onboarding.
