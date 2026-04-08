@@ -1,5 +1,7 @@
 import { TenantConfig } from "../../types/tenant.js";
+import { EmailFetcher } from "../email/EmailFetcher.js";
 import { GraphService } from "../graph/GraphService.js";
+import { ImapService } from "../imap/ImapService.js";
 import { ClaudeService } from "../claude/ClaudeService.js";
 import { POTracker } from "../po/POTracker.js";
 import { EmailProcessor } from "../email/EmailProcessor.js";
@@ -21,7 +23,8 @@ import { SlackInteractionService } from "../notifications/SlackInteractionServic
 export class TenantRuntime {
   readonly tenantId:    string;
   readonly config:      TenantConfig;
-  readonly graph:       GraphService;
+  /** The active email fetcher — GraphService or ImapService depending on providerType. */
+  readonly fetcher:     EmailFetcher;
   readonly claude:      ClaudeService;
   readonly tracker:     POTracker;
   readonly notifier:    NotificationService;
@@ -42,23 +45,36 @@ export class TenantRuntime {
     this.tenantId = tenantConfig.id;
     this.config   = tenantConfig;
 
-    this.graph   = new GraphService(tenantConfig.id, tenantConfig.graph);
+    this.fetcher = buildFetcher(tenantConfig);
     this.claude  = new ClaudeService(claudeApiKey, claudeModel);
     this.tracker = new POTracker(tenantConfig.id);
 
     this.notifier = buildNotifier(tenantConfig, this.tracker);
-    this.processor = new EmailProcessor(this.graph, this.claude, this.notifier);
+    this.processor = new EmailProcessor(this.fetcher, this.claude, this.notifier);
     this.interactions = buildInteractions(tenantConfig, this.notifier, this.tracker);
 
     console.log(
       `[TenantRuntime] Initialised tenant "${tenantConfig.name}" ` +
-      `(${tenantConfig.id}) — provider: ${tenantConfig.notification.provider}` +
+      `(${tenantConfig.id}) — email: ${tenantConfig.providerType}, ` +
+      `notifications: ${tenantConfig.notification.provider}` +
       (this.interactions ? ", interactions: enabled" : ""),
     );
   }
 }
 
 // ─── Private builders ─────────────────────────────────────────────────────────
+
+function buildFetcher(config: TenantConfig): EmailFetcher {
+  if (config.providerType === "imap") {
+    if (!config.imap) {
+      throw new Error(
+        `[TenantRuntime] Tenant "${config.name}" has providerType "imap" but IMAP credentials are missing.`,
+      );
+    }
+    return new ImapService(config.id, config.imap);
+  }
+  return new GraphService(config.id, config.graph);
+}
 
 function buildNotifier(config: TenantConfig, tracker: POTracker): NotificationService {
   const { provider } = config.notification;

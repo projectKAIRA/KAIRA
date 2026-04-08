@@ -22,6 +22,8 @@
     "better-sqlite3": "^12.8.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "imapflow": "^1.2.18",
+    "mailparser": "^3.9.6",
     "mammoth": "^1.12.0",
     "node-cron": "^3.0.3",
     "prisma": "^7.6.0",
@@ -31,6 +33,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.0",
+    "@types/mailparser": "^3.4.6",
     "@types/node": "^22.10.2",
     "@types/node-cron": "^3.0.11",
     "tsx": "^4.19.2",

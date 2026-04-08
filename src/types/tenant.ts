@@ -4,6 +4,10 @@
 // It is derived from the Prisma Tenant model but uses nested sub-objects
 // to match the shape the service layer already expects.
 
+export type EmailProviderType = "microsoft" | "imap";
+
+// ─── Microsoft Graph config ───────────────────────────────────────────────────
+
 export interface TenantGraphConfig {
   /** Azure AD application (client) ID */
   clientId: string;
@@ -28,6 +32,29 @@ export interface TenantGraphConfig {
   pollIntervalSeconds: number;
 }
 
+// ─── IMAP config ──────────────────────────────────────────────────────────────
+
+export interface TenantImapConfig {
+  /** IMAP server hostname, e.g. "imap.gmail.com" or "imap.mail.yahoo.com" */
+  host: string;
+  /** IMAP port — 993 for TLS, 143 for STARTTLS */
+  port: number;
+  /** true = TLS (recommended), false = STARTTLS */
+  secure: boolean;
+  /** Login username — usually the full email address */
+  username: string;
+  /** App password (not the account password).
+   *  Gmail: Settings → Security → App passwords.
+   *  Yahoo: Account Security → Generate app password. */
+  password: string;
+  /** Mailbox folder to monitor, e.g. "INBOX" */
+  inboxFolder: string;
+  /** Polling interval in seconds */
+  pollIntervalSeconds: number;
+}
+
+// ─── Notification configs ─────────────────────────────────────────────────────
+
 export interface TenantSlackConfig {
   /** Bot User OAuth Token (xoxb-...) */
   botToken: string | null;
@@ -50,12 +77,21 @@ export interface TenantTeamsConfig {
 
 export type NotificationProvider = "slack" | "teams";
 
+// ─── Unified tenant config ────────────────────────────────────────────────────
+
 export interface TenantConfig {
   id: string;
   name: string;
   isActive: boolean;
 
+  /** Which email backend this tenant uses. */
+  providerType: EmailProviderType;
+
+  /** Microsoft Graph config — populated when providerType === "microsoft" */
   graph: TenantGraphConfig;
+
+  /** IMAP config — populated when providerType === "imap", null otherwise */
+  imap: TenantImapConfig | null;
 
   notification: {
     provider: NotificationProvider;
@@ -74,7 +110,11 @@ export interface TenantConfig {
 export interface CreateTenantInput {
   name: string;
   isActive?: boolean;
-  graph: TenantGraphConfig;
+  /** Required when providerType === "microsoft" (or omitted, as microsoft is the default) */
+  graph?: Partial<TenantGraphConfig>;
+  /** Required when providerType === "imap" */
+  imap?: Partial<TenantImapConfig>;
+  providerType?: EmailProviderType;
   notification?: { provider?: NotificationProvider };
   slack?: Partial<TenantSlackConfig>;
   teams?: Partial<TenantTeamsConfig>;

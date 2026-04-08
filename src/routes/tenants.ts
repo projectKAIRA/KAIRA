@@ -146,28 +146,40 @@ export function createTenantsRouter(scheduler: TenantScheduler): Router {
 
 function validateCreate(body: Partial<CreateTenantInput>): string[] {
   const missing: string[] = [];
-  if (!body.name)                      missing.push("name");
-  if (!body.graph?.clientId)           missing.push("graph.clientId");
-  if (!body.graph?.clientSecret)       missing.push("graph.clientSecret");
-  if (!body.graph?.tenantId)           missing.push("graph.tenantId");
-  if (!body.graph?.userEmail)          missing.push("graph.userEmail");
-  if (!body.graph?.inboxFolder)        missing.push("graph.inboxFolder");
-  if (body.graph?.pollIntervalSeconds == null) missing.push("graph.pollIntervalSeconds");
+  if (!body.name) missing.push("name");
+
+  const provider = body.providerType ?? "microsoft";
+
+  if (provider === "imap") {
+    if (!body.imap?.host)     missing.push("imap.host");
+    if (!body.imap?.port)     missing.push("imap.port");
+    if (!body.imap?.username) missing.push("imap.username");
+    if (!body.imap?.password) missing.push("imap.password");
+    if (!body.imap?.inboxFolder) missing.push("imap.inboxFolder");
+    if (body.imap?.pollIntervalSeconds == null) missing.push("imap.pollIntervalSeconds");
+  } else {
+    if (!body.graph?.clientId)           missing.push("graph.clientId");
+    if (!body.graph?.clientSecret)       missing.push("graph.clientSecret");
+    if (!body.graph?.tenantId)           missing.push("graph.tenantId");
+    if (!body.graph?.userEmail)          missing.push("graph.userEmail");
+    if (!body.graph?.inboxFolder)        missing.push("graph.inboxFolder");
+    if (body.graph?.pollIntervalSeconds == null) missing.push("graph.pollIntervalSeconds");
+  }
+
   return missing;
 }
 
 // ─── Response sanitiser ───────────────────────────────────────────────────────
 // Strips sensitive credential fields before sending to the caller.
 
-function sanitize(tenant: TenantConfig): Omit<TenantConfig, "graph"> & {
-  graph: Omit<TenantConfig["graph"], "clientSecret">;
-} {
+function sanitize(tenant: TenantConfig) {
   const { clientSecret: _cs, ...graphSafe } = tenant.graph;
   const { botToken: _bt, signingSecret: _ss, ...slackSafe } = tenant.slack;
 
-  return {
-    ...tenant,
-    graph: graphSafe,
-    slack: slackSafe,
-  } as ReturnType<typeof sanitize>;
+  // Strip IMAP password if present
+  const imapSafe = tenant.imap
+    ? (({ password: _pw, ...rest }) => rest)(tenant.imap)
+    : null;
+
+  return { ...tenant, graph: graphSafe, imap: imapSafe, slack: slackSafe };
 }

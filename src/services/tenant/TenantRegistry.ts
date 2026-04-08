@@ -4,6 +4,7 @@ import {
   CreateTenantInput,
   UpdateTenantInput,
   NotificationProvider,
+  EmailProviderType,
 } from "../../types/tenant.js";
 import { PrismaClient, NotificationProvider as PrismaNotificationProvider } from "@prisma/client";
 
@@ -49,82 +50,89 @@ export class TenantRegistry {
 
   // ─── Mutations ─────────────────────────────────────────────────────────────
 
-  /**
-   * Onboard a new tenant.
-   * Throws if Azure credentials or a unique name are not provided.
-   */
   async create(input: CreateTenantInput): Promise<TenantConfig> {
+    const providerType = input.providerType ?? "microsoft";
+
     const row = await this.db.tenant.create({
       data: {
-        name: input.name,
-        isActive: input.isActive ?? true,
+        name:         input.name,
+        isActive:     input.isActive ?? true,
+        providerType,
 
-        // Graph / Azure
-        azureClientId: input.graph.clientId,
-        azureClientSecret: input.graph.clientSecret,
-        azureTenantId: input.graph.tenantId,
-        azureAuthMode: input.graph.authMode ?? "app_only",
-        userEmail: input.graph.userEmail,
-        inboxFolder: input.graph.inboxFolder,
-        pollIntervalSeconds: input.graph.pollIntervalSeconds,
+        // Graph / Azure (only used when providerType === "microsoft")
+        azureClientId:      input.graph?.clientId      ?? "",
+        azureClientSecret:  input.graph?.clientSecret  ?? "",
+        azureTenantId:      input.graph?.tenantId      ?? "consumers",
+        azureAuthMode:      input.graph?.authMode      ?? "app_only",
+        userEmail:          input.graph?.userEmail      ?? "",
+        inboxFolder:        input.graph?.inboxFolder    ?? input.imap?.inboxFolder ?? "inbox",
+        pollIntervalSeconds: input.graph?.pollIntervalSeconds ?? input.imap?.pollIntervalSeconds ?? 60,
 
-        // Notification provider
-        notificationProvider: toDbProvider(
-          input.notification?.provider ?? "slack"
-        ),
+        // IMAP (only used when providerType === "imap")
+        imapHost:     input.imap?.host     ?? null,
+        imapPort:     input.imap?.port     ?? null,
+        imapUser:     input.imap?.username ?? null,
+        imapPassword: input.imap?.password ?? null,
+        imapSecure:   input.imap?.secure   ?? true,
+
+        // Notification
+        notificationProvider: toDbProvider(input.notification?.provider ?? "slack"),
 
         // Slack
-        slackBotToken: input.slack?.botToken ?? null,
+        slackBotToken:      input.slack?.botToken      ?? null,
         slackSigningSecret: input.slack?.signingSecret ?? null,
-        slackWebhookRfq: input.slack?.webhookRfq ?? null,
+        slackWebhookRfq:    input.slack?.webhookRfq    ?? null,
         slackWebhookInquiry: input.slack?.webhookInquiry ?? null,
-        slackPoChannelId: input.slack?.poChannelId ?? null,
-        slackBotName: input.slack?.botName ?? "KAIRA",
+        slackPoChannelId:   input.slack?.poChannelId   ?? null,
+        slackBotName:       input.slack?.botName       ?? "KAIRA",
 
         // Teams
         teamsWebhookUrl: input.teams?.webhookUrl ?? null,
       },
     });
 
-    console.log(`[TenantRegistry] Created tenant "${row.name}" (${row.id})`);
+    console.log(`[TenantRegistry] Created tenant "${row.name}" (${row.id}) — provider: ${providerType}`);
     return toConfig(row);
   }
 
-  /**
-   * Update any subset of a tenant's configuration.
-   * Supports partial nested updates — only fields present in the input
-   * are written; the rest are left unchanged.
-   */
   async update(id: string, input: UpdateTenantInput): Promise<TenantConfig> {
     const row = await this.db.tenant.update({
       where: { id },
       data: {
-        ...(input.name !== undefined && { name: input.name }),
-        ...(input.isActive !== undefined && { isActive: input.isActive }),
+        ...(input.name         !== undefined && { name: input.name }),
+        ...(input.isActive     !== undefined && { isActive: input.isActive }),
+        ...(input.providerType !== undefined && { providerType: input.providerType }),
 
         // Graph
-        ...(input.graph?.clientId !== undefined && { azureClientId: input.graph.clientId }),
-        ...(input.graph?.clientSecret !== undefined && { azureClientSecret: input.graph.clientSecret }),
-        ...(input.graph?.tenantId !== undefined && { azureTenantId: input.graph.tenantId }),
-        ...(input.graph?.authMode !== undefined && { azureAuthMode: input.graph.authMode }),
-        ...(input.graph?.userEmail !== undefined && { userEmail: input.graph.userEmail }),
-        ...(input.graph?.inboxFolder !== undefined && { inboxFolder: input.graph.inboxFolder }),
-        ...(input.graph?.pollIntervalSeconds !== undefined && {
-          pollIntervalSeconds: input.graph.pollIntervalSeconds,
-        }),
+        ...(input.graph?.clientId           !== undefined && { azureClientId: input.graph.clientId }),
+        ...(input.graph?.clientSecret       !== undefined && { azureClientSecret: input.graph.clientSecret }),
+        ...(input.graph?.tenantId           !== undefined && { azureTenantId: input.graph.tenantId }),
+        ...(input.graph?.authMode           !== undefined && { azureAuthMode: input.graph.authMode }),
+        ...(input.graph?.userEmail          !== undefined && { userEmail: input.graph.userEmail }),
+        ...(input.graph?.inboxFolder        !== undefined && { inboxFolder: input.graph.inboxFolder }),
+        ...(input.graph?.pollIntervalSeconds !== undefined && { pollIntervalSeconds: input.graph.pollIntervalSeconds }),
 
-        // Notification provider
+        // IMAP
+        ...(input.imap?.host     !== undefined && { imapHost: input.imap.host }),
+        ...(input.imap?.port     !== undefined && { imapPort: input.imap.port }),
+        ...(input.imap?.username !== undefined && { imapUser: input.imap.username }),
+        ...(input.imap?.password !== undefined && { imapPassword: input.imap.password }),
+        ...(input.imap?.secure   !== undefined && { imapSecure: input.imap.secure }),
+        ...(input.imap?.inboxFolder !== undefined && { inboxFolder: input.imap.inboxFolder }),
+        ...(input.imap?.pollIntervalSeconds !== undefined && { pollIntervalSeconds: input.imap.pollIntervalSeconds }),
+
+        // Notification
         ...(input.notification?.provider !== undefined && {
           notificationProvider: toDbProvider(input.notification.provider),
         }),
 
         // Slack
-        ...(input.slack?.botToken !== undefined && { slackBotToken: input.slack.botToken }),
+        ...(input.slack?.botToken      !== undefined && { slackBotToken: input.slack.botToken }),
         ...(input.slack?.signingSecret !== undefined && { slackSigningSecret: input.slack.signingSecret }),
-        ...(input.slack?.webhookRfq !== undefined && { slackWebhookRfq: input.slack.webhookRfq }),
+        ...(input.slack?.webhookRfq    !== undefined && { slackWebhookRfq: input.slack.webhookRfq }),
         ...(input.slack?.webhookInquiry !== undefined && { slackWebhookInquiry: input.slack.webhookInquiry }),
-        ...(input.slack?.poChannelId !== undefined && { slackPoChannelId: input.slack.poChannelId }),
-        ...(input.slack?.botName !== undefined && { slackBotName: input.slack.botName }),
+        ...(input.slack?.poChannelId   !== undefined && { slackPoChannelId: input.slack.poChannelId }),
+        ...(input.slack?.botName       !== undefined && { slackBotName: input.slack.botName }),
 
         // Teams
         ...(input.teams?.webhookUrl !== undefined && { teamsWebhookUrl: input.teams.webhookUrl }),
@@ -135,20 +143,14 @@ export class TenantRegistry {
     return toConfig(row);
   }
 
-  /** Soft-enable a tenant — the scheduler will pick it up on next cycle. */
   async activate(id: string): Promise<TenantConfig> {
     return this.update(id, { isActive: true });
   }
 
-  /** Soft-disable a tenant — the scheduler stops polling without deleting data. */
   async deactivate(id: string): Promise<TenantConfig> {
     return this.update(id, { isActive: false });
   }
 
-  /**
-   * Permanently remove a tenant and all related records.
-   * Cascades to TrackedOrder and DeltaLink via the Prisma schema.
-   */
   async delete(id: string): Promise<void> {
     const row = await this.db.tenant.delete({ where: { id } });
     console.log(`[TenantRegistry] Deleted tenant "${row.name}" (${id})`);
@@ -157,34 +159,48 @@ export class TenantRegistry {
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 
-/** Convert a flat Prisma Tenant row → nested TenantConfig. */
 function toConfig(row: TenantRow): TenantConfig {
+  const providerType = toProviderType(row.providerType);
+
   return {
-    id: row.id,
-    name: row.name,
-    isActive: row.isActive,
+    id:           row.id,
+    name:         row.name,
+    isActive:     row.isActive,
+    providerType,
 
     graph: {
-      clientId: row.azureClientId,
-      clientSecret: row.azureClientSecret,
-      tenantId: row.azureTenantId,
-      authMode: (row.azureAuthMode === "device_code" ? "device_code" : "app_only"),
-      userEmail: row.userEmail,
-      inboxFolder: row.inboxFolder,
+      clientId:           row.azureClientId,
+      clientSecret:       row.azureClientSecret,
+      tenantId:           row.azureTenantId,
+      authMode:           row.azureAuthMode === "device_code" ? "device_code" : "app_only",
+      userEmail:          row.userEmail,
+      inboxFolder:        row.inboxFolder,
       pollIntervalSeconds: row.pollIntervalSeconds,
     },
+
+    imap: providerType === "imap" && row.imapHost && row.imapUser && row.imapPassword
+      ? {
+          host:               row.imapHost,
+          port:               row.imapPort ?? 993,
+          secure:             row.imapSecure,
+          username:           row.imapUser,
+          password:           row.imapPassword,
+          inboxFolder:        row.inboxFolder,
+          pollIntervalSeconds: row.pollIntervalSeconds,
+        }
+      : null,
 
     notification: {
       provider: fromDbProvider(row.notificationProvider),
     },
 
     slack: {
-      botToken: row.slackBotToken,
+      botToken:      row.slackBotToken,
       signingSecret: row.slackSigningSecret,
-      webhookRfq: row.slackWebhookRfq,
+      webhookRfq:    row.slackWebhookRfq,
       webhookInquiry: row.slackWebhookInquiry,
-      poChannelId: row.slackPoChannelId,
-      botName: row.slackBotName,
+      poChannelId:   row.slackPoChannelId,
+      botName:       row.slackBotName,
     },
 
     teams: {
@@ -196,10 +212,12 @@ function toConfig(row: TenantRow): TenantConfig {
   };
 }
 
+function toProviderType(raw: string): EmailProviderType {
+  return raw === "imap" ? "imap" : "microsoft";
+}
+
 function toDbProvider(p: NotificationProvider): PrismaNotificationProvider {
-  return p === "teams"
-    ? PrismaNotificationProvider.TEAMS
-    : PrismaNotificationProvider.SLACK;
+  return p === "teams" ? PrismaNotificationProvider.TEAMS : PrismaNotificationProvider.SLACK;
 }
 
 function fromDbProvider(p: PrismaNotificationProvider): NotificationProvider {

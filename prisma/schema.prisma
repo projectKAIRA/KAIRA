@@ -27,18 +27,30 @@ model Tenant {
   name      String                         // Human-readable customer name
   isActive  Boolean  @default(true)
 
+  // ── Email provider ─────────────────────────────────────────────────────────
+  /// "microsoft" = Microsoft Graph API (Outlook / Exchange / M365)
+  /// "imap"      = Generic IMAP (Gmail, Yahoo, any IMAP server)
+  providerType      String  @default("microsoft")
+
   // ── Microsoft Graph (email inbox) ──────────────────────────────────────────
-  azureClientId     String
-  azureClientSecret String
+  azureClientId     String  @default("")
+  azureClientSecret String  @default("")
   azureTenantId     String  @default("consumers")
   /// "app_only" uses ClientSecretCredential (work/school accounts, production).
   /// "device_code" uses DeviceCodeCredential (personal @outlook.com accounts, testing).
   azureAuthMode     String  @default("app_only")
-  /// The UPN / email address of the mailbox to monitor (e.g. orders@leespring.com)
-  /// Used for app-only /users/{userEmail}/ Graph API endpoints.
-  userEmail         String
+  /// The UPN / email address of the mailbox to monitor.
+  /// Used for /users/{userEmail}/ Graph API endpoints (Microsoft provider only).
+  userEmail         String  @default("")
   inboxFolder       String  @default("inbox")
   pollIntervalSeconds Int   @default(60)
+
+  // ── IMAP (Gmail, Yahoo, any IMAP server) ───────────────────────────────────
+  imapHost     String?
+  imapPort     Int?
+  imapUser     String?
+  imapPassword String?
+  imapSecure   Boolean @default(true)   // true = TLS (port 993), false = STARTTLS
 
   // ── Notification routing ───────────────────────────────────────────────────
   notificationProvider NotificationProvider @default(SLACK)

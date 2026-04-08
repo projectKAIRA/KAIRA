@@ -4,6 +4,7 @@ import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-grap
 import { getPrismaClient } from "../../lib/prisma.js";
 import { TenantGraphConfig } from "../../types/tenant.js";
 import { EmailAttachment, EmailMessage } from "../../types/index.js";
+import { EmailFetcher } from "../email/EmailFetcher.js";
 
 // App-only scope — uses whatever application permissions are granted in Azure.
 const SCOPES = ["https://graph.microsoft.com/.default"];
@@ -21,7 +22,7 @@ const SCOPES = ["https://graph.microsoft.com/.default"];
  * Delta links are persisted to the DeltaLink table so polling survives
  * process restarts and can be shared across future horizontal replicas.
  */
-export class GraphService {
+export class GraphService implements EmailFetcher {
   private client: Client;
   private readonly userEmail: string;
   private readonly folderName: string;

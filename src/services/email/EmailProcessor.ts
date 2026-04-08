@@ -1,4 +1,4 @@
-import { GraphService } from "../graph/GraphService.js";
+import { EmailFetcher } from "./EmailFetcher.js";
 import { ClaudeService } from "../claude/ClaudeService.js";
 import { NotificationService } from "../notifications/NotificationService.js";
 import { AttachmentExtractor, ExtractedContent } from "../attachments/AttachmentExtractor.js";
@@ -23,7 +23,7 @@ export class EmailProcessor {
   private readonly extractor = new AttachmentExtractor();
 
   constructor(
-    private readonly graph: GraphService,
+    private readonly graph: EmailFetcher,
     private readonly claude: ClaudeService,
     private readonly notifier: NotificationService
   ) {}
