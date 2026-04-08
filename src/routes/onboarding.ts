@@ -190,6 +190,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       name:         session.companyName,
       isActive:     false,
       providerType: "microsoft",
+      ...trialDefaults(),
       graph: {
         authMode:      "oauth",
         tenantId:      session.microsoft.azureTenantId,
@@ -244,6 +245,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       name:         session.companyName,
       isActive:     false,
       providerType: "microsoft",
+      ...trialDefaults(),
       graph: {
         authMode:      "oauth",
         tenantId:      session.microsoft.azureTenantId,
@@ -285,6 +287,19 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** 14-day trial starting now. */
+function trialDefaults() {
+  const now = new Date();
+  const end = new Date(now);
+  end.setDate(end.getDate() + 14);
+  return {
+    planTier:      "trial" as const,
+    isTrialActive: true,
+    trialStartDate: now,
+    trialEndDate:  end,
+  };
+}
 
 async function activateTenant(tenantId: string, scheduler: TenantScheduler): Promise<void> {
   await registry.activate(tenantId);

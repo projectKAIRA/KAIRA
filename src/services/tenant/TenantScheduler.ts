@@ -3,6 +3,7 @@ import { TenantRegistry } from "./TenantRegistry.js";
 import { TenantRuntime } from "./TenantRuntime.js";
 import { TenantConfig } from "../../types/tenant.js";
 import { ProcessingResult } from "../../types/index.js";
+import { TrialGuard } from "./TrialGuard.js";
 
 // ─── Per-tenant state ─────────────────────────────────────────────────────────
 
@@ -207,6 +208,36 @@ export class TenantScheduler {
 
     entry.isRunning = true;
     try {
+      // ── Trial enforcement (pre-cycle) ──────────────────────────────────────
+      const isTrial = entry.runtime.config.planTier === "trial" &&
+                      entry.runtime.config.isTrialActive;
+
+      if (isTrial) {
+        // Reset monthly count if we've crossed a calendar month boundary.
+        await TrialGuard.maybeResetMonthlyCount(tenantId);
+
+        const status = await TrialGuard.check(tenantId);
+
+        if (status.blocked && status.reason === "expired") {
+          console.log(
+            `[TenantScheduler] Trial expired for "${entry.runtime.config.name}" — ` +
+            `deactivating tenant.`,
+          );
+          await TrialGuard.handleExpiry(entry.runtime.config);
+          this.removeTenant(tenantId);
+          return;
+        }
+
+        if (status.blocked && status.reason === "limit_reached") {
+          console.log(
+            `[TenantScheduler] Trial limit already reached for ` +
+            `"${entry.runtime.config.name}" — skipping cycle.`,
+          );
+          return;
+        }
+      }
+
+      // ── Run the processing cycle ───────────────────────────────────────────
       const results = await entry.runtime.processor.runCycle();
       entry.lastRunAt   = new Date();
       entry.lastResults = results;
@@ -217,6 +248,31 @@ export class TenantScheduler {
         `[TenantScheduler] Tenant "${entry.runtime.config.name}" — ` +
         `cycle complete. Results: [${summary}]`,
       );
+
+      // ── Trial enforcement (post-cycle) ─────────────────────────────────────
+      if (isTrial) {
+        const processed = results.filter(
+          (r) => r.success && r.action !== "error",
+        ).length;
+
+        if (processed > 0) {
+          const { newCount, limitReached } = await TrialGuard.incrementDocCount(
+            tenantId,
+            processed,
+          );
+
+          console.log(
+            `[TenantScheduler] Trial usage for "${entry.runtime.config.name}": ` +
+            `${newCount}/${entry.runtime.config.monthlyDocCount + processed} docs this month.`,
+          );
+
+          if (limitReached) {
+            await TrialGuard.handleLimitReached(entry.runtime.config);
+            // Leave the polling loop running — the pre-cycle guard will skip
+            // future cycles until the monthly count resets or they upgrade.
+          }
+        }
+      }
     } catch (err) {
       console.error(
         `[TenantScheduler] Tenant "${entry.runtime.config.name}" — ` +

@@ -5,6 +5,7 @@ import {
   UpdateTenantInput,
   NotificationProvider,
   EmailProviderType,
+  PlanTier,
 } from "../../types/tenant.js";
 import { PrismaClient, NotificationProvider as PrismaNotificationProvider } from "@prisma/client";
 
@@ -93,6 +94,12 @@ export class TenantRegistry {
 
         // Teams
         teamsWebhookUrl: input.teams?.webhookUrl ?? null,
+
+        // Trial & billing
+        planTier:      input.planTier       ?? "none",
+        isTrialActive: input.isTrialActive  ?? false,
+        trialStartDate: input.trialStartDate ?? null,
+        trialEndDate:  input.trialEndDate   ?? null,
       },
     });
 
@@ -145,6 +152,12 @@ export class TenantRegistry {
 
         // Teams
         ...(input.teams?.webhookUrl !== undefined && { teamsWebhookUrl: input.teams.webhookUrl }),
+
+        // Trial & billing
+        ...(input.planTier       !== undefined && { planTier: input.planTier }),
+        ...(input.isTrialActive  !== undefined && { isTrialActive: input.isTrialActive }),
+        ...(input.trialStartDate !== undefined && { trialStartDate: input.trialStartDate }),
+        ...(input.trialEndDate   !== undefined && { trialEndDate: input.trialEndDate }),
       },
     });
 
@@ -175,6 +188,15 @@ function toConfig(row: TenantRow): TenantConfig {
     id:           row.id,
     name:         row.name,
     isActive:     row.isActive,
+
+    planTier:          toTier(row.planTier),
+    isTrialActive:     row.isTrialActive,
+    trialStartDate:    row.trialStartDate,
+    trialEndDate:      row.trialEndDate,
+    trialLimitReached: row.trialLimitReached,
+    monthlyDocCount:   row.monthlyDocCount,
+    monthlyDocResetAt: row.monthlyDocResetAt,
+
     providerType,
 
     graph: {
@@ -229,6 +251,11 @@ function toConfig(row: TenantRow): TenantConfig {
 
 function toProviderType(raw: string): EmailProviderType {
   return raw === "imap" ? "imap" : "microsoft";
+}
+
+function toTier(raw: string): PlanTier {
+  const valid: PlanTier[] = ["none", "trial", "starter", "growth", "enterprise"];
+  return valid.includes(raw as PlanTier) ? (raw as PlanTier) : "none";
 }
 
 function toDbProvider(p: NotificationProvider): PrismaNotificationProvider {

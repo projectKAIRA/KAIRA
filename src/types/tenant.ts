@@ -6,6 +6,11 @@
 
 export type EmailProviderType = "microsoft" | "imap";
 
+export type PlanTier = "none" | "trial" | "starter" | "growth" | "enterprise";
+
+/** Monthly document quota for the Starter / Trial tier. */
+export const TRIAL_DOC_LIMIT = 100;
+
 // ─── Microsoft Graph config ───────────────────────────────────────────────────
 
 export interface TenantGraphConfig {
@@ -90,6 +95,18 @@ export interface TenantConfig {
   name: string;
   isActive: boolean;
 
+  // ── Trial & billing ───────────────────────────────────────────────────────
+  planTier: PlanTier;
+  isTrialActive: boolean;
+  trialStartDate: Date | null;
+  trialEndDate: Date | null;
+  /** True once the tenant has consumed their monthly document quota. */
+  trialLimitReached: boolean;
+  /** Running count of documents processed this calendar month. */
+  monthlyDocCount: number;
+  /** When the monthly count was last reset. Null means never reset. */
+  monthlyDocResetAt: Date | null;
+
   /** Which email backend this tenant uses. */
   providerType: EmailProviderType;
 
@@ -124,6 +141,11 @@ export interface CreateTenantInput {
   notification?: { provider?: NotificationProvider };
   slack?: Partial<TenantSlackConfig>;
   teams?: Partial<TenantTeamsConfig>;
+  // ── Trial & billing ─────────────────────────────────────────────────────
+  planTier?: PlanTier;
+  isTrialActive?: boolean;
+  trialStartDate?: Date | null;
+  trialEndDate?: Date | null;
 }
 
 /** Any subset of fields that can be changed after creation. */

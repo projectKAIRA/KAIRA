@@ -72,6 +72,21 @@ model Tenant {
   // ── Microsoft Teams ────────────────────────────────────────────────────────
   teamsWebhookUrl    String?
 
+  // ── Trial & billing plan ───────────────────────────────────────────────────
+  /// "none" = no plan (manually provisioned), "trial" = self-serve trial,
+  /// "starter" / "growth" / "enterprise" = paid tiers.
+  planTier            String   @default("none")
+  isTrialActive       Boolean  @default(false)
+  trialStartDate      DateTime?
+  trialEndDate        DateTime?
+  /// Set to true when the tenant has consumed all their monthly trial documents.
+  /// The scheduler skips processing for this tenant until they upgrade.
+  trialLimitReached   Boolean  @default(false)
+  /// Running count of documents processed in the current billing month.
+  monthlyDocCount     Int      @default(0)
+  /// The timestamp when monthlyDocCount was last reset to 0 (start of month).
+  monthlyDocResetAt   DateTime?
+
   // ── Timestamps ─────────────────────────────────────────────────────────────
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
