@@ -21,9 +21,9 @@ export interface OnboardingSession {
   id: string;
   companyName: string;
   /** Current step in the wizard. */
-  step: "microsoft" | "notification" | "complete";
+  step: "email" | "notification" | "complete";
   createdAt: number;
-  /** Set after Microsoft OAuth completes. */
+  /** Set after Microsoft OAuth completes. Mutually exclusive with `imap`. */
   microsoft?: {
     accessToken: string;
     refreshToken: string;
@@ -32,6 +32,14 @@ export interface OnboardingSession {
     userEmail: string;
     /** Azure AD tenant ID (directory ID) from the id_token. */
     azureTenantId: string;
+  };
+  /** Set after the IMAP credentials form is submitted. Mutually exclusive with `microsoft`. */
+  imap?: {
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+    secure: boolean;
   };
   /** KAIRA tenant UUID — set after the DB row is created. */
   tenantId?: string;
@@ -56,7 +64,7 @@ export const OAuthSessionStore = {
     const session: OnboardingSession = {
       id: randomUUID(),
       companyName,
-      step: "microsoft",
+      step: "email",
       createdAt: Date.now(),
     };
     sessions.set(session.id, session);
