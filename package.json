@@ -15,8 +15,10 @@
     "@anthropic-ai/sdk": "^0.51.0",
     "@azure/identity": "^4.6.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.6.0",
     "@slack/web-api": "^7.8.0",
+    "@types/pg": "^8.20.0",
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -24,6 +26,7 @@
     "mailparser": "^3.9.6",
     "mammoth": "^1.12.0",
     "node-cron": "^3.0.3",
+    "pg": "^8.20.0",
     "prisma": "^7.6.0",
     "sharp": "^0.34.5",
     "xlsx": "^0.18.5"
