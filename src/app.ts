@@ -1,4 +1,6 @@
 import express, { Request, Response } from "express";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { TenantScheduler } from "./services/tenant/TenantScheduler.js";
 import { CLAIM_ACTION_ID } from "./services/notifications/SlackNotificationService.js";
 import { POTracker } from "./services/po/POTracker.js";
@@ -6,9 +8,19 @@ import { createTenantsRouter } from "./routes/tenants.js";
 import { createOnboardingRouter } from "./routes/onboarding.js";
 import { createAdminRouter } from "./routes/admin.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 export function createApp(scheduler: TenantScheduler): express.Application {
   const app = express();
   app.use(express.json());
+
+  // ─── Landing page ─────────────────────────────────────────────────────────
+
+  const publicDir = join(__dirname, "public");
+  app.use(express.static(publicDir));
+  app.get("/", (_req: Request, res: Response) => {
+    res.sendFile(join(publicDir, "index.html"));
+  });
 
   // ─── Admin dashboard ─────────────────────────────────────────────────────
 
