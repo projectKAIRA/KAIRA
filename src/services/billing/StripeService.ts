@@ -75,7 +75,6 @@ export async function createCheckoutSession(opts: {
   return stripe.checkout.sessions.create({
     mode: "subscription",
     client_reference_id: opts.sessionId,
-    customer_creation: "always",
     subscription_data: {
       trial_period_days: 14,
       metadata: { kairaSessionId: opts.sessionId, companyName: opts.companyName },
