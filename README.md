@@ -1,7 +1,7 @@
 # K.A.I.R.A
 **Knowledge-Aware Inbox Response Automation**
 
-An AI-powered email monitoring system built for **Lee Spring**. KAIRA watches a Microsoft Outlook inbox, classifies incoming emails using Claude AI, extracts structured Purchase Order data from PDF attachments, and routes each message to the appropriate Slack channel — automatically.
+An AI-powered email monitoring system built for manufacturers. KAIRA watches a Microsoft Outlook inbox, classifies incoming emails using Claude AI, extracts structured Purchase Order data from PDF attachments, and routes each message to the appropriate Slack channel — automatically.
 
 ---
 
