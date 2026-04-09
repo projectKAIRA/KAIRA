@@ -5,8 +5,8 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "prisma generate && tsc",
+    "start": "prisma db push --skip-generate && node dist/index.js",
     "dev": "tsx src/index.ts",
     "watch": "tsx watch src/index.ts",
     "test:e2e": "tsx scripts/test-e2e.ts"
@@ -15,11 +15,9 @@
     "@anthropic-ai/sdk": "^0.51.0",
     "@azure/identity": "^4.6.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
-    "@prisma/adapter-better-sqlite3": "^7.6.0",
     "@prisma/client": "^7.6.0",
     "@slack/web-api": "^7.8.0",
     "axios": "^1.7.9",
-    "better-sqlite3": "^12.8.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "imapflow": "^1.2.18",
@@ -31,7 +29,6 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.0",
     "@types/mailparser": "^3.4.6",
     "@types/node": "^22.10.2",

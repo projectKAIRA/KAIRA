@@ -17,7 +17,7 @@ export const config = {
   graph: {
     // Azure AD directory (tenant) ID for the customer's Microsoft 365 org
     tenantId: optional("AZURE_TENANT_ID", "consumers"),
-    clientId: required("AZURE_CLIENT_ID"),
+    clientId: optional("AZURE_CLIENT_ID", ""),
     // Client secret for app-only (non-interactive) authentication
     clientSecret: optional("AZURE_CLIENT_SECRET", ""),
     // UPN / email of the mailbox to monitor (e.g. orders@leespring.com)
