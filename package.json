@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "prisma generate && tsc",
-    "start": "prisma db push --skip-generate && node dist/index.js",
+    "start": "prisma db push && node dist/index.js",
     "dev": "tsx src/index.ts",
     "watch": "tsx watch src/index.ts",
     "test:e2e": "tsx scripts/test-e2e.ts"
