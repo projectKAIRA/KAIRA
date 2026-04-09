@@ -6,7 +6,7 @@
 
 export type EmailProviderType = "microsoft" | "imap";
 
-export type PlanTier = "none" | "trial" | "starter" | "growth" | "enterprise";
+export type PlanTier = "none" | "trial" | "starter" | "growth" | "pro" | "enterprise";
 
 /** Monthly document quota for the Starter / Trial tier. */
 export const TRIAL_DOC_LIMIT = 100;
@@ -107,6 +107,11 @@ export interface TenantConfig {
   /** When the monthly count was last reset. Null means never reset. */
   monthlyDocResetAt: Date | null;
 
+  /** Stripe customer ID — set after Stripe Checkout completes. */
+  stripeCustomerId: string | null;
+  /** Stripe subscription ID — set after Stripe Checkout completes. */
+  stripeSubscriptionId: string | null;
+
   /** Which email backend this tenant uses. */
   providerType: EmailProviderType;
 
@@ -146,6 +151,8 @@ export interface CreateTenantInput {
   isTrialActive?: boolean;
   trialStartDate?: Date | null;
   trialEndDate?: Date | null;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
 }
 
 /** Any subset of fields that can be changed after creation. */

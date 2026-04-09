@@ -1,24 +1,25 @@
 /**
- * Self-serve onboarding flow — two email provider paths.
+ * Self-serve onboarding flow — two email provider paths + Stripe billing.
  *
- * Step 1  GET  /onboarding                    — Company name + provider choice
- *         POST /onboarding/start              — Branch on provider:
- *                                               • microsoft → Microsoft OAuth
- *                                               • imap      → IMAP credentials form
+ * Step 1  GET  /onboarding                         — Company name + provider choice
+ *         POST /onboarding/start                   — Branch on provider
  *
  * Microsoft path:
  *         GET  /onboarding/auth/microsoft/callback — Exchange code, store tokens
  *
  * IMAP path:
- *         GET  /onboarding/imap               — Gmail / IMAP credentials form
- *         POST /onboarding/imap               — Validate & store credentials
+ *         GET  /onboarding/imap                    — Credentials form
+ *         POST /onboarding/imap                    — Validate & store credentials
  *
- * Step 2  GET  /onboarding/step2              — Connect Slack or Teams
- *         GET  /onboarding/auth/slack/start   — Redirect to Slack OAuth
- *         GET  /onboarding/auth/slack/callback — Exchange code, create tenant, activate
- *         POST /onboarding/teams              — Teams webhook URL, create tenant, activate
+ * Step 2  GET  /onboarding/step2                   — Connect Slack or Teams
+ *         GET  /onboarding/auth/slack/start        — Redirect to Slack OAuth
+ *         GET  /onboarding/auth/slack/callback     — Exchange code, store notification config
+ *         POST /onboarding/teams                   — Store Teams webhook, advance to billing
  *
- * Done    GET  /onboarding/complete           — Success page
+ * Step 3  GET  /onboarding/plans                   — Plan selection
+ *         POST /onboarding/checkout                — Create Stripe Checkout session + redirect
+ *
+ * Done    GET  /onboarding/complete                — Create + activate tenant after Stripe redirect
  */
 
 import express, { Request, Response, Router } from "express";
@@ -35,6 +36,12 @@ import {
   buildSlackAuthUrl,
   exchangeSlackCode,
 } from "../services/auth/OAuthService.js";
+import {
+  createCheckoutSession,
+  retrieveCheckoutSession,
+  priceIdToTier,
+  getPlans,
+} from "../services/billing/StripeService.js";
 
 const registry = new TenantRegistry();
 
@@ -68,7 +75,6 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       return;
     }
 
-    // Microsoft path
     if (!config.oauth.microsoft.clientId) {
       res.status(503).setHeader("Content-Type", "text/html; charset=utf-8").send(renderError(
         "Microsoft OAuth is not configured.",
@@ -85,11 +91,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
   router.get("/imap", (req: Request, res: Response) => {
     const sessionId = (req.query.session as string | undefined) ?? "";
     const session   = OAuthSessionStore.get(sessionId);
-
-    if (!session) {
-      res.redirect("/onboarding");
-      return;
-    }
+    if (!session) { res.redirect("/onboarding"); return; }
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderImap(sessionId, session.companyName));
@@ -102,10 +104,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     const host      = (req.body.host      as string | undefined)?.trim() ?? "";
 
     const session = OAuthSessionStore.get(sessionId);
-    if (!session) {
-      res.redirect("/onboarding");
-      return;
-    }
+    if (!session) { res.redirect("/onboarding"); return; }
 
     const errors: string[] = [];
     if (!username) errors.push("Email address is required.");
@@ -204,6 +203,8 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
   });
 
   // ─── Slack OAuth callback ──────────────────────────────────────────────────
+  // Stores notification config in session and advances to plan selection.
+  // Tenant is NOT created here — that happens after Stripe payment.
 
   router.get("/auth/slack/callback", async (req: Request, res: Response) => {
     const { code, state, error } = req.query as Record<string, string>;
@@ -228,31 +229,27 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       return;
     }
 
-    const slackConfig = {
-      notification: { provider: "slack" as const },
-      slack: {
-        botToken:       slack.access_token,
-        signingSecret:  config.oauth.slack.signingSecret || null,
-        webhookRfq:     slack.incoming_webhook?.url ?? null,
-        webhookInquiry: slack.incoming_webhook?.url ?? null,
-        poChannelId:    slack.incoming_webhook?.channel_id ?? null,
-        botName:        "KAIRA",
+    OAuthSessionStore.update(state, {
+      step: "billing",
+      notificationConfig: {
+        provider: "slack",
+        slack: {
+          botToken:       slack.access_token,
+          signingSecret:  config.oauth.slack.signingSecret || null,
+          webhookRfq:     slack.incoming_webhook?.url ?? null,
+          webhookInquiry: slack.incoming_webhook?.url ?? null,
+          poChannelId:    slack.incoming_webhook?.channel_id ?? null,
+          botName:        "KAIRA",
+        },
       },
-    };
-
-    const tenant = await registry.create({
-      ...buildEmailProviderInput(session),
-      ...slackConfig,
     });
 
-    await activateTenant(tenant.id, scheduler);
-    OAuthSessionStore.update(state, { tenantId: tenant.id, step: "complete" });
-    res.redirect(`/onboarding/complete?session=${encodeURIComponent(state)}&provider=slack`);
+    res.redirect(`/onboarding/plans?session=${encodeURIComponent(state)}`);
   });
 
   // ─── Teams — manual webhook URL ───────────────────────────────────────────
 
-  router.post("/teams", async (req: Request, res: Response) => {
+  router.post("/teams", (req: Request, res: Response) => {
     const sessionId  = (req.body.session     as string | undefined) ?? "";
     const webhookUrl = (req.body.webhookUrl  as string | undefined)?.trim() ?? "";
 
@@ -269,31 +266,125 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       return;
     }
 
+    OAuthSessionStore.update(sessionId, {
+      step: "billing",
+      notificationConfig: {
+        provider: "teams",
+        teams: { webhookUrl },
+      },
+    });
+
+    res.redirect(`/onboarding/plans?session=${encodeURIComponent(sessionId)}`);
+  });
+
+  // ─── Step 3 — Plan selection ───────────────────────────────────────────────
+
+  router.get("/plans", (req: Request, res: Response) => {
+    const sessionId = (req.query.session as string | undefined) ?? "";
+    const session   = OAuthSessionStore.get(sessionId);
+
+    if (!session || session.step !== "billing" || !session.notificationConfig) {
+      res.redirect("/onboarding");
+      return;
+    }
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(renderPlans(sessionId, session.companyName));
+  });
+
+  // ─── Checkout — create Stripe session + redirect ───────────────────────────
+
+  router.post("/checkout", async (req: Request, res: Response) => {
+    const sessionId = (req.body.session as string | undefined) ?? "";
+    const priceId   = (req.body.priceId as string | undefined) ?? "";
+
+    const session = OAuthSessionStore.get(sessionId);
+    if (!session || session.step !== "billing" || !session.notificationConfig) {
+      res.redirect("/onboarding");
+      return;
+    }
+
+    const validPrices = Object.values(config.stripe.prices);
+    if (!priceId || !validPrices.includes(priceId)) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(renderPlans(sessionId, session.companyName, "Please select a plan."));
+      return;
+    }
+
+    if (!config.stripe.secretKey) {
+      res.status(503).setHeader("Content-Type", "text/html; charset=utf-8").send(renderError(
+        "Billing is not configured.",
+        "Set STRIPE_SECRET_KEY in your environment.",
+      ));
+      return;
+    }
+
+    const checkout = await createCheckoutSession({
+      sessionId,
+      priceId,
+      companyName: session.companyName,
+      baseUrl: config.oauth.baseUrl,
+    });
+
+    OAuthSessionStore.update(sessionId, {
+      selectedPriceId:       priceId,
+      stripeCheckoutSessionId: checkout.id,
+    });
+
+    res.redirect(checkout.url!);
+  });
+
+  // ─── Complete — create + activate tenant after Stripe redirects back ───────
+
+  router.get("/complete", async (req: Request, res: Response) => {
+    const sessionId = (req.query.session  as string | undefined) ?? "";
+    const payment   = (req.query.payment  as string | undefined) ?? "";
+    const session   = OAuthSessionStore.get(sessionId);
+
+    // If no payment=success param, treat as a direct visit — just show the page
+    // for already-created tenants (e.g. after a page refresh).
+    if (payment !== "success" || !session) {
+      const companyName = session?.companyName ?? "your company";
+      const { connectedLabel, connectedEmail } = session ? emailSummary(session) : { connectedLabel: "Email", connectedEmail: "" };
+      OAuthSessionStore.delete(sessionId);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(renderComplete(companyName, connectedLabel, connectedEmail));
+      return;
+    }
+
+    if (!session.notificationConfig || !session.stripeCheckoutSessionId) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(renderError("Session incomplete.", "Billing or notification configuration is missing.", "/onboarding"));
+      return;
+    }
+
+    // Retrieve the Stripe checkout session to get customer + subscription IDs.
+    const checkout = await retrieveCheckoutSession(session.stripeCheckoutSessionId);
+    const stripeCustomerId     = typeof checkout.customer     === "string" ? checkout.customer
+                               : (checkout.customer as { id?: string } | null)?.id ?? null;
+    const stripeSubscriptionId = typeof checkout.subscription === "string" ? checkout.subscription
+                               : (checkout.subscription as { id?: string } | null)?.id ?? null;
+
+    const tier = session.selectedPriceId ? priceIdToTier(session.selectedPriceId) : "starter";
+
+    const notif = session.notificationConfig;
     const tenant = await registry.create({
-      ...buildEmailProviderInput(session),
-      notification: { provider: "teams" },
-      teams: { webhookUrl },
+      ...buildEmailProviderInput(session, tier),
+      notification: { provider: notif.provider },
+      ...(notif.slack && { slack: notif.slack }),
+      ...(notif.teams && { teams: notif.teams }),
+      stripeCustomerId,
+      stripeSubscriptionId,
     });
 
     await activateTenant(tenant.id, scheduler);
     OAuthSessionStore.update(sessionId, { tenantId: tenant.id, step: "complete" });
-    res.redirect(`/onboarding/complete?session=${encodeURIComponent(sessionId)}&provider=teams`);
-  });
 
-  // ─── Complete ──────────────────────────────────────────────────────────────
-
-  router.get("/complete", (req: Request, res: Response) => {
-    const sessionId = (req.query.session  as string | undefined) ?? "";
-    const provider  = (req.query.provider as string | undefined) ?? "slack";
-    const session   = OAuthSessionStore.get(sessionId);
-
-    const companyName = session?.companyName ?? "your company";
-    const { connectedLabel, connectedEmail } = session ? emailSummary(session) : { connectedLabel: "Email", connectedEmail: "" };
-
+    const { connectedLabel, connectedEmail } = emailSummary(session);
     OAuthSessionStore.delete(sessionId);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(renderComplete(companyName, connectedLabel, connectedEmail, provider));
+    res.send(renderComplete(session.companyName, connectedLabel, connectedEmail));
   });
 
   return router;
@@ -301,17 +392,22 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** 14-day trial starting now. */
-function trialDefaults() {
-  const now = new Date();
-  const end = new Date(now);
-  end.setDate(end.getDate() + 14);
-  return { planTier: "trial" as const, isTrialActive: true, trialStartDate: now, trialEndDate: end };
-}
+import { PlanTier } from "../types/tenant.js";
 
-/** Build a CreateTenantInput from a completed session (email portion only). */
-function buildEmailProviderInput(session: OnboardingSession): CreateTenantInput {
-  const base: CreateTenantInput = { name: session.companyName, isActive: false, ...trialDefaults() };
+/** Build tenant creation input from session + chosen plan tier. */
+function buildEmailProviderInput(session: OnboardingSession, tier: PlanTier): CreateTenantInput {
+  const now = new Date();
+  const trialEnd = new Date(now);
+  trialEnd.setDate(trialEnd.getDate() + 14);
+
+  const base: CreateTenantInput = {
+    name:           session.companyName,
+    isActive:       false,
+    planTier:       tier,
+    isTrialActive:  true,
+    trialStartDate: now,
+    trialEndDate:   trialEnd,
+  };
 
   if (session.microsoft) {
     const ms = session.microsoft;
@@ -319,13 +415,13 @@ function buildEmailProviderInput(session: OnboardingSession): CreateTenantInput 
       ...base,
       providerType: "microsoft",
       graph: {
-        authMode:        "oauth",
-        tenantId:        ms.azureTenantId,
-        userEmail:       ms.userEmail,
-        accessToken:     ms.accessToken,
-        refreshToken:    ms.refreshToken,
-        tokenExpiresAt:  new Date(ms.expiresAt),
-        inboxFolder:     "inbox",
+        authMode:           "oauth",
+        tenantId:           ms.azureTenantId,
+        userEmail:          ms.userEmail,
+        accessToken:        ms.accessToken,
+        refreshToken:       ms.refreshToken,
+        tokenExpiresAt:     new Date(ms.expiresAt),
+        inboxFolder:        "inbox",
         pollIntervalSeconds: 60,
       },
     };
@@ -351,7 +447,6 @@ function buildEmailProviderInput(session: OnboardingSession): CreateTenantInput 
   return base;
 }
 
-/** Human-readable label + email address for whichever provider is connected. */
 function emailSummary(session: OnboardingSession): { connectedLabel: string; connectedEmail: string } {
   if (session.microsoft) {
     return { connectedLabel: "Microsoft 365", connectedEmail: session.microsoft.userEmail };
@@ -386,6 +481,7 @@ const BASE_CSS = `
     justify-content: center;
   }
   .shell { width: 100%; max-width: 480px; padding: 2rem 1rem; }
+  .shell-wide { width: 100%; max-width: 860px; padding: 2rem 1rem; }
   .logo { text-align: center; margin-bottom: 2.5rem; }
   .logo-name { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.15em; color: #fff; }
   .logo-tagline { font-size: 0.78rem; letter-spacing: 0.08em; color: #666; text-transform: uppercase; margin-top: 0.25rem; }
@@ -451,9 +547,38 @@ const BASE_CSS = `
   .info-label { color: #666; }
   .info-value { color: #e8e8e8; font-weight: 500; }
   .tag-green { background: #0d2b12; color: #4ade80; border-radius: 4px; padding: 0.2rem 0.5rem; font-size: 0.75rem; font-weight: 600; }
+  /* Plans grid */
+  .plans-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  @media (max-width: 640px) { .plans-grid { grid-template-columns: 1fr; } }
+  .plan-card {
+    background: #161616; border: 1px solid #2a2a2a; border-radius: 12px;
+    padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; position: relative;
+  }
+  .plan-card.highlight { border-color: #5865f2; }
+  .plan-badge {
+    position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+    background: #5865f2; color: #fff; font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 20px;
+  }
+  .plan-name { font-size: 1.1rem; font-weight: 700; color: #fff; }
+  .plan-desc { font-size: 0.8rem; color: #777; line-height: 1.5; }
+  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+  .plan-features li { font-size: 0.82rem; color: #aaa; display: flex; align-items: center; gap: 0.4rem; }
+  .plan-features li::before { content: "✓"; color: #4ade80; font-weight: 700; flex-shrink: 0; }
+  .btn-plan {
+    display: block; width: 100%; padding: 0.65rem 1rem; border-radius: 8px;
+    background: #1a1a1a; border: 1px solid #333; color: #e8e8e8;
+    font-size: 0.9rem; font-weight: 600; cursor: pointer; text-align: center;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .plan-card.highlight .btn-plan { background: #5865f2; border-color: #5865f2; color: #fff; }
+  .btn-plan:hover { opacity: 0.85; }
+  .trial-notice {
+    text-align: center; font-size: 0.8rem; color: #555; margin-top: 1.25rem; line-height: 1.5;
+  }
 `;
 
-function html(body: string): string {
+function html(body: string, wide = false): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -463,7 +588,7 @@ function html(body: string): string {
   <style>${BASE_CSS}</style>
 </head>
 <body>
-  <div class="shell">
+  <div class="${wide ? "shell-wide" : "shell"}">
     <div class="logo">
       <div class="logo-name">K.A.I.R.A</div>
       <div class="logo-tagline">Inbox Intelligence Platform</div>
@@ -478,6 +603,7 @@ function renderStep1(errorMsg?: string): string {
   return html(`
     <div class="steps">
       <div class="step-dot active"></div>
+      <div class="step-dot"></div>
       <div class="step-dot"></div>
     </div>
     <div class="card">
@@ -509,6 +635,7 @@ function renderImap(sessionId: string, companyName: string, prefill: { username?
   return html(`
     <div class="steps">
       <div class="step-dot active"></div>
+      <div class="step-dot"></div>
       <div class="step-dot"></div>
     </div>
     <div class="card">
@@ -549,6 +676,7 @@ function renderStep2(sessionId: string, connectedLabel: string, connectedEmail: 
     <div class="steps">
       <div class="step-dot done"></div>
       <div class="step-dot active"></div>
+      <div class="step-dot"></div>
     </div>
     <div class="card">
       <div class="pill">&#10003; ${escHtml(connectedLabel)} connected</div>
@@ -573,15 +701,52 @@ function renderStep2(sessionId: string, connectedLabel: string, connectedEmail: 
   `);
 }
 
-function renderComplete(companyName: string, emailProviderLabel: string, connectedEmail: string, notifProvider: string): string {
-  const notifLabel = notifProvider === "teams" ? "Microsoft Teams" : "Slack";
+function renderPlans(sessionId: string, companyName: string, errorMsg?: string): string {
+  const plans = getPlans();
+
+  const cards = plans.map((plan) => `
+    <div class="plan-card${plan.highlight ? " highlight" : ""}">
+      ${plan.highlight ? `<div class="plan-badge">Most popular</div>` : ""}
+      <div class="plan-name">${escHtml(plan.name)}</div>
+      <div class="plan-desc">${escHtml(plan.description)}</div>
+      <ul class="plan-features">
+        ${plan.features.map((f) => `<li>${escHtml(f)}</li>`).join("")}
+      </ul>
+      <form method="POST" action="/onboarding/checkout">
+        <input type="hidden" name="session" value="${escAttr(sessionId)}">
+        <input type="hidden" name="priceId" value="${escAttr(plan.priceId)}">
+        <button type="submit" class="btn-plan">Start 14-day trial &rarr;</button>
+      </form>
+    </div>
+  `).join("");
+
+  return html(`
+    <div class="steps">
+      <div class="step-dot done"></div>
+      <div class="step-dot done"></div>
+      <div class="step-dot active"></div>
+    </div>
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <div class="card-title">Choose your plan</div>
+      <div class="card-sub" style="margin-bottom:0;">
+        ${escHtml(companyName)} gets a 14-day free trial on any plan. No charge until the trial ends.
+      </div>
+    </div>
+    ${errorMsg ? `<div class="error-msg" style="margin-bottom:1rem;">${escHtml(errorMsg)}</div>` : ""}
+    <div class="plans-grid">${cards}</div>
+    <p class="trial-notice">14-day free trial &bull; Cancel anytime &bull; Secure checkout via Stripe</p>
+  `, true);
+}
+
+function renderComplete(companyName: string, emailProviderLabel: string, connectedEmail: string): string {
   return html(`
     <div class="card">
       <div class="success-icon">&#9989;</div>
-      <div class="success-title">KAIRA is live!</div>
+      <div class="success-title">You're all set!</div>
       <div class="success-sub">
         ${escHtml(companyName)}'s inbox is now being monitored.<br>
-        Purchase orders will appear in ${notifLabel} within the next polling cycle.
+        Purchase orders will appear in your connected channel within the next polling cycle.<br>
+        Your 14-day free trial is now active.
       </div>
       <div class="info-row">
         <span class="info-label">${escHtml(emailProviderLabel)}</span>
@@ -593,8 +758,8 @@ function renderComplete(companyName: string, emailProviderLabel: string, connect
         <span class="info-value">${escHtml(connectedEmail)}</span>
       </div>` : ""}
       <div class="info-row">
-        <span class="info-label">Notifications</span>
-        <span class="info-value tag-green">${notifLabel}</span>
+        <span class="info-label">Trial</span>
+        <span class="info-value tag-green">14 days active</span>
       </div>
       <div class="info-row">
         <span class="info-label">Monitoring</span>

@@ -87,6 +87,17 @@ export const config = {
     baseUrl: optional("APP_BASE_URL", "http://localhost:3000"),
   },
 
+  // ─── Stripe ──────────────────────────────────────────────────────────────────
+  stripe: {
+    secretKey:     optional("STRIPE_SECRET_KEY", ""),
+    webhookSecret: optional("STRIPE_WEBHOOK_SECRET", ""),
+    prices: {
+      starter: optional("STRIPE_PRICE_STARTER", ""),
+      growth:  optional("STRIPE_PRICE_GROWTH",  ""),
+      pro:     optional("STRIPE_PRICE_PRO",     ""),
+    },
+  },
+
   // ─── Admin dashboard ─────────────────────────────────────────────────────
   admin: {
     password: optional("ADMIN_PASSWORD", ""),

@@ -21,7 +21,7 @@ export interface OnboardingSession {
   id: string;
   companyName: string;
   /** Current step in the wizard. */
-  step: "email" | "notification" | "complete";
+  step: "email" | "notification" | "billing" | "complete";
   createdAt: number;
   /** Set after Microsoft OAuth completes. Mutually exclusive with `imap`. */
   microsoft?: {
@@ -41,6 +41,24 @@ export interface OnboardingSession {
     password: string;
     secure: boolean;
   };
+  /** Set after the notification channel is connected (Step 2). Carries Slack/Teams
+   *  config forward to the billing step so tenant creation happens after payment. */
+  notificationConfig?: {
+    provider: "slack" | "teams";
+    slack?: {
+      botToken: string;
+      signingSecret: string | null;
+      webhookRfq: string | null;
+      webhookInquiry: string | null;
+      poChannelId: string | null;
+      botName: string;
+    };
+    teams?: { webhookUrl: string };
+  };
+  /** Stripe Checkout Session ID — set after redirecting to Stripe. */
+  stripeCheckoutSessionId?: string;
+  /** Price ID the user selected on the plans page. */
+  selectedPriceId?: string;
   /** KAIRA tenant UUID — set after the DB row is created. */
   tenantId?: string;
 }

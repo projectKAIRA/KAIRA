@@ -7,11 +7,17 @@ import { POTracker } from "./services/po/POTracker.js";
 import { createTenantsRouter } from "./routes/tenants.js";
 import { createOnboardingRouter } from "./routes/onboarding.js";
 import { createAdminRouter } from "./routes/admin.js";
+import { createStripeRouter } from "./routes/stripe.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export function createApp(scheduler: TenantScheduler): express.Application {
   const app = express();
+
+  // ─── Stripe webhook ───────────────────────────────────────────────────────
+  // Must be mounted BEFORE express.json() — Stripe requires the raw request body.
+  app.use("/stripe", createStripeRouter());
+
   app.use(express.json());
 
   // ─── Landing page ─────────────────────────────────────────────────────────

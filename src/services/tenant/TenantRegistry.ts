@@ -100,6 +100,8 @@ export class TenantRegistry {
         isTrialActive: input.isTrialActive  ?? false,
         trialStartDate: input.trialStartDate ?? null,
         trialEndDate:  input.trialEndDate   ?? null,
+        stripeCustomerId:     input.stripeCustomerId     ?? null,
+        stripeSubscriptionId: input.stripeSubscriptionId ?? null,
       },
     });
 
@@ -158,6 +160,8 @@ export class TenantRegistry {
         ...(input.isTrialActive  !== undefined && { isTrialActive: input.isTrialActive }),
         ...(input.trialStartDate !== undefined && { trialStartDate: input.trialStartDate }),
         ...(input.trialEndDate   !== undefined && { trialEndDate: input.trialEndDate }),
+        ...(input.stripeCustomerId     !== undefined && { stripeCustomerId: input.stripeCustomerId }),
+        ...(input.stripeSubscriptionId !== undefined && { stripeSubscriptionId: input.stripeSubscriptionId }),
       },
     });
 
@@ -196,6 +200,8 @@ function toConfig(row: TenantRow): TenantConfig {
     trialLimitReached: row.trialLimitReached,
     monthlyDocCount:   row.monthlyDocCount,
     monthlyDocResetAt: row.monthlyDocResetAt,
+    stripeCustomerId:     row.stripeCustomerId     ?? null,
+    stripeSubscriptionId: row.stripeSubscriptionId ?? null,
 
     providerType,
 
@@ -254,7 +260,7 @@ function toProviderType(raw: string): EmailProviderType {
 }
 
 function toTier(raw: string): PlanTier {
-  const valid: PlanTier[] = ["none", "trial", "starter", "growth", "enterprise"];
+  const valid: PlanTier[] = ["none", "trial", "starter", "growth", "pro", "enterprise"];
   return valid.includes(raw as PlanTier) ? (raw as PlanTier) : "none";
 }
 
