@@ -1,18 +1,114 @@
-import nodemailer from "nodemailer";
 import { config } from "../../config/index.js";
 import { PlanTier } from "../../types/tenant.js";
 
-const FROM = '"KAIRA" <support@trykaira.ai>';
+const SENDER = "support@trykaira.ai";
+const GRAPH_SEND_URL = `https://graph.microsoft.com/v1.0/users/${SENDER}/sendMail`;
 
-function getTransporter() {
-  return nodemailer.createTransport({
-    host: config.smtp.host,
-    port: config.smtp.port,
-    secure: false, // STARTTLS on port 587
-    auth: { user: config.smtp.user, pass: config.smtp.pass },
-    tls: { ciphers: "SSLv3" },
+// ─── App-only access token (client credentials) ───────────────────────────────
+
+let _cachedToken: { value: string; expiresAt: number } | null = null;
+
+async function getAppToken(): Promise<string> {
+  if (_cachedToken && Date.now() < _cachedToken.expiresAt - 60_000) {
+    return _cachedToken.value;
+  }
+
+  const { tenantId, clientId, clientSecret } = config.graph;
+  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+
+  console.log(`[ConfirmationMailer] Fetching app token — tenantId="${tenantId}", clientId="${clientId}"`);
+
+  const res = await fetch(tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id:     clientId,
+      client_secret: clientSecret,
+      scope:         "https://graph.microsoft.com/.default",
+      grant_type:    "client_credentials",
+    }),
   });
+
+  const data = await res.json() as {
+    access_token?: string;
+    expires_in?: number;
+    error?: string;
+    error_description?: string;
+  };
+
+  if (!data.access_token) {
+    throw new Error(`Token fetch failed: ${data.error} — ${data.error_description}`);
+  }
+
+  _cachedToken = {
+    value:     data.access_token,
+    expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
+  };
+
+  console.log("[ConfirmationMailer] App token acquired.");
+  return _cachedToken.value;
 }
+
+// ─── Send via Graph API ───────────────────────────────────────────────────────
+
+export async function sendWelcomeEmail(opts: {
+  toEmail: string;
+  companyName: string;
+  planTier: PlanTier;
+  notificationChannel: "Slack" | "Microsoft Teams";
+}): Promise<void> {
+  const { toEmail, companyName, planTier, notificationChannel } = opts;
+
+  console.log(`[ConfirmationMailer] Preparing welcome email → ${toEmail} (company: "${companyName}", plan: ${planTier})`);
+
+  const { clientId, clientSecret, tenantId } = config.graph;
+  if (!clientId || !clientSecret || !tenantId || tenantId === "consumers") {
+    console.warn("[ConfirmationMailer] Azure app credentials not configured (AZURE_CLIENT_ID / AZURE_CLIENT_SECRET / AZURE_TENANT_ID) — skipping.");
+    return;
+  }
+
+  const plan  = tierLabel(planTier);
+  const token = await getAppToken();
+
+  const body = {
+    message: {
+      subject: "Welcome to KAIRA — Your inbox is now being monitored",
+      body: {
+        contentType: "HTML",
+        content:     buildHtml(companyName, plan, notificationChannel),
+      },
+      from: {
+        emailAddress: { address: SENDER },
+      },
+      toRecipients: [
+        { emailAddress: { address: toEmail } },
+      ],
+    },
+    saveToSentItems: true,
+  };
+
+  console.log(`[ConfirmationMailer] POST ${GRAPH_SEND_URL}`);
+
+  const res = await fetch(GRAPH_SEND_URL, {
+    method:  "POST",
+    headers: {
+      Authorization:  `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (res.status === 202) {
+    console.log(`[ConfirmationMailer] Email accepted by Graph API (202) for ${toEmail}.`);
+    return;
+  }
+
+  // Any non-202 is an error — log the full response body.
+  const responseText = await res.text();
+  throw new Error(`Graph sendMail failed: HTTP ${res.status} — ${responseText}`);
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function tierLabel(tier: PlanTier): string {
   const labels: Record<PlanTier, string> = {
@@ -25,49 +121,6 @@ function tierLabel(tier: PlanTier): string {
   };
   return labels[tier] ?? "Starter";
 }
-
-export async function sendWelcomeEmail(opts: {
-  toEmail: string;
-  companyName: string;
-  planTier: PlanTier;
-  notificationChannel: "Slack" | "Microsoft Teams";
-}): Promise<void> {
-  const { toEmail, companyName, planTier, notificationChannel } = opts;
-
-  console.log(`[ConfirmationMailer] Preparing welcome email → ${toEmail} (company: "${companyName}", plan: ${planTier})`);
-
-  if (!config.smtp.user || !config.smtp.pass) {
-    console.warn("[ConfirmationMailer] SMTP_USER or SMTP_PASS not set — skipping.");
-    return;
-  }
-
-  console.log(`[ConfirmationMailer] SMTP config — host: ${config.smtp.host}, port: ${config.smtp.port}, user: ${config.smtp.user}`);
-
-  const plan        = tierLabel(planTier);
-  const html        = buildHtml(companyName, plan, notificationChannel);
-  const text        = buildText(companyName, plan, notificationChannel);
-  const transporter = getTransporter();
-
-  console.log("[ConfirmationMailer] Verifying SMTP connection...");
-  await transporter.verify().catch((err: unknown) => {
-    console.error("[ConfirmationMailer] SMTP verify failed:", err);
-    throw err;
-  });
-  console.log("[ConfirmationMailer] SMTP connection verified.");
-
-  console.log(`[ConfirmationMailer] Sending email to ${toEmail}...`);
-  const info = await transporter.sendMail({
-    from:    FROM,
-    to:      toEmail,
-    subject: "Welcome to KAIRA — Your inbox is now being monitored",
-    text,
-    html,
-  });
-
-  console.log(`[ConfirmationMailer] Email accepted — messageId: ${info.messageId}, response: ${info.response}`);
-}
-
-// ─── Templates ────────────────────────────────────────────────────────────────
 
 function buildHtml(companyName: string, plan: string, channel: string): string {
   return `<!DOCTYPE html>
@@ -99,7 +152,6 @@ function buildHtml(companyName: string, plan: string, channel: string): string {
     .footer { background: #f9f9f9; padding: 24px 40px; text-align: center; border-top: 1px solid #ebebeb; }
     .footer p { font-size: 12px; color: #999; margin: 0 0 6px; line-height: 1.6; }
     .footer a { color: #666; text-decoration: none; }
-    .footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -115,7 +167,6 @@ function buildHtml(companyName: string, plan: string, channel: string): string {
         incoming purchase orders, RFQs, and inquiries — routing them directly to your
         ${esc(channel)} channel.
       </p>
-
       <div class="status-box">
         <div class="status-row">
           <span class="status-label">Plan</span>
@@ -134,7 +185,6 @@ function buildHtml(companyName: string, plan: string, channel: string): string {
           <span class="status-value">Active</span>
         </div>
       </div>
-
       <div class="next-steps">
         <h2>What happens next</h2>
         <ol>
@@ -144,13 +194,11 @@ function buildHtml(companyName: string, plan: string, channel: string): string {
           <li>Your 14-day free trial gives you full access — no charge until the trial ends.</li>
         </ol>
       </div>
-
       <p>
         If you have any questions or need help getting the most out of KAIRA, just reply to this
         email or reach out at
         <a href="mailto:support@trykaira.ai">support@trykaira.ai</a> — we're here to help.
       </p>
-
       <div class="cta">
         <a href="https://trykaira.ai">Visit trykaira.ai</a>
       </div>
@@ -162,33 +210,6 @@ function buildHtml(companyName: string, plan: string, channel: string): string {
   </div>
 </body>
 </html>`;
-}
-
-function buildText(companyName: string, plan: string, channel: string): string {
-  return `Welcome to KAIRA, ${companyName}!
-
-You're all set. KAIRA is now monitoring your inbox and will automatically detect incoming purchase orders, RFQs, and inquiries — routing them directly to your ${channel} channel.
-
-YOUR ACCOUNT
-  Plan:              ${plan}
-  Free trial:        14 days active
-  Notifications:     ${channel}
-  Inbox monitoring:  Active
-
-WHAT HAPPENS NEXT
-  1. KAIRA polls your inbox on a regular cycle, looking for new emails.
-  2. When a purchase order, RFQ, or inquiry is detected, it extracts the key details using AI.
-  3. A structured alert is posted to your ${channel} channel so your team can act immediately.
-  4. Your 14-day free trial gives you full access — no charge until the trial ends.
-
-Questions? Reply to this email or contact us at support@trykaira.ai — we're here to help.
-
-Visit us at https://trykaira.ai
-
-—
-KAIRA · Inbox Intelligence Platform
-support@trykaira.ai · https://trykaira.ai
-`;
 }
 
 function esc(s: string): string {
