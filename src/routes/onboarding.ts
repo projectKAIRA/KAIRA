@@ -42,6 +42,7 @@ import {
   priceIdToTier,
   getPlans,
 } from "../services/billing/StripeService.js";
+import { sendWelcomeEmail } from "../services/email/ConfirmationMailer.js";
 
 const registry = new TenantRegistry();
 
@@ -381,6 +382,20 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     OAuthSessionStore.update(sessionId, { tenantId: tenant.id, step: "complete" });
 
     const { connectedLabel, connectedEmail } = emailSummary(session);
+
+    // Fire confirmation email — best-effort, never blocks the response.
+    if (connectedEmail) {
+      const notifChannel = notif.provider === "teams" ? "Microsoft Teams" : "Slack";
+      sendWelcomeEmail({
+        toEmail:             connectedEmail,
+        companyName:         session.companyName,
+        planTier:            tier,
+        notificationChannel: notifChannel,
+      }).catch((err: unknown) => {
+        console.error("[Onboarding] Failed to send welcome email:", err);
+      });
+    }
+
     OAuthSessionStore.delete(sessionId);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");

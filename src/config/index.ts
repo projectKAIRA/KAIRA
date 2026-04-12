@@ -87,6 +87,14 @@ export const config = {
     baseUrl: optional("APP_BASE_URL", "http://localhost:3000"),
   },
 
+  // ─── SMTP (outbound confirmation emails via Microsoft 365) ───────────────────
+  smtp: {
+    host: optional("SMTP_HOST", "smtp.office365.com"),
+    port: parseInt(optional("SMTP_PORT", "587"), 10),
+    user: optional("SMTP_USER", ""),
+    pass: optional("SMTP_PASS", ""),
+  },
+
   // ─── Stripe ──────────────────────────────────────────────────────────────────
   stripe: {
     secretKey:     optional("STRIPE_SECRET_KEY", ""),
