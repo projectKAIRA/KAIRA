@@ -729,15 +729,15 @@ function renderStep2(sessionId: string, connectedLabel: string, connectedEmail: 
       </form>
       <p class="hint">Teams webhook: open a channel &rarr; Connectors &rarr; Incoming Webhook &rarr; copy the URL.</p>
     </div>
-    <div style="text-align:center;margin-top:1.25rem;">
-      <a href="/onboarding/skip-notification?session=${encodeURIComponent(sessionId)}"
-         style="font-size:0.82rem;color:#555;text-decoration:none;border-bottom:1px solid #333;padding-bottom:1px;">
-        Skip for now
-      </a>
-      <p style="font-size:0.75rem;color:#444;margin-top:0.5rem;">
-        You can connect Slack or Teams from your dashboard after setup.
-      </p>
-    </div>
+    <div class="divider">or</div>
+    <a href="/onboarding/skip-notification?session=${encodeURIComponent(sessionId)}"
+       class="btn"
+       style="background:#1e1e2e;color:#c4b5fd;border:1px solid #6d28d9;">
+      Skip for now — connect Slack or Teams later &rarr;
+    </a>
+    <p class="hint" style="margin-top:0.6rem;">
+      You can connect Slack or Teams from your dashboard after setup.
+    </p>
   `);
 }
 

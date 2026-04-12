@@ -32,20 +32,31 @@ export async function sendWelcomeEmail(opts: {
   planTier: PlanTier;
   notificationChannel: "Slack" | "Microsoft Teams";
 }): Promise<void> {
+  const { toEmail, companyName, planTier, notificationChannel } = opts;
+
+  console.log(`[ConfirmationMailer] Preparing welcome email → ${toEmail} (company: "${companyName}", plan: ${planTier})`);
+
   if (!config.smtp.user || !config.smtp.pass) {
-    console.warn("[ConfirmationMailer] SMTP credentials not configured — skipping welcome email.");
+    console.warn("[ConfirmationMailer] SMTP_USER or SMTP_PASS not set — skipping.");
     return;
   }
 
-  const { toEmail, companyName, planTier, notificationChannel } = opts;
-  const plan = tierLabel(planTier);
+  console.log(`[ConfirmationMailer] SMTP config — host: ${config.smtp.host}, port: ${config.smtp.port}, user: ${config.smtp.user}`);
 
-  const html = buildHtml(companyName, plan, notificationChannel);
-  const text = buildText(companyName, plan, notificationChannel);
-
+  const plan        = tierLabel(planTier);
+  const html        = buildHtml(companyName, plan, notificationChannel);
+  const text        = buildText(companyName, plan, notificationChannel);
   const transporter = getTransporter();
 
-  await transporter.sendMail({
+  console.log("[ConfirmationMailer] Verifying SMTP connection...");
+  await transporter.verify().catch((err: unknown) => {
+    console.error("[ConfirmationMailer] SMTP verify failed:", err);
+    throw err;
+  });
+  console.log("[ConfirmationMailer] SMTP connection verified.");
+
+  console.log(`[ConfirmationMailer] Sending email to ${toEmail}...`);
+  const info = await transporter.sendMail({
     from:    FROM,
     to:      toEmail,
     subject: "Welcome to KAIRA — Your inbox is now being monitored",
@@ -53,7 +64,7 @@ export async function sendWelcomeEmail(opts: {
     html,
   });
 
-  console.log(`[ConfirmationMailer] Welcome email sent to ${toEmail} for "${companyName}".`);
+  console.log(`[ConfirmationMailer] Email accepted — messageId: ${info.messageId}, response: ${info.response}`);
 }
 
 // ─── Templates ────────────────────────────────────────────────────────────────
