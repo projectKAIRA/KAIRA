@@ -15,6 +15,7 @@
  *         GET  /onboarding/auth/slack/start        — Redirect to Slack OAuth
  *         GET  /onboarding/auth/slack/callback     — Exchange code, store notification config
  *         POST /onboarding/teams                   — Store Teams webhook, advance to billing
+ *         GET  /onboarding/skip-notification        — Skip notification step, advance to billing
  *
  * Step 3  GET  /onboarding/plans                   — Plan selection
  *         POST /onboarding/checkout                — Create Stripe Checkout session + redirect
@@ -278,13 +279,28 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     res.redirect(`/onboarding/plans?session=${encodeURIComponent(sessionId)}`);
   });
 
+  // ─── Skip notification channel ────────────────────────────────────────────
+
+  router.get("/skip-notification", (req: Request, res: Response) => {
+    const sessionId = (req.query.session as string | undefined) ?? "";
+    const session   = OAuthSessionStore.get(sessionId);
+
+    if (!session || (!session.microsoft && !session.imap)) {
+      res.redirect("/onboarding");
+      return;
+    }
+
+    OAuthSessionStore.update(sessionId, { step: "billing" });
+    res.redirect(`/onboarding/plans?session=${encodeURIComponent(sessionId)}`);
+  });
+
   // ─── Step 3 — Plan selection ───────────────────────────────────────────────
 
   router.get("/plans", (req: Request, res: Response) => {
     const sessionId = (req.query.session as string | undefined) ?? "";
     const session   = OAuthSessionStore.get(sessionId);
 
-    if (!session || session.step !== "billing" || !session.notificationConfig) {
+    if (!session || session.step !== "billing") {
       res.redirect("/onboarding");
       return;
     }
@@ -300,7 +316,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     const priceId   = (req.body.priceId as string | undefined) ?? "";
 
     const session = OAuthSessionStore.get(sessionId);
-    if (!session || session.step !== "billing" || !session.notificationConfig) {
+    if (!session || session.step !== "billing") {
       res.redirect("/onboarding");
       return;
     }
@@ -353,9 +369,9 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       return;
     }
 
-    if (!session.notificationConfig || !session.stripeCheckoutSessionId) {
+    if (!session.stripeCheckoutSessionId) {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.send(renderError("Session incomplete.", "Billing or notification configuration is missing.", "/onboarding"));
+      res.send(renderError("Session incomplete.", "Billing configuration is missing.", "/onboarding"));
       return;
     }
 
@@ -366,14 +382,14 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     const stripeSubscriptionId = typeof checkout.subscription === "string" ? checkout.subscription
                                : (checkout.subscription as { id?: string } | null)?.id ?? null;
 
-    const tier = session.selectedPriceId ? priceIdToTier(session.selectedPriceId) : "starter";
-
+    const tier  = session.selectedPriceId ? priceIdToTier(session.selectedPriceId) : "starter";
     const notif = session.notificationConfig;
+
     const tenant = await registry.create({
       ...buildEmailProviderInput(session, tier),
-      notification: { provider: notif.provider },
-      ...(notif.slack && { slack: notif.slack }),
-      ...(notif.teams && { teams: notif.teams }),
+      ...(notif && { notification: { provider: notif.provider } }),
+      ...(notif?.slack && { slack: notif.slack }),
+      ...(notif?.teams && { teams: notif.teams }),
       stripeCustomerId,
       stripeSubscriptionId,
     });
@@ -385,7 +401,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
 
     // Fire confirmation email — best-effort, never blocks the response.
     if (connectedEmail) {
-      const notifChannel = notif.provider === "teams" ? "Microsoft Teams" : "Slack";
+      const notifChannel = notif?.provider === "teams" ? "Microsoft Teams" : "Slack";
       sendWelcomeEmail({
         toEmail:             connectedEmail,
         companyName:         session.companyName,
@@ -712,6 +728,15 @@ function renderStep2(sessionId: string, connectedLabel: string, connectedEmail: 
         <button type="submit" class="btn btn-teams">Connect Teams &rarr;</button>
       </form>
       <p class="hint">Teams webhook: open a channel &rarr; Connectors &rarr; Incoming Webhook &rarr; copy the URL.</p>
+    </div>
+    <div style="text-align:center;margin-top:1.25rem;">
+      <a href="/onboarding/skip-notification?session=${encodeURIComponent(sessionId)}"
+         style="font-size:0.82rem;color:#555;text-decoration:none;border-bottom:1px solid #333;padding-bottom:1px;">
+        Skip for now
+      </a>
+      <p style="font-size:0.75rem;color:#444;margin-top:0.5rem;">
+        You can connect Slack or Teams from your dashboard after setup.
+      </p>
     </div>
   `);
 }
