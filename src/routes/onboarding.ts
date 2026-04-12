@@ -400,16 +400,22 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     const { connectedLabel, connectedEmail } = emailSummary(session);
 
     // Fire confirmation email — best-effort, never blocks the response.
+    console.log(`[Onboarding] Tenant activated. connectedEmail="${connectedEmail}", companyName="${session.companyName}", tier="${tier}"`);
     if (connectedEmail) {
       const notifChannel = notif?.provider === "teams" ? "Microsoft Teams" : "Slack";
+      console.log(`[Onboarding] Calling sendWelcomeEmail → ${connectedEmail}`);
       sendWelcomeEmail({
         toEmail:             connectedEmail,
         companyName:         session.companyName,
         planTier:            tier,
         notificationChannel: notifChannel,
+      }).then(() => {
+        console.log(`[Onboarding] sendWelcomeEmail resolved for ${connectedEmail}`);
       }).catch((err: unknown) => {
-        console.error("[Onboarding] Failed to send welcome email:", err);
+        console.error(`[Onboarding] sendWelcomeEmail rejected for ${connectedEmail}:`, err);
       });
+    } else {
+      console.warn("[Onboarding] No connectedEmail found — skipping welcome email.");
     }
 
     OAuthSessionStore.delete(sessionId);
