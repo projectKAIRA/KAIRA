@@ -59,6 +59,9 @@ export interface OnboardingSession {
   stripeCheckoutSessionId?: string;
   /** Price ID the user selected on the plans page. */
   selectedPriceId?: string;
+  /** The customer's email address — used for confirmation emails.
+   *  Set explicitly on both provider paths so it's always available. */
+  customerEmail?: string;
   /** KAIRA tenant UUID — set after the DB row is created. */
   tenantId?: string;
 }
@@ -195,6 +198,23 @@ export function decodeMicrosoftIdToken(idToken: string): {
     };
   } catch {
     return {};
+  }
+}
+
+/**
+ * Fetch the signed-in user's email from Microsoft Graph /me.
+ * Falls back to userPrincipalName if the mail field is absent.
+ * Returns empty string on any error rather than throwing.
+ */
+export async function fetchMicrosoftUserEmail(accessToken: string): Promise<string> {
+  try {
+    const res  = await fetch("https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await res.json() as { mail?: string; userPrincipalName?: string };
+    return data.mail ?? data.userPrincipalName ?? "";
+  } catch {
+    return "";
   }
 }
 

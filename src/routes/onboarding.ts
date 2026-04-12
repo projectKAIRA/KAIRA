@@ -34,6 +34,7 @@ import {
   buildMicrosoftAuthUrl,
   exchangeMicrosoftCode,
   decodeMicrosoftIdToken,
+  fetchMicrosoftUserEmail,
   buildSlackAuthUrl,
   exchangeSlackCode,
 } from "../services/auth/OAuthService.js";
@@ -120,8 +121,9 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     }
 
     OAuthSessionStore.update(sessionId, {
-      step: "notification",
-      imap: { host, port: 993, username, password, secure: true },
+      step:          "notification",
+      customerEmail: username,
+      imap:          { host, port: 993, username, password, secure: true },
     });
 
     res.redirect(`/onboarding/step2?session=${encodeURIComponent(sessionId)}`);
@@ -154,13 +156,19 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     }
 
     const claims        = tokens.id_token ? decodeMicrosoftIdToken(tokens.id_token) : {};
-    const userEmail     = claims.preferred_username ?? claims.email ?? "";
     const azureTenantId = claims.tid ?? "common";
     const expiresAt     = Date.now() + (tokens.expires_in ?? 3600) * 1000;
 
+    // preferred_username / email are absent from id_tokens for many account types.
+    // Fall back to a Graph /me call so we always have the real email address.
+    const emailFromClaims = claims.preferred_username ?? claims.email ?? "";
+    const userEmail = emailFromClaims || await fetchMicrosoftUserEmail(tokens.access_token);
+    console.log(`[Onboarding] Microsoft callback — emailFromClaims="${emailFromClaims}", userEmail="${userEmail}"`);
+
     OAuthSessionStore.update(state, {
-      step: "notification",
-      microsoft: { accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresAt, userEmail, azureTenantId },
+      step:          "notification",
+      customerEmail: userEmail,
+      microsoft:     { accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresAt, userEmail, azureTenantId },
     });
 
     res.redirect(`/onboarding/step2?session=${encodeURIComponent(state)}`);
@@ -400,22 +408,23 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     const { connectedLabel, connectedEmail } = emailSummary(session);
 
     // Fire confirmation email — best-effort, never blocks the response.
-    console.log(`[Onboarding] Tenant activated. connectedEmail="${connectedEmail}", companyName="${session.companyName}", tier="${tier}"`);
-    if (connectedEmail) {
+    const emailTo = session.customerEmail || connectedEmail;
+    console.log(`[Onboarding] Tenant activated. customerEmail="${session.customerEmail}", connectedEmail="${connectedEmail}", using="${emailTo}", tier="${tier}"`);
+    if (emailTo) {
       const notifChannel = notif?.provider === "teams" ? "Microsoft Teams" : "Slack";
-      console.log(`[Onboarding] Calling sendWelcomeEmail → ${connectedEmail}`);
+      console.log(`[Onboarding] Calling sendWelcomeEmail → ${emailTo}`);
       sendWelcomeEmail({
-        toEmail:             connectedEmail,
+        toEmail:             emailTo,
         companyName:         session.companyName,
         planTier:            tier,
         notificationChannel: notifChannel,
       }).then(() => {
-        console.log(`[Onboarding] sendWelcomeEmail resolved for ${connectedEmail}`);
+        console.log(`[Onboarding] sendWelcomeEmail resolved for ${emailTo}`);
       }).catch((err: unknown) => {
-        console.error(`[Onboarding] sendWelcomeEmail rejected for ${connectedEmail}:`, err);
+        console.error(`[Onboarding] sendWelcomeEmail rejected for ${emailTo}:`, err);
       });
     } else {
-      console.warn("[Onboarding] No connectedEmail found — skipping welcome email.");
+      console.warn("[Onboarding] No email address found in session — skipping welcome email.");
     }
 
     OAuthSessionStore.delete(sessionId);
