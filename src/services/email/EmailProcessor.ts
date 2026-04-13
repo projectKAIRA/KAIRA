@@ -62,13 +62,29 @@ export class EmailProcessor {
 
   private async processMessage(email: EmailMessage): Promise<ProcessingResult> {
     try {
+      console.log(
+        `[EmailProcessor] Processing email ${email.id} — ` +
+        `subject="${email.subject}" from=${email.sender} ` +
+        `hasAttachments=${email.hasAttachments} attachmentCount=${email.attachments.length} ` +
+        `bodyLength=${email.bodyText.length}`
+      );
+
+      if (email.attachments.length > 0) {
+        console.log(
+          `[EmailProcessor] Attachments: ` +
+          email.attachments.map(a => `"${a.name}" (${a.contentType}, ${a.size}B, base64len=${a.contentBytes.length})`).join(" | ")
+        );
+      }
+
       // 1. Try each attachment in order — stop at the first recognised one.
       for (const attachment of email.attachments) {
+        console.log(`[EmailProcessor] Extracting attachment "${attachment.name}" (${attachment.contentType}, ${attachment.size}B)`);
         const extracted = await this.extractor.extract(attachment);
         if (extracted) {
+          console.log(`[EmailProcessor] Extracted "${attachment.name}" as kind="${extracted.kind}" — routing to document handler`);
           return await this.handleDocumentEmail(email, extracted);
         }
-        // extract() already logged a warning for unrecognised types — continue.
+        console.warn(`[EmailProcessor] extract() returned null for "${attachment.name}" (${attachment.contentType}) — trying next attachment`);
       }
 
       // 2. No recognised attachment found.
@@ -80,14 +96,16 @@ export class EmailProcessor {
 
       // 3. Has attachments but none were recognised → log and classify as text.
       if (email.hasAttachments && email.attachments.length > 0) {
-        const types = email.attachments.map((a) => a.contentType).join(", ");
+        const types = email.attachments.map((a) => `"${a.name}" (${a.contentType})`).join(", ");
         console.warn(
-          `[EmailProcessor] Email ${email.id} has attachment(s) with unsupported type(s) (${types}) — classifying body text.`
+          `[EmailProcessor] Email ${email.id}: ${email.attachments.length} attachment(s) found but none extracted — ` +
+          `types: ${types} — falling back to body text classification`
         );
         return await this.handlePlainEmail(email);
       }
 
       // 4. Plain-text email — classify and route.
+      console.log(`[EmailProcessor] Email ${email.id}: no attachments — classifying body text`);
       return await this.handlePlainEmail(email);
     } catch (err) {
       console.error(`[EmailProcessor] Error processing email ${email.id}:`, err);

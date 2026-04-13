@@ -25,6 +25,14 @@ export class ClaudeService {
     pdfBase64: string,
     attachmentName: string
   ): Promise<PurchaseOrderData> {
+    console.log(
+      `[ClaudeService] extractPurchaseOrderFromPdf: "${attachmentName}" — ` +
+      `base64 length=${pdfBase64.length} (~${Math.round(pdfBase64.length * 0.75 / 1024)} KB)`
+    );
+    if (!pdfBase64) {
+      console.error(`[ClaudeService] Empty base64 for "${attachmentName}" — returning default PO`);
+      return defaultPurchaseOrder();
+    }
     const stream = this.client.messages.stream({
       model: this.model,
       max_tokens: 4096,
@@ -68,6 +76,10 @@ export class ClaudeService {
     mimeType: SupportedImageMime,
     attachmentName: string
   ): Promise<PurchaseOrderData> {
+    console.log(
+      `[ClaudeService] extractPurchaseOrderFromImage: "${attachmentName}" (${mimeType}) — ` +
+      `base64 length=${imageBase64.length} (~${Math.round(imageBase64.length * 0.75 / 1024)} KB)`
+    );
     const stream = this.client.messages.stream({
       model: this.model,
       max_tokens: 4096,
@@ -108,6 +120,10 @@ export class ClaudeService {
     textContent: string,
     attachmentName: string
   ): Promise<PurchaseOrderData> {
+    console.log(
+      `[ClaudeService] extractPurchaseOrderFromText: "${attachmentName}" — ` +
+      `text length=${textContent.length} chars`
+    );
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: 4096,

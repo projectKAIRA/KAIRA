@@ -90,7 +90,13 @@ export class AttachmentExtractor {
     const ct = attachment.contentType.toLowerCase().split(";")[0].trim();
     const { name, contentBytes } = attachment;
 
+    if (!contentBytes) {
+      console.warn(`[AttachmentExtractor] "${name}" has empty contentBytes — skipping.`);
+      return null;
+    }
+
     if (PDF_CONTENT_TYPES.has(ct)) {
+      console.log(`[AttachmentExtractor] PDF matched by content type: "${name}" (${contentBytes.length} base64 chars)`);
       return { kind: "pdf", base64: contentBytes, name };
     }
 
@@ -115,6 +121,20 @@ export class AttachmentExtractor {
     // with a .msg filename — check both.
     if (MSG_CONTENT_TYPES.has(ct) || name.toLowerCase().endsWith(".msg")) {
       return this.extractMsg(contentBytes, name);
+    }
+
+    // Last resort: some email clients and servers send attachments with the generic
+    // application/octet-stream content type regardless of the actual file format.
+    // Re-route by filename extension so PDFs, DOCX, images, etc. are not silently dropped.
+    if (ct === "application/octet-stream") {
+      const inferredCt = mimeFromExtension(name);
+      if (inferredCt !== "application/octet-stream") {
+        console.log(
+          `[AttachmentExtractor] "${name}" has generic content type — ` +
+          `re-routing as inferred type "${inferredCt}" based on extension`
+        );
+        return this.extract({ ...attachment, contentType: inferredCt });
+      }
     }
 
     console.warn(

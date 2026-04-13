@@ -283,23 +283,94 @@ export class GraphService implements EmailFetcher {
   private async hydrateMessage(raw: GraphMessage): Promise<EmailMessage> {
     const attachments: EmailAttachment[] = [];
 
+    console.log(
+      `[GraphService] Hydrating message id=${raw.id} ` +
+      `subject="${raw.subject ?? ""}" hasAttachments=${raw.hasAttachments ?? false}`
+    );
+
     if (raw.hasAttachments) {
       const attachResponse = await this.client
         .api(`/users/${this.userEmail}/messages/${raw.id}/attachments`)
         .get();
 
-      for (const att of (attachResponse.value ?? []) as GraphAttachment[]) {
-        if (att["@odata.type"] === "#microsoft.graph.fileAttachment") {
-          attachments.push({
-            id: att.id,
-            name: att.name ?? "attachment",
-            contentType: att.contentType ?? "application/octet-stream",
-            contentBytes: att.contentBytes ?? "",
-            size: att.size ?? 0,
-          });
+      const rawAtts = (attachResponse.value ?? []) as GraphAttachment[];
+      console.log(`[GraphService] /attachments returned ${rawAtts.length} item(s) for message ${raw.id}`);
+
+      for (const att of rawAtts) {
+        const odataType   = att["@odata.type"] ?? "(missing)";
+        const attName     = att.name ?? "attachment";
+        const attCt       = att.contentType ?? "application/octet-stream";
+        const attSize     = att.size ?? 0;
+        const inlineBytes = att.contentBytes;
+
+        console.log(
+          `[GraphService] Attachment: name="${attName}" type="${odataType}" ` +
+          `contentType="${attCt}" size=${attSize} ` +
+          `contentBytes=${inlineBytes ? `${inlineBytes.length} chars (base64)` : "MISSING"}`
+        );
+
+        // Accept both "#microsoft.graph.fileAttachment" (standard) and any
+        // variant that isn't a reference or item attachment, to guard against
+        // SDK/version differences in the @odata.type value.
+        const isFileAttachment =
+          odataType === "#microsoft.graph.fileAttachment" ||
+          (!odataType.includes("itemAttachment") && !odataType.includes("referenceAttachment") && attSize > 0);
+
+        if (!isFileAttachment) {
+          console.log(`[GraphService] Skipping non-file attachment "${attName}" (${odataType})`);
+          continue;
         }
+
+        let contentBytes = inlineBytes ?? "";
+
+        // Graph doesn't inline contentBytes for attachments larger than ~3 MB.
+        // Fall back to the /$value endpoint to download the raw bytes.
+        if (!contentBytes && attSize > 0) {
+          console.log(
+            `[GraphService] contentBytes missing for "${attName}" (size=${attSize}) — ` +
+            `downloading via /$value endpoint`
+          );
+          try {
+            const valueBuffer = await this.client
+              .api(`/users/${this.userEmail}/messages/${raw.id}/attachments/${att.id}/$value`)
+              .responseType(ResponseType.ARRAYBUFFER)
+              .get() as ArrayBuffer;
+            contentBytes = Buffer.from(valueBuffer).toString("base64");
+            console.log(
+              `[GraphService] Downloaded "${attName}" via /$value — ` +
+              `${contentBytes.length} base64 chars (${attSize} bytes)`
+            );
+          } catch (err) {
+            console.error(
+              `[GraphService] Failed to download attachment "${attName}" via /$value:`,
+              (err as Error).message ?? err
+            );
+          }
+        }
+
+        if (!contentBytes) {
+          console.warn(
+            `[GraphService] Attachment "${attName}" has no content after all attempts — skipping.`
+          );
+          continue;
+        }
+
+        attachments.push({
+          id:           att.id,
+          name:         attName,
+          contentType:  attCt,
+          contentBytes,
+          size:         attSize,
+        });
+
+        console.log(`[GraphService] Added attachment "${attName}" (${attCt}, ${attSize} bytes)`);
       }
     }
+
+    console.log(
+      `[GraphService] Message ${raw.id}: ${attachments.length} usable attachment(s) — ` +
+      `[${attachments.map(a => `"${a.name}" ${a.size}B`).join(", ")}]`
+    );
 
     return {
       id: raw.id,
