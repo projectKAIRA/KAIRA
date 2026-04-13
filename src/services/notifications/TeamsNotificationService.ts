@@ -67,31 +67,67 @@ export class TeamsNotificationService implements NotificationService {
     const po = payload.purchaseOrder!;
     const email = payload.email;
 
-    const lineItems = po.lineItems
-      .map((li: POLineItem) =>
-        `${li.lineNumber ?? "—"}) ${li.description} — Qty: ${li.quantity ?? "—"} @ ${li.unitPrice ?? "—"} = ${li.totalPrice ?? "—"}`
-      )
-      .join("\n");
+    // Build header facts — only include non-null values
+    const headerFacts = [
+      fact("From",     email.sender),
+      fact("Subject",  email.subject),
+      fact("Received", email.receivedAt),
+      ...(payload.attachmentName                ? [fact("Attachment",    payload.attachmentName)]                 : []),
+      ...(po.poNumber                           ? [fact("PO Number",     po.poNumber)]                           : []),
+      ...(po.orderDate                          ? [fact("Order Date",     po.orderDate)]                          : []),
+      ...(po.requestedDeliveryDate              ? [fact("Delivery Date",  po.requestedDeliveryDate)]              : []),
+      ...(po.paymentTerms                       ? [fact("Payment Terms",  po.paymentTerms)]                       : []),
+      ...(po.currency                           ? [fact("Currency",       po.currency)]                           : []),
+      ...(po.total        != null               ? [fact("Grand Total",    formatCurrencyTeams(po.total, po.currency))] : []),
+      ...(po.subtotal     != null               ? [fact("Subtotal",       formatCurrencyTeams(po.subtotal,     po.currency))] : []),
+      ...(po.tax          != null               ? [fact("Tax",            formatCurrencyTeams(po.tax,          po.currency))] : []),
+      ...(po.shippingCost != null               ? [fact("Shipping",       formatCurrencyTeams(po.shippingCost, po.currency))] : []),
+      fact("Confidence", po.rawConfidence.toUpperCase()),
+    ];
+
+    const lineItems = po.lineItems.length > 0
+      ? po.lineItems.map((li: POLineItem) =>
+          [
+            li.lineNumber != null ? `${li.lineNumber})` : "—)",
+            li.description,
+            li.partNumber                 ? `PN: ${li.partNumber}`                              : null,
+            li.quantity   != null         ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}` : null,
+            li.unitPrice  != null         ? `@ ${formatCurrencyTeams(li.unitPrice,  po.currency)}` : null,
+            li.totalPrice != null         ? `= ${formatCurrencyTeams(li.totalPrice, po.currency)}` : null,
+          ].filter(Boolean).join("  ")
+        ).join("\n")
+      : null;
+
+    // Build vendor/buyer/address text blocks — only if relevant data is present
+    const vendorLine = po.vendor
+      ? [po.vendor.name, po.vendor.address, po.vendor.contact, po.vendor.email, po.vendor.phone].filter(Boolean).join(", ")
+      : null;
+
+    const billToLine = (po.billTo || po.buyer)
+      ? [
+          po.billTo?.company ?? po.buyer?.company ?? po.buyer?.name,
+          po.billTo?.address ?? po.buyer?.address,
+          po.buyer?.email,
+          po.buyer?.phone,
+        ].filter(Boolean).join(", ")
+      : null;
+
+    const shipToLine = (po.shipTo && (po.shipTo.company || po.shipTo.address))
+      ? [po.shipTo.company, po.shipTo.address].filter(Boolean).join(", ")
+      : null;
 
     return [
       { type: "TextBlock", text: "📄 Purchase Order Received", size: "Large", weight: "Bolder" },
-      { type: "FactSet", facts: [
-          fact("From", email.sender),
-          fact("Subject", email.subject),
-          fact("Received", email.receivedAt),
-          fact("Attachment", payload.attachmentName ?? "—"),
-          fact("PO Number", po.poNumber ?? "—"),
-          fact("Order Date", po.orderDate ?? "—"),
-          fact("Delivery Date", po.requestedDeliveryDate ?? "—"),
-          fact("Total", po.total != null ? `${po.total} ${po.currency ?? ""}` : "—"),
-          fact("Confidence", po.rawConfidence.toUpperCase()),
-        ],
-      },
-      ...(lineItems
-        ? [{ type: "TextBlock", text: "**Line Items**", weight: "Bolder" },
-           { type: "TextBlock", text: lineItems, wrap: true, fontType: "Monospace" }]
-        : []),
-      { type: "TextBlock", text: `_Processed by KAIRA • ${new Date().toISOString()}_`, isSubtle: true, size: "Small" },
+      { type: "FactSet", facts: headerFacts },
+      ...(vendorLine  ? [{ type: "TextBlock", text: `**Vendor:** ${vendorLine}`,   wrap: true }] : []),
+      ...(billToLine  ? [{ type: "TextBlock", text: `**Bill To:** ${billToLine}`,   wrap: true }] : []),
+      ...(shipToLine  ? [{ type: "TextBlock", text: `**Ship To:** ${shipToLine}`,   wrap: true }] : []),
+      ...(lineItems   ? [
+          { type: "TextBlock", text: "**Line Items**", weight: "Bolder" },
+          { type: "TextBlock", text: lineItems, wrap: true, fontType: "Monospace" },
+        ] : []),
+      ...(po.notes    ? [{ type: "TextBlock", text: `**Notes:** ${po.notes}`, wrap: true }] : []),
+      { type: "TextBlock", text: `Processed by KAIRA • ${new Date().toISOString()}`, isSubtle: true, size: "Small" },
     ];
   }
 
@@ -116,4 +152,9 @@ export class TeamsNotificationService implements NotificationService {
 
 function fact(title: string, value: string): { title: string; value: string } {
   return { title, value };
+}
+
+function formatCurrencyTeams(amount: number, currency: string | null): string {
+  const symbol = currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : "";
+  return `${symbol}${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency ?? ""}`.trim();
 }

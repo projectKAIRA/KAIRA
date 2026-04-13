@@ -114,10 +114,10 @@ export class SlackNotificationService implements NotificationService {
       po.lineItems.length > 0
         ? po.lineItems.map((li: POLineItem) =>
             [
-              `*${li.lineNumber ?? "—"}*`,
+              li.lineNumber != null ? `*${li.lineNumber}*` : null,
               li.partNumber ? `PN: ${li.partNumber}` : null,
               li.description,
-              li.quantity != null ? `Qty: ${li.quantity} ${li.unitOfMeasure ?? ""}` : null,
+              li.quantity != null ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}` : null,
               li.unitPrice != null ? `@ ${formatCurrency(li.unitPrice, po.currency)}` : null,
               li.totalPrice != null ? `= ${formatCurrency(li.totalPrice, po.currency)}` : null,
             ]
@@ -125,6 +125,24 @@ export class SlackNotificationService implements NotificationService {
               .join("  |  ")
           ).join("\n")
         : "_No line items extracted_";
+
+    // Build PO detail fields — only include non-null values
+    const poFields = [
+      po.poNumber           ? field("PO Number",     po.poNumber)            : null,
+      po.orderDate          ? field("Order Date",     po.orderDate)           : null,
+      po.requestedDeliveryDate ? field("Delivery Date", po.requestedDeliveryDate) : null,
+      po.paymentTerms       ? field("Payment Terms",  po.paymentTerms)        : null,
+      po.currency           ? field("Currency",       po.currency)            : null,
+      field("Confidence", po.rawConfidence.toUpperCase()),
+    ].filter(Boolean) as ReturnType<typeof field>[];
+
+    // Totals — only include non-null amounts
+    const totalFields = [
+      po.subtotal     != null ? field("Subtotal",  formatCurrency(po.subtotal,     po.currency)) : null,
+      po.tax          != null ? field("Tax",        formatCurrency(po.tax,          po.currency)) : null,
+      po.shippingCost != null ? field("Shipping",   formatCurrency(po.shippingCost, po.currency)) : null,
+      po.total        != null ? field("*Total*", `*${formatCurrency(po.total, po.currency)}*`)   : null,
+    ].filter(Boolean) as ReturnType<typeof field>[];
 
     const claimBlock = claimed
       ? {
@@ -156,46 +174,54 @@ export class SlackNotificationService implements NotificationService {
       {
         type: "section",
         fields: [
-          field("From", email.sender),
-          field("Subject", email.subject),
+          field("From",     email.sender),
+          field("Subject",  email.subject),
           field("Received", email.receivedAt),
-          field("Attachment", payload.attachmentName ?? "—"),
+          ...(payload.attachmentName ? [field("Attachment", payload.attachmentName)] : []),
         ],
       },
       { type: "divider" },
-      {
-        type: "section",
-        fields: [
-          field("PO Number", po.poNumber ?? "—"),
-          field("Order Date", po.orderDate ?? "—"),
-          field("Delivery Date", po.requestedDeliveryDate ?? "—"),
-          field("Currency", po.currency ?? "—"),
-          field("Payment Terms", po.paymentTerms ?? "—"),
-          field("Confidence", po.rawConfidence.toUpperCase()),
-        ],
-      },
-      ...(po.buyer
+      ...(poFields.length > 0 ? [{ type: "section", fields: poFields }] : []),
+      // Vendor section — only if any vendor field is present
+      ...(po.vendor && (po.vendor.name || po.vendor.address || po.vendor.contact || po.vendor.email || po.vendor.phone)
         ? [{
             type: "section",
             text: mrkdwn(
-              `*Buyer:* ${po.buyer.company ?? po.buyer.name ?? "—"}` +
-              (po.buyer.contact ? `\n${po.buyer.contact}` : "") +
-              (po.buyer.email ? `  •  ${po.buyer.email}` : "")
+              `*Vendor / Supplier*\n` +
+              [po.vendor.name, po.vendor.address, po.vendor.contact, po.vendor.email, po.vendor.phone]
+                .filter(Boolean).join("\n")
+            ),
+          }]
+        : []),
+      // Buyer / Bill To — show buyer contact info and/or billTo address
+      ...(po.buyer || po.billTo
+        ? [{
+            type: "section",
+            text: mrkdwn(
+              `*Bill To*\n` +
+              [
+                po.billTo?.company ?? po.buyer?.company ?? po.buyer?.name,
+                po.billTo?.address ?? po.buyer?.address,
+                po.buyer?.contact,
+                po.buyer?.email,
+                po.buyer?.phone,
+              ].filter(Boolean).join("\n")
+            ),
+          }]
+        : []),
+      // Ship To
+      ...(po.shipTo && (po.shipTo.company || po.shipTo.address)
+        ? [{
+            type: "section",
+            text: mrkdwn(
+              `*Ship To*\n` +
+              [po.shipTo.company, po.shipTo.address].filter(Boolean).join("\n")
             ),
           }]
         : []),
       { type: "divider" },
       { type: "section", text: mrkdwn(`*Line Items*\n\`\`\`${lineItemsText}\`\`\``) },
-      {
-        type: "section",
-        fields: [
-          field("Subtotal", po.subtotal != null ? formatCurrency(po.subtotal, po.currency) : "—"),
-          field("Tax", po.tax != null ? formatCurrency(po.tax, po.currency) : "—"),
-          field("Shipping", po.shippingCost != null ? formatCurrency(po.shippingCost, po.currency) : "—"),
-          field("*Total*", po.total != null ? `*${formatCurrency(po.total, po.currency)}*` : "—"),
-        ],
-      },
-      ...(po.shippingAddress ? [{ type: "section", text: mrkdwn(`*Ship To:* ${po.shippingAddress}`) }] : []),
+      ...(totalFields.length > 0 ? [{ type: "section", fields: totalFields }] : []),
       ...(po.notes ? [{ type: "section", text: mrkdwn(`*Notes:* ${po.notes}`) }] : []),
       { type: "divider" },
       claimBlock,
@@ -226,9 +252,25 @@ export class SlackNotificationService implements NotificationService {
     const lineItemsText =
       po.lineItems.length > 0
         ? po.lineItems.map((li) =>
-            `${li.lineNumber ?? "—"}. ${li.description}  |  Qty: ${li.quantity ?? "—"}  |  ${li.unitPrice != null ? formatCurrency(li.unitPrice, po.currency) : "—"} ea  =  ${li.totalPrice != null ? formatCurrency(li.totalPrice, po.currency) : "—"}`
+            [
+              li.lineNumber != null ? `${li.lineNumber}.` : "—.",
+              li.description,
+              li.quantity != null ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}` : null,
+              li.partNumber ? `PN: ${li.partNumber}` : null,
+              li.unitPrice  != null ? `${formatCurrency(li.unitPrice, po.currency)} ea` : null,
+              li.totalPrice != null ? `= ${formatCurrency(li.totalPrice, po.currency)}` : null,
+            ].filter(Boolean).join("  |  ")
           ).join("\n")
         : "No line items extracted.";
+
+    const dmFields = [
+      po.poNumber              ? field("PO Number",     po.poNumber)                             : null,
+      po.orderDate             ? field("Order Date",     po.orderDate)                            : null,
+      po.requestedDeliveryDate ? field("Delivery Date",  po.requestedDeliveryDate)                : null,
+      po.total        != null  ? field("Total",          formatCurrency(po.total, po.currency))   : null,
+      po.paymentTerms          ? field("Payment Terms",  po.paymentTerms)                         : null,
+      po.currency              ? field("Currency",       po.currency)                             : null,
+    ].filter(Boolean) as ReturnType<typeof field>[];
 
     return [
       { type: "header", text: { type: "plain_text", text: `📋 You claimed PO #${po.poNumber ?? "unknown"}`, emoji: true } },
@@ -237,36 +279,43 @@ export class SlackNotificationService implements NotificationService {
         text: mrkdwn(`Here are the full details for the order you just claimed.\n*From:* ${tracked.email.sender}\n*Subject:* ${tracked.email.subject}`),
       },
       { type: "divider" },
-      {
-        type: "section",
-        fields: [
-          field("PO Number", po.poNumber ?? "—"),
-          field("Order Date", po.orderDate ?? "—"),
-          field("Delivery Date", po.requestedDeliveryDate ?? "—"),
-          field("Total", po.total != null ? formatCurrency(po.total, po.currency) : "—"),
-          field("Payment Terms", po.paymentTerms ?? "—"),
-          field("Currency", po.currency ?? "—"),
-        ],
-      },
-      ...(po.buyer
+      ...(dmFields.length > 0 ? [{ type: "section", fields: dmFields }] : []),
+      ...(po.vendor && (po.vendor.name || po.vendor.address || po.vendor.contact || po.vendor.email || po.vendor.phone)
         ? [{
             type: "section",
             text: mrkdwn(
-              `*Buyer*\n${[po.buyer.company, po.buyer.name, po.buyer.contact, po.buyer.email, po.buyer.phone].filter(Boolean).join("\n")}`
+              `*Vendor / Supplier*\n` +
+              [po.vendor.name, po.vendor.address, po.vendor.contact, po.vendor.email, po.vendor.phone]
+                .filter(Boolean).join("\n")
             ),
           }]
         : []),
-      ...(po.vendor
+      ...(po.buyer || po.billTo
         ? [{
             type: "section",
             text: mrkdwn(
-              `*Vendor*\n${[po.vendor.name, po.vendor.address, po.vendor.contact, po.vendor.email, po.vendor.phone].filter(Boolean).join("\n")}`
+              `*Bill To*\n` +
+              [
+                po.billTo?.company ?? po.buyer?.company ?? po.buyer?.name,
+                po.billTo?.address ?? po.buyer?.address,
+                po.buyer?.contact,
+                po.buyer?.email,
+                po.buyer?.phone,
+              ].filter(Boolean).join("\n")
+            ),
+          }]
+        : []),
+      ...(po.shipTo && (po.shipTo.company || po.shipTo.address)
+        ? [{
+            type: "section",
+            text: mrkdwn(
+              `*Ship To*\n` +
+              [po.shipTo.company, po.shipTo.address].filter(Boolean).join("\n")
             ),
           }]
         : []),
       { type: "divider" },
       { type: "section", text: mrkdwn(`*Line Items*\n\`\`\`${lineItemsText}\`\`\``) },
-      ...(po.shippingAddress ? [{ type: "section", text: mrkdwn(`*Ship To:* ${po.shippingAddress}`) }] : []),
       ...(po.notes ? [{ type: "section", text: mrkdwn(`*Notes:* ${po.notes}`) }] : []),
       {
         type: "context",

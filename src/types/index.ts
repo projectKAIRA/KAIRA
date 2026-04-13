@@ -38,6 +38,10 @@ export interface PurchaseOrderData {
   requestedDeliveryDate: string | null;
   vendor: VendorInfo | null;
   buyer: BuyerInfo | null;
+  /** Bill To — the company/address that should receive the invoice. */
+  billTo: AddressBlock | null;
+  /** Ship To — the company/address where goods should be delivered. */
+  shipTo: AddressBlock | null;
   lineItems: POLineItem[];
   subtotal: number | null;
   tax: number | null;
@@ -45,10 +49,14 @@ export interface PurchaseOrderData {
   total: number | null;
   currency: string | null;
   paymentTerms: string | null;
-  shippingAddress: string | null;
-  billingAddress: string | null;
   notes: string | null;
   rawConfidence: "high" | "medium" | "low";
+}
+
+/** A simple company + address block, used for Bill To and Ship To. */
+export interface AddressBlock {
+  company: string | null;
+  address: string | null;
 }
 
 export interface VendorInfo {

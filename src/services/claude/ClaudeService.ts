@@ -132,9 +132,11 @@ export class ClaudeService {
     const systemPrompt = `You are an expert at classifying business emails for a manufacturing/supply-chain company.
 Classify each email into exactly one of these categories:
 
-- RFQ: Request for Quote — customer is asking for pricing on products or services
-- Text PO: Purchase Order in the email body (no PDF attachment) — customer is placing an order via email text
-- General Inquiry: Any other inquiry — questions, complaints, shipping status, product info, etc.
+- RFQ: Request for Quote — customer is explicitly asking for pricing, a quote, or availability on specific products
+- Text PO: Purchase Order in the email body — customer is unambiguously placing an order with clear order details (quantities, part numbers, prices)
+- General Inquiry: Any other email — questions, complaints, shipping status, product info, follow-ups, or anything that is NOT clearly an RFQ or PO
+
+IMPORTANT: When in doubt, classify as "General Inquiry". Only classify as "RFQ" or "Text PO" when you are confident the email clearly matches those definitions. A low-confidence RFQ or Text PO should be classified as "General Inquiry" instead.
 
 Always return valid JSON. Be concise in reasoning (1-2 sentences).`;
 
@@ -188,63 +190,95 @@ Always return valid JSON. Be concise in reasoning (1-2 sentences).`;
     });
 
     const rawText = extractText(response);
-    return parseJson<EmailClassification>(rawText, {
+    const result = parseJson<EmailClassification>(rawText, {
       category: "General Inquiry",
       confidence: "low",
       reasoning: "Failed to parse classification response.",
       extractedData: {},
     });
+
+    // Safety net: low-confidence non-General-Inquiry → downgrade to General Inquiry.
+    // Prevents ambiguous emails from being mis-routed as orders or quotes.
+    if (result.confidence === "low" && result.category !== "General Inquiry") {
+      console.log(
+        `[ClaudeService] Downgrading "${result.category}" (low confidence) → General Inquiry`
+      );
+      return { ...result, category: "General Inquiry" };
+    }
+
+    return result;
   }
 }
 
 // ─── Shared PO extraction constants ───────────────────────────────────────────
 
-const PO_SYSTEM_PROMPT = `You are an expert at parsing purchase order documents.
-Your job is to extract structured data from purchase orders with high accuracy.
-Always return valid JSON matching the schema exactly.
-If a field is not present or cannot be determined, use null.
-For line items, extract every item listed in the document.`;
+const PO_SYSTEM_PROMPT = `You are an expert at parsing purchase order documents for a manufacturing and supply-chain company.
+
+Your job is to extract ALL structured data from purchase orders with the highest possible accuracy. Follow these rules:
+
+1. Always return valid JSON that exactly matches the schema — never omit a field, use null if not found.
+2. Extract EVERY line item listed in the document, no matter how many there are.
+3. For dates, preserve the format as written in the document (e.g. "2024-03-15", "March 15, 2024", "03/15/24").
+4. For currency amounts, return numeric values only (no symbols) — capture the currency code separately.
+5. Distinguish carefully between:
+   - "Bill To" (who gets invoiced) vs "Ship To" (where goods are delivered)
+   - "Vendor/Supplier" (who KAIRA's customer is ordering FROM) vs "Buyer" (who is placing the order)
+6. For payment terms, capture the exact text (e.g. "Net 30", "2/10 Net 30", "Due on receipt").
+7. If a document is clearly not a purchase order, set rawConfidence to "low" and fill what you can.`;
 
 const PO_SCHEMA = `{
-  "poNumber": string | null,
-  "orderDate": string | null,          // ISO-8601 date or human-readable
-  "requestedDeliveryDate": string | null,
-  "vendor": {
-    "name": string | null,
+  "poNumber":             string | null,  // PO number / Purchase Order number / Order number
+  "orderDate":            string | null,  // Date the PO was issued
+  "requestedDeliveryDate": string | null, // Requested delivery date / ship date / need-by date
+
+  "vendor": {                             // The vendor / supplier being ordered FROM
+    "name":    string | null,
     "address": string | null,
     "contact": string | null,
-    "email": string | null,
-    "phone": string | null
+    "email":   string | null,
+    "phone":   string | null
   } | null,
-  "buyer": {
-    "name": string | null,
+
+  "buyer": {                              // The person / department placing the order
+    "name":    string | null,             // Contact person name
+    "company": string | null,             // Buyer's company name
+    "address": string | null,
+    "contact": string | null,             // Title or department
+    "email":   string | null,
+    "phone":   string | null
+  } | null,
+
+  "billTo": {                             // Bill To — company/address that receives the invoice
     "company": string | null,
-    "address": string | null,
-    "contact": string | null,
-    "email": string | null,
-    "phone": string | null
+    "address": string | null
   } | null,
-  "lineItems": [
+
+  "shipTo": {                             // Ship To — company/address where goods are delivered
+    "company": string | null,
+    "address": string | null
+  } | null,
+
+  "lineItems": [                          // Every line item in the document
     {
-      "lineNumber": number | null,
-      "partNumber": string | null,
-      "description": string,
-      "quantity": number | null,
-      "unitOfMeasure": string | null,
-      "unitPrice": number | null,
-      "totalPrice": number | null
+      "lineNumber":    number | null,     // Line or item number
+      "partNumber":    string | null,     // Part number, SKU, item code, catalog number
+      "description":   string,            // Item description (required — use "" if truly absent)
+      "quantity":      number | null,
+      "unitOfMeasure": string | null,     // ea, pcs, lbs, kg, ft, etc.
+      "unitPrice":     number | null,
+      "totalPrice":    number | null      // Line total = quantity × unitPrice
     }
   ],
-  "subtotal": number | null,
-  "tax": number | null,
-  "shippingCost": number | null,
-  "total": number | null,
-  "currency": string | null,           // ISO-4217 code, e.g. "USD"
-  "paymentTerms": string | null,
-  "shippingAddress": string | null,
-  "billingAddress": string | null,
-  "notes": string | null,
-  "rawConfidence": "high" | "medium" | "low"  // your confidence in the extraction
+
+  "subtotal":     number | null,          // Sum of line totals before tax/shipping
+  "tax":          number | null,          // Tax amount
+  "shippingCost": number | null,          // Freight / shipping charge
+  "total":        number | null,          // Grand total (subtotal + tax + shipping)
+  "currency":     string | null,          // ISO-4217 code: "USD", "EUR", "GBP", etc.
+  "paymentTerms": string | null,          // e.g. "Net 30", "2/10 Net 30", "Due on receipt"
+  "notes":        string | null,          // Special instructions, comments, terms & conditions
+
+  "rawConfidence": "high" | "medium" | "low"  // Overall confidence in this extraction
 }`;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -277,6 +311,8 @@ function defaultPurchaseOrder(): PurchaseOrderData {
     requestedDeliveryDate: null,
     vendor: null,
     buyer: null,
+    billTo: null,
+    shipTo: null,
     lineItems: [],
     subtotal: null,
     tax: null,
@@ -284,8 +320,6 @@ function defaultPurchaseOrder(): PurchaseOrderData {
     total: null,
     currency: null,
     paymentTerms: null,
-    shippingAddress: null,
-    billingAddress: null,
     notes: null,
     rawConfidence: "low",
   };
