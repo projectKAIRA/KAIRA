@@ -516,112 +516,200 @@ async function activateTenant(tenantId: string, scheduler: TenantScheduler): Pro
 // ─── HTML templates ───────────────────────────────────────────────────────────
 
 const BASE_CSS = `
+  :root {
+    --ink:          #0D0D14;
+    --ink-soft:     #3D3A52;
+    --ink-muted:    #7A778F;
+    --purple:       #8B5CF6;
+    --purple-mid:   #A78BFA;
+    --purple-light: #C4B5FD;
+    --purple-pale:  #EDE9FE;
+    --purple-ghost: #F5F3FF;
+    --white:        #FFFFFF;
+    --border:       rgba(139,92,246,0.15);
+  }
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    background: #0d0d0d;
-    color: #e8e8e8;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--white);
+    color: var(--ink);
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
   }
-  .shell { width: 100%; max-width: 480px; padding: 2rem 1rem; }
-  .shell-wide { width: 100%; max-width: 860px; padding: 2rem 1rem; }
-  .logo { text-align: center; margin-bottom: 2.5rem; }
-  .logo-name { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.15em; color: #fff; }
-  .logo-tagline { font-size: 0.78rem; letter-spacing: 0.08em; color: #666; text-transform: uppercase; margin-top: 0.25rem; }
-  .card { background: #161616; border: 1px solid #2a2a2a; border-radius: 12px; padding: 2rem; }
-  .card-title { font-size: 1.25rem; font-weight: 600; color: #fff; margin-bottom: 0.4rem; }
-  .card-sub { font-size: 0.85rem; color: #888; margin-bottom: 1.75rem; line-height: 1.5; }
-  label { display: block; font-size: 0.82rem; font-weight: 500; color: #aaa; margin-bottom: 0.4rem; letter-spacing: 0.02em; }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 15% 0%,   rgba(196,181,253,0.2)  0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 85% 10%,  rgba(167,139,250,0.12) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 60% at 50% 100%, rgba(237,233,254,0.28) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── LAYOUT ── */
+  .shell      { width: 100%; max-width: 480px; padding: 2.5rem 1.25rem; position: relative; z-index: 1; }
+  .shell-wide { width: 100%; max-width: 880px; padding: 2.5rem 1.25rem; position: relative; z-index: 1; }
+
+  /* ── LOGO ── */
+  .logo { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; margin-bottom: 2.25rem; text-decoration: none; }
+  .logo-butterfly { width: 48px; height: 48px; }
+  .logo-text { display: flex; flex-direction: column; align-items: center; line-height: 1; gap: 3px; }
+  .logo-project { font-family: 'Dancing Script', cursive; font-size: 13px; font-weight: 500; color: var(--purple-mid); letter-spacing: 0.5px; }
+  .logo-kaira   { font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: 4px; text-transform: uppercase; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 4px 24px rgba(139,92,246,0.07);
+  }
+  .card-title { font-size: 1.2rem; font-weight: 600; color: var(--ink); margin-bottom: 0.35rem; }
+  .card-sub   { font-size: 0.875rem; color: var(--ink-muted); margin-bottom: 1.75rem; line-height: 1.65; }
+
+  /* ── FORM ── */
+  label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--ink-soft); margin-bottom: 0.35rem; letter-spacing: 0.02em; }
   .field { margin-bottom: 1rem; }
+
   input[type="text"], input[type="url"], input[type="email"], input[type="password"] {
     width: 100%;
-    background: #0d0d0d;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 0.65rem 0.85rem;
-    color: #fff;
-    font-size: 0.95rem;
+    background: var(--white);
+    border: 1px solid rgba(139,92,246,0.22);
+    border-radius: 10px;
+    padding: 0.7rem 1rem;
+    color: var(--ink);
+    font-size: 0.9rem;
+    font-family: 'DM Sans', sans-serif;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
-  input:focus { border-color: #5865f2; }
+  input::placeholder { color: var(--ink-muted); }
+  input:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+
+  /* ── BUTTONS ── */
   .btn {
-    display: block; width: 100%; padding: 0.75rem 1rem; border-radius: 8px; border: none;
-    font-size: 0.95rem; font-weight: 600; cursor: pointer; text-decoration: none;
-    text-align: center; transition: opacity 0.15s, transform 0.1s;
+    display: block; width: 100%; padding: 0.8rem 1.25rem;
+    border-radius: 100px; border: none;
+    font-size: 0.9rem; font-weight: 500; font-family: 'DM Sans', sans-serif;
+    cursor: pointer; text-decoration: none; text-align: center;
+    letter-spacing: 0.3px; transition: all 0.25s;
   }
   .btn:active { transform: scale(0.98); }
-  .btn-ms     { background: #0078d4; color: #fff; margin-top: 1rem; }
-  .btn-imap   { background: #1a1a1a; color: #e8e8e8; border: 1px solid #333; margin-top: 0.75rem; }
-  .btn-slack  { background: #4a154b; color: #fff; }
-  .btn-teams  { background: #5865f2; color: #fff; margin-top: 0.75rem; }
-  .btn-submit { background: #22c55e; color: #000; margin-top: 1.25rem; }
-  .btn:hover  { opacity: 0.9; }
-  .divider {
-    display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0;
-    color: #444; font-size: 0.8rem; letter-spacing: 0.05em;
+
+  .btn-ms, .btn-submit { background: var(--ink); color: var(--white); margin-top: 1rem; }
+  .btn-ms:hover, .btn-submit:hover {
+    background: var(--purple);
+    box-shadow: 0 8px 28px rgba(139,92,246,0.3);
+    transform: translateY(-1px);
   }
-  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #2a2a2a; }
+
+  .btn-imap {
+    background: transparent; color: var(--ink-soft);
+    border: 1px solid var(--border); margin-top: 0.75rem;
+  }
+  .btn-imap:hover { border-color: var(--purple); color: var(--purple); transform: translateY(-1px); }
+
+  .btn-skip { background: var(--purple-ghost); color: var(--purple); border: 1px solid rgba(139,92,246,0.25); }
+  .btn-skip:hover { background: var(--purple-pale); transform: translateY(-1px); }
+
+  .btn-slack { background: #4A154B; color: var(--white); }
+  .btn-slack:hover { opacity: 0.88; transform: translateY(-1px); }
+
+  .btn-teams { background: #5865f2; color: var(--white); margin-top: 0.75rem; }
+  .btn-teams:hover { opacity: 0.88; transform: translateY(-1px); }
+
+  .btn-back { background: var(--ink); color: var(--white); margin-top: 1.5rem; }
+  .btn-back:hover { background: var(--purple); transform: translateY(-1px); }
+
+  /* ── DIVIDER ── */
+  .divider { display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0; color: var(--ink-muted); font-size: 0.78rem; letter-spacing: 0.05em; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── PILL (connected badge) ── */
   .pill {
     display: inline-flex; align-items: center; gap: 0.4rem;
-    background: #0d2b12; border: 1px solid #1a5c2a; color: #4ade80;
-    border-radius: 20px; padding: 0.3rem 0.75rem; font-size: 0.8rem; font-weight: 500;
-    margin-bottom: 1.5rem;
+    background: var(--purple-ghost); border: 1px solid rgba(139,92,246,0.2);
+    color: var(--purple); border-radius: 20px;
+    padding: 0.3rem 0.8rem; font-size: 0.78rem; font-weight: 500;
+    margin-bottom: 1.25rem;
   }
-  .error-msg {
-    background: #2a0e0e; border: 1px solid #5c1a1a; color: #f87171;
-    border-radius: 8px; padding: 0.65rem 0.85rem; font-size: 0.85rem; margin-bottom: 1rem;
-  }
-  .hint { font-size: 0.78rem; color: #555; margin-top: 1rem; line-height: 1.5; text-align: center; }
-  .hint a { color: #6b9eff; text-decoration: none; }
+
+  /* ── ERROR ── */
+  .error-msg { background: #FFF1F2; border: 1px solid #FECDD3; color: #BE123C; border-radius: 10px; padding: 0.65rem 1rem; font-size: 0.85rem; margin-bottom: 1rem; }
+
+  /* ── HINT ── */
+  .hint { font-size: 0.78rem; color: var(--ink-muted); margin-top: 1rem; line-height: 1.6; text-align: center; }
+  .hint a { color: var(--purple); text-decoration: none; }
   .hint a:hover { text-decoration: underline; }
+
+  /* ── STEP DOTS ── */
   .steps { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 2rem; }
-  .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #2a2a2a; }
-  .step-dot.active { background: #5865f2; }
-  .step-dot.done   { background: #4ade80; }
-  .success-icon { text-align: center; font-size: 3.5rem; margin-bottom: 1.25rem; }
-  .success-title { font-size: 1.4rem; font-weight: 700; color: #fff; text-align: center; margin-bottom: 0.5rem; }
-  .success-sub { font-size: 0.88rem; color: #888; text-align: center; line-height: 1.6; margin-bottom: 1.5rem; }
-  .info-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 0.6rem 0; border-bottom: 1px solid #222; font-size: 0.85rem;
-  }
+  .step-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(139,92,246,0.15); }
+  .step-dot.active { background: var(--purple); }
+  .step-dot.done   { background: var(--purple-light); }
+
+  /* ── SUCCESS ── */
+  .success-icon  { text-align: center; font-size: 3rem; margin-bottom: 1.25rem; }
+  .success-title { font-size: 1.4rem; font-weight: 700; color: var(--ink); text-align: center; margin-bottom: 0.5rem; }
+  .success-sub   { font-size: 0.875rem; color: var(--ink-muted); text-align: center; line-height: 1.7; margin-bottom: 1.75rem; }
+
+  .info-row { display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
   .info-row:last-child { border-bottom: none; }
-  .info-label { color: #666; }
-  .info-value { color: #e8e8e8; font-weight: 500; }
-  .tag-green { background: #0d2b12; color: #4ade80; border-radius: 4px; padding: 0.2rem 0.5rem; font-size: 0.75rem; font-weight: 600; }
-  /* Plans grid */
-  .plans-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .info-label { color: var(--ink-muted); }
+  .info-value { color: var(--ink); font-weight: 500; }
+  .tag-purple { background: var(--purple-pale); color: var(--purple); border-radius: 6px; padding: 0.2rem 0.55rem; font-size: 0.75rem; font-weight: 600; }
+
+  /* ── PLANS ── */
+  .plans-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
   @media (max-width: 640px) { .plans-grid { grid-template-columns: 1fr; } }
+
   .plan-card {
-    background: #161616; border: 1px solid #2a2a2a; border-radius: 12px;
-    padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; position: relative;
+    background: var(--white); border: 1px solid var(--border); border-radius: 20px;
+    padding: 1.75rem 1.5rem; display: flex; flex-direction: column; gap: 1rem;
+    position: relative; box-shadow: 0 2px 16px rgba(139,92,246,0.05);
+    transition: box-shadow 0.2s, transform 0.2s;
   }
-  .plan-card.highlight { border-color: #5865f2; }
+  .plan-card:hover { box-shadow: 0 6px 28px rgba(139,92,246,0.12); transform: translateY(-2px); }
+  .plan-card.highlight { border-color: var(--purple); box-shadow: 0 4px 24px rgba(139,92,246,0.15); }
+
   .plan-badge {
-    position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
-    background: #5865f2; color: #fff; font-size: 0.7rem; font-weight: 700;
-    letter-spacing: 0.06em; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 20px;
+    position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+    background: var(--purple); color: var(--white); font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; padding: 0.2rem 0.7rem;
+    border-radius: 20px; white-space: nowrap;
   }
-  .plan-name { font-size: 1.1rem; font-weight: 700; color: #fff; }
-  .plan-desc { font-size: 0.8rem; color: #777; line-height: 1.5; }
-  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
-  .plan-features li { font-size: 0.82rem; color: #aaa; display: flex; align-items: center; gap: 0.4rem; }
-  .plan-features li::before { content: "✓"; color: #4ade80; font-weight: 700; flex-shrink: 0; }
+
+  .plan-name { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+  .plan-desc { font-size: 0.8rem; color: var(--ink-muted); line-height: 1.55; }
+  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; flex: 1; }
+  .plan-features li { font-size: 0.82rem; color: var(--ink-soft); display: flex; align-items: center; gap: 0.45rem; }
+  .plan-features li::before { content: "✓"; color: var(--purple); font-weight: 700; flex-shrink: 0; }
+
   .btn-plan {
-    display: block; width: 100%; padding: 0.65rem 1rem; border-radius: 8px;
-    background: #1a1a1a; border: 1px solid #333; color: #e8e8e8;
-    font-size: 0.9rem; font-weight: 600; cursor: pointer; text-align: center;
-    transition: background 0.15s, border-color 0.15s;
+    display: block; width: 100%; padding: 0.7rem 1rem; border-radius: 100px;
+    font-size: 0.875rem; font-weight: 500; font-family: 'DM Sans', sans-serif;
+    cursor: pointer; text-align: center; letter-spacing: 0.3px; transition: all 0.25s;
+    border: 1px solid var(--border); background: transparent; color: var(--ink-soft);
   }
-  .plan-card.highlight .btn-plan { background: #5865f2; border-color: #5865f2; color: #fff; }
-  .btn-plan:hover { opacity: 0.85; }
-  .trial-notice {
-    text-align: center; font-size: 0.8rem; color: #555; margin-top: 1.25rem; line-height: 1.5;
+  .plan-card.highlight .btn-plan { background: var(--ink); border-color: var(--ink); color: var(--white); }
+  .btn-plan:hover { border-color: var(--purple); color: var(--purple); }
+  .plan-card.highlight .btn-plan:hover {
+    background: var(--purple); border-color: var(--purple); color: var(--white);
+    box-shadow: 0 8px 24px rgba(139,92,246,0.3); transform: translateY(-1px);
   }
+
+  .trial-notice { text-align: center; font-size: 0.78rem; color: var(--ink-muted); margin-top: 1.25rem; line-height: 1.6; }
 `;
 
 function html(body: string, wide = false): string {
@@ -631,14 +719,27 @@ function html(body: string, wide = false): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KAIRA — Setup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>${BASE_CSS}</style>
 </head>
 <body>
   <div class="${wide ? "shell-wide" : "shell"}">
-    <div class="logo">
-      <div class="logo-name">K.A.I.R.A</div>
-      <div class="logo-tagline">Inbox Intelligence Platform</div>
-    </div>
+    <a class="logo" href="/">
+      <svg class="logo-butterfly" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 55 C40 40, 15 30, 10 15 C8 8, 18 5, 25 12 C32 19, 42 38, 50 55Z" stroke="#A78BFA" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M50 55 C60 40, 85 30, 90 15 C92 8, 82 5, 75 12 C68 19, 58 38, 50 55Z" stroke="#A78BFA" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M50 55 C38 65, 12 72, 8 88 C6 95, 18 97, 26 88 C34 79, 44 65, 50 55Z" stroke="#C4B5FD" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M50 55 C62 65, 88 72, 92 88 C94 95, 82 97, 74 88 C66 79, 56 65, 50 55Z" stroke="#C4B5FD" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <circle cx="50" cy="55" r="3" fill="#8B5CF6" opacity="0.6"/>
+        <line x1="50" y1="58" x2="50" y2="78" stroke="#8B5CF6" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-project">Project</span>
+        <span class="logo-kaira">Kaira</span>
+      </div>
+    </a>
     ${body}
   </div>
 </body>
@@ -729,7 +830,7 @@ function renderStep2(sessionId: string, connectedLabel: string, connectedEmail: 
       <div class="card-title">Connect your notification channel</div>
       <div class="card-sub">
         Choose where ${escHtml(companyName)} should receive purchase order alerts.
-        ${connectedEmail ? `<br><span style="color:#666;">Inbox: ${escHtml(connectedEmail)}</span>` : ""}
+        ${connectedEmail ? `<br><span style="color:var(--ink-muted);">Inbox: ${escHtml(connectedEmail)}</span>` : ""}
       </div>
       ${errorMsg ? `<div class="error-msg">${escHtml(errorMsg)}</div>` : ""}
       ${slackButton}
@@ -746,8 +847,7 @@ function renderStep2(sessionId: string, connectedLabel: string, connectedEmail: 
     </div>
     <div class="divider">or</div>
     <a href="/onboarding/skip-notification?session=${encodeURIComponent(sessionId)}"
-       class="btn"
-       style="background:#1e1e2e;color:#c4b5fd;border:1px solid #6d28d9;">
+       class="btn btn-skip">
       Skip for now — connect Slack or Teams later &rarr;
     </a>
     <p class="hint" style="margin-top:0.6rem;">
@@ -805,7 +905,7 @@ function renderComplete(companyName: string, emailProviderLabel: string, connect
       </div>
       <div class="info-row">
         <span class="info-label">${escHtml(emailProviderLabel)}</span>
-        <span class="info-value tag-green">Connected</span>
+        <span class="info-value tag-purple">Connected</span>
       </div>
       ${connectedEmail ? `
       <div class="info-row">
@@ -814,11 +914,11 @@ function renderComplete(companyName: string, emailProviderLabel: string, connect
       </div>` : ""}
       <div class="info-row">
         <span class="info-label">Trial</span>
-        <span class="info-value tag-green">14 days active</span>
+        <span class="info-value tag-purple">14 days active</span>
       </div>
       <div class="info-row">
         <span class="info-label">Monitoring</span>
-        <span class="info-value tag-green">Active</span>
+        <span class="info-value tag-purple">Active</span>
       </div>
     </div>
   `);
@@ -827,9 +927,9 @@ function renderComplete(companyName: string, emailProviderLabel: string, connect
 function renderError(title: string, detail: string, backHref = "/onboarding"): string {
   return html(`
     <div class="card">
-      <div class="card-title" style="color:#f87171;">${escHtml(title)}</div>
+      <div class="card-title">${escHtml(title)}</div>
       <div class="card-sub" style="margin-top:0.5rem;">${escHtml(detail)}</div>
-      <a class="btn btn-ms" href="${escAttr(backHref)}" style="margin-top:1.5rem;">Try again</a>
+      <a class="btn btn-back" href="${escAttr(backHref)}">Try again</a>
     </div>
   `);
 }
