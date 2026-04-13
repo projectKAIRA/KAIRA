@@ -235,11 +235,11 @@ export interface SlackOAuthResponse {
   error?: string;
 }
 
-export function buildSlackAuthUrl(state: string): string {
+export function buildSlackAuthUrl(state: string, redirectUri?: string): string {
   const params = new URLSearchParams({
     client_id:    config.oauth.slack.clientId,
     scope:        SLACK_SCOPES,
-    redirect_uri: config.oauth.slack.redirectUri,
+    redirect_uri: redirectUri ?? config.oauth.slack.redirectUri,
     state,
   });
   return `https://slack.com/oauth/v2/authorize?${params.toString()}`;
@@ -247,6 +247,7 @@ export function buildSlackAuthUrl(state: string): string {
 
 export async function exchangeSlackCode(
   code: string,
+  redirectUri?: string,
 ): Promise<SlackOAuthResponse> {
   const res = await fetch("https://slack.com/api/oauth.v2.access", {
     method: "POST",
@@ -255,7 +256,7 @@ export async function exchangeSlackCode(
       client_id:     config.oauth.slack.clientId,
       client_secret: config.oauth.slack.clientSecret,
       code,
-      redirect_uri:  config.oauth.slack.redirectUri,
+      redirect_uri:  redirectUri ?? config.oauth.slack.redirectUri,
     }),
   });
   return res.json() as Promise<SlackOAuthResponse>;

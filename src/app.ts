@@ -8,6 +8,7 @@ import { createTenantsRouter } from "./routes/tenants.js";
 import { createOnboardingRouter } from "./routes/onboarding.js";
 import { createAdminRouter } from "./routes/admin.js";
 import { createStripeRouter } from "./routes/stripe.js";
+import { createSlackRouter } from "./routes/slack.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +40,12 @@ export function createApp(scheduler: TenantScheduler): express.Application {
   //   Slack:     https://<host>/onboarding/auth/slack/callback
 
   app.use("/onboarding", createOnboardingRouter(scheduler));
+
+  // ─── Slack OAuth connect (post-onboarding) ────────────────────────────────
+  // Used from the dashboard to connect / reconnect Slack for an existing tenant.
+  // Redirect URI registered in Slack app: https://trykaira.ai/auth/slack/callback
+
+  app.use("/auth/slack", createSlackRouter(scheduler));
 
   // ─── Tenant CRUD ─────────────────────────────────────────────────────────
 
