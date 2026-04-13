@@ -1,7 +1,20 @@
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import sharp from "sharp";
+import { createRequire } from "module";
+import type { AttachmentData, FieldsData } from "@kenjiuno/msgreader";
 import { EmailAttachment } from "../../types/index.js";
+
+// @kenjiuno/msgreader is a CJS package that uses the __esModule convention.
+// With module: NodeNext the default import resolves to the module namespace rather
+// than the constructor, so we require() it and provide an explicit constructor type.
+const _require = createRequire(import.meta.url);
+const MsgReader = (_require("@kenjiuno/msgreader") as {
+  default: new (buffer: Buffer | ArrayBuffer) => {
+    getFileData():                            FieldsData;
+    getAttachment(a: number | FieldsData):   AttachmentData;
+  };
+}).default;
 
 // ─── Content-type sets ────────────────────────────────────────────────────────
 
@@ -34,6 +47,12 @@ const DIRECT_IMAGE_TYPES = new Map<string, SupportedImageMime>([
 
 const TIFF_CONTENT_TYPES = new Set(["image/tiff", "image/x-tiff"]);
 
+const MSG_CONTENT_TYPES = new Set([
+  "application/vnd.ms-outlook",
+  "application/x-msg",
+  "application/msg",
+]);
+
 // ─── Public types ─────────────────────────────────────────────────────────────
 
 export type SupportedImageMime = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
@@ -61,6 +80,8 @@ export type ExtractedContent =
  *  - XLSX    → CSV text via SheetJS
  *  - JPEG / PNG / GIF / WebP → base64 passthrough (Claude image block)
  *  - TIFF    → converted to PNG via sharp, then base64
+ *  - MSG     → parsed via @kenjiuno/msgreader; inner attachments routed through
+ *              this same pipeline; falls back to inner email body as text
  *  - Unknown → returns null with a console.warn
  */
 export class AttachmentExtractor {
@@ -88,6 +109,12 @@ export class AttachmentExtractor {
 
     if (TIFF_CONTENT_TYPES.has(ct)) {
       return this.convertTiffToPng(contentBytes, name);
+    }
+
+    // .msg files may arrive with a specific MIME type OR as application/octet-stream
+    // with a .msg filename — check both.
+    if (MSG_CONTENT_TYPES.has(ct) || name.toLowerCase().endsWith(".msg")) {
+      return this.extractMsg(contentBytes, name);
     }
 
     console.warn(
@@ -130,4 +157,81 @@ export class AttachmentExtractor {
     console.log(`[AttachmentExtractor] Converted TIFF "${name}" → PNG for Claude`);
     return { kind: "image", base64: pngBase64, mimeType: "image/png", name: pngName };
   }
+
+  /**
+   * Parse a .msg (Outlook email) file and extract its inner attachments and/or body.
+   *
+   * Inner attachments are routed through the normal extract() pipeline — so a PDF
+   * inside a .msg becomes a `kind: "pdf"` result, a DOCX becomes `kind: "text"`, etc.
+   * Nested .msg files (a .msg inside a .msg) are handled recursively.
+   *
+   * Falls back to the inner email body as plain text if no supported attachment is found.
+   */
+  private async extractMsg(base64: string, outerName: string): Promise<ExtractedContent | null> {
+    const buffer = Buffer.from(base64, "base64");
+    const reader = new MsgReader(buffer);
+    const fileData = reader.getFileData();
+
+    const attachments = fileData.attachments ?? [];
+    console.log(
+      `[AttachmentExtractor] .msg "${outerName}": ` +
+      `${attachments.length} inner attachment(s), body length=${fileData.body?.length ?? 0}`
+    );
+
+    for (const attInfo of attachments) {
+      const inner      = reader.getAttachment(attInfo);
+      const innerName  = inner.fileName;
+      const innerCt    = mimeFromExtension(innerName);
+      const innerBase64 = Buffer.from(inner.content).toString("base64");
+
+      console.log(`[AttachmentExtractor] .msg inner attachment: "${innerName}" (${innerCt})`);
+
+      const synthetic: EmailAttachment = {
+        id:           `msg-inner-${innerName}`,
+        name:         innerName,
+        contentType:  innerCt,
+        contentBytes: innerBase64,
+        size:         inner.content.length,
+      };
+
+      const extracted = await this.extract(synthetic);
+      if (extracted) return extracted;
+    }
+
+    // No inner attachments yielded a result — fall back to the inner email body.
+    const body = fileData.body?.trim() ?? "";
+    if (body) {
+      console.log(
+        `[AttachmentExtractor] .msg "${outerName}": no extractable inner attachments — using inner body text`
+      );
+      return { kind: "text", content: body, name: outerName, originalBase64: base64 };
+    }
+
+    console.warn(`[AttachmentExtractor] .msg "${outerName}": no extractable content found.`);
+    return null;
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Infer a MIME content type from a filename extension. */
+function mimeFromExtension(filename: string): string {
+  const ext = filename.toLowerCase().split(".").pop() ?? "";
+  const map: Record<string, string> = {
+    pdf:  "application/pdf",
+    doc:  "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xls:  "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    csv:  "text/csv",
+    jpg:  "image/jpeg",
+    jpeg: "image/jpeg",
+    png:  "image/png",
+    gif:  "image/gif",
+    webp: "image/webp",
+    tif:  "image/tiff",
+    tiff: "image/tiff",
+    msg:  "application/vnd.ms-outlook",
+  };
+  return map[ext] ?? "application/octet-stream";
 }

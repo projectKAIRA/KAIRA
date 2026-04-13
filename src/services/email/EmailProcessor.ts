@@ -13,6 +13,8 @@ import { EmailAttachment, EmailMessage, ProcessingResult } from "../../types/ind
  *  - XLSX / XLS → CSV text via SheetJS  → Claude text prompt
  *  - JPEG / PNG / GIF / WebP → Claude image block
  *  - TIFF       → converted to PNG via sharp → Claude image block
+ *  - MSG        → inner attachments extracted and routed as above;
+ *                 falls back to inner email body text if no supported attachment found
  *  - OneDrive / SharePoint link in body → downloaded then routed above
  *  - Unrecognized type → logged and skipped; email falls through to classification
  *
