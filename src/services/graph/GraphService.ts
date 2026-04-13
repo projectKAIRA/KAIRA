@@ -2,6 +2,7 @@ import { ClientSecretCredential, DeviceCodeCredential } from "@azure/identity";
 import type { TokenCredential, AccessToken } from "@azure/identity";
 import { Client, ResponseType } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js";
+import { simpleParser } from "mailparser";
 import { getPrismaClient } from "../../lib/prisma.js";
 import { TenantGraphConfig } from "../../types/tenant.js";
 import { EmailAttachment, EmailMessage } from "../../types/index.js";
@@ -260,6 +261,76 @@ export class GraphService implements EmailFetcher {
     return row?.deltaLink ?? null;
   }
 
+  /**
+   * Download an itemAttachment as raw MIME and extract its inner file attachments.
+   *
+   * When a user forwards an email by attaching it as an "Outlook Item", Outlook
+   * sends it as an itemAttachment. The actual PO document (PDF, DOCX, etc.) lives
+   * inside that embedded email. This method downloads the MIME bytes via /$value,
+   * parses them with mailparser, and returns only the real file attachments —
+   * skipping any inline CID images (logos, signature graphics).
+   */
+  private async extractItemAttachmentFiles(
+    messageId: string,
+    attachmentId: string,
+    attName: string,
+  ): Promise<EmailAttachment[]> {
+    try {
+      const mimeBuffer = await this.client
+        .api(`/users/${this.userEmail}/messages/${messageId}/attachments/${attachmentId}/$value`)
+        .responseType(ResponseType.ARRAYBUFFER)
+        .get() as ArrayBuffer;
+
+      console.log(
+        `[GraphService] itemAttachment "${attName}" MIME downloaded — ${mimeBuffer.byteLength} bytes`
+      );
+
+      const parsed = await simpleParser(Buffer.from(mimeBuffer));
+      const results: EmailAttachment[] = [];
+
+      for (const innerAtt of parsed.attachments ?? []) {
+        if (!innerAtt.content || !innerAtt.filename) continue;
+
+        // Skip CID-referenced inline images — they're always logos or signature art.
+        // Real document attachments (PDFs, Word docs) are always content-disposition: attachment.
+        if (innerAtt.contentDisposition === "inline") {
+          console.log(
+            `[GraphService] itemAttachment inner "${innerAtt.filename}": skipping inline image`
+          );
+          continue;
+        }
+
+        const base64 = innerAtt.content.toString("base64");
+        const size   = innerAtt.size ?? innerAtt.content.length;
+        console.log(
+          `[GraphService] itemAttachment inner "${innerAtt.filename}" — ` +
+          `contentType="${innerAtt.contentType}" size=${size}B`
+        );
+
+        results.push({
+          id:           `item-${attachmentId}-${innerAtt.filename}`,
+          name:         innerAtt.filename,
+          contentType:  innerAtt.contentType ?? "application/octet-stream",
+          contentBytes: base64,
+          size,
+        });
+      }
+
+      console.log(
+        `[GraphService] itemAttachment "${attName}": ` +
+        `extracted ${results.length} inner file(s) — ` +
+        `[${results.map(r => `"${r.name}"`).join(", ")}]`
+      );
+      return results;
+    } catch (err) {
+      console.error(
+        `[GraphService] Failed to extract itemAttachment "${attName}":`,
+        (err as Error).message ?? err
+      );
+      return [];
+    }
+  }
+
   private async saveDeltaLink(link: string): Promise<void> {
     const db = getPrismaClient();
     await db.deltaLink.upsert({
@@ -297,72 +368,81 @@ export class GraphService implements EmailFetcher {
       console.log(`[GraphService] /attachments returned ${rawAtts.length} item(s) for message ${raw.id}`);
 
       for (const att of rawAtts) {
-        const odataType   = att["@odata.type"] ?? "(missing)";
-        const attName     = att.name ?? "attachment";
-        const attCt       = att.contentType ?? "application/octet-stream";
-        const attSize     = att.size ?? 0;
-        const inlineBytes = att.contentBytes;
+        const odataType = att["@odata.type"] ?? "(missing)";
+        const attName   = att.name ?? "attachment";
+        const attSize   = att.size ?? 0;
 
         console.log(
           `[GraphService] Attachment: name="${attName}" type="${odataType}" ` +
-          `contentType="${attCt}" size=${attSize} ` +
-          `contentBytes=${inlineBytes ? `${inlineBytes.length} chars (base64)` : "MISSING"}`
+          `size=${attSize} isInline=${att.isInline ?? false}`
         );
 
-        // Accept both "#microsoft.graph.fileAttachment" (standard) and any
-        // variant that isn't a reference or item attachment, to guard against
-        // SDK/version differences in the @odata.type value.
-        const isFileAttachment =
-          odataType === "#microsoft.graph.fileAttachment" ||
-          (!odataType.includes("itemAttachment") && !odataType.includes("referenceAttachment") && attSize > 0);
-
-        if (!isFileAttachment) {
-          console.log(`[GraphService] Skipping non-file attachment "${attName}" (${odataType})`);
+        // ── Outlook Item (itemAttachment) ──────────────────────────────────────
+        // When a user forwards an email by attaching it as an "Outlook Item",
+        // Graph returns it as #microsoft.graph.itemAttachment. It has no
+        // contentBytes — instead we download the raw MIME via /$value and use
+        // mailparser to extract the inner file attachments (e.g. the PDF).
+        if (odataType === "#microsoft.graph.itemAttachment") {
+          console.log(`[GraphService] itemAttachment "${attName}" — extracting inner file attachments`);
+          const innerAtts = await this.extractItemAttachmentFiles(raw.id, att.id, attName);
+          attachments.push(...innerAtts);
           continue;
         }
 
-        let contentBytes = inlineBytes ?? "";
+        // ── Reference attachments (links, not files) ───────────────────────────
+        if (odataType === "#microsoft.graph.referenceAttachment") {
+          console.log(`[GraphService] Skipping referenceAttachment "${attName}"`);
+          continue;
+        }
+
+        // ── Inline file attachments (CID images in HTML body) ─────────────────
+        // isInline = true means the attachment is embedded via Content-ID in the
+        // HTML body — always a logo, signature image, or decorative element.
+        // These never contain PO data and must be filtered out.
+        if (att.isInline) {
+          console.log(`[GraphService] Skipping inline attachment "${attName}" (signature/embedded image)`);
+          continue;
+        }
+
+        // ── Regular file attachment ────────────────────────────────────────────
+        if (odataType !== "#microsoft.graph.fileAttachment") {
+          console.log(`[GraphService] Skipping unknown attachment type "${odataType}" for "${attName}"`);
+          continue;
+        }
+
+        const attCt       = att.contentType ?? "application/octet-stream";
+        let   contentBytes = att.contentBytes ?? "";
+
+        console.log(
+          `[GraphService] fileAttachment "${attName}" — ` +
+          `contentType="${attCt}" contentBytes=${contentBytes ? `${contentBytes.length} chars` : "MISSING"}`
+        );
 
         // Graph doesn't inline contentBytes for attachments larger than ~3 MB.
         // Fall back to the /$value endpoint to download the raw bytes.
         if (!contentBytes && attSize > 0) {
-          console.log(
-            `[GraphService] contentBytes missing for "${attName}" (size=${attSize}) — ` +
-            `downloading via /$value endpoint`
-          );
+          console.log(`[GraphService] Downloading "${attName}" via /$value (size=${attSize})`);
           try {
             const valueBuffer = await this.client
               .api(`/users/${this.userEmail}/messages/${raw.id}/attachments/${att.id}/$value`)
               .responseType(ResponseType.ARRAYBUFFER)
               .get() as ArrayBuffer;
             contentBytes = Buffer.from(valueBuffer).toString("base64");
-            console.log(
-              `[GraphService] Downloaded "${attName}" via /$value — ` +
-              `${contentBytes.length} base64 chars (${attSize} bytes)`
-            );
+            console.log(`[GraphService] Downloaded "${attName}" — ${contentBytes.length} base64 chars`);
           } catch (err) {
             console.error(
-              `[GraphService] Failed to download attachment "${attName}" via /$value:`,
+              `[GraphService] /$value download failed for "${attName}":`,
               (err as Error).message ?? err
             );
           }
         }
 
         if (!contentBytes) {
-          console.warn(
-            `[GraphService] Attachment "${attName}" has no content after all attempts — skipping.`
-          );
+          console.warn(`[GraphService] "${attName}" has no content after all attempts — skipping.`);
           continue;
         }
 
-        attachments.push({
-          id:           att.id,
-          name:         attName,
-          contentType:  attCt,
-          contentBytes,
-          size:         attSize,
-        });
-
+        attachments.push({ id: att.id, name: attName, contentType: attCt, contentBytes, size: attSize });
         console.log(`[GraphService] Added attachment "${attName}" (${attCt}, ${attSize} bytes)`);
       }
     }
@@ -407,6 +487,8 @@ interface GraphAttachment {
   contentType?: string;
   contentBytes?: string;
   size?: number;
+  /** True for CID-referenced images embedded in the HTML body (logos, signatures). */
+  isInline?: boolean;
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
