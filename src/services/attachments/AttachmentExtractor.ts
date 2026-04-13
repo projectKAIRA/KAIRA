@@ -161,11 +161,15 @@ export class AttachmentExtractor {
   /**
    * Parse a .msg (Outlook email) file and extract its inner attachments and/or body.
    *
-   * Inner attachments are routed through the normal extract() pipeline — so a PDF
-   * inside a .msg becomes a `kind: "pdf"` result, a DOCX becomes `kind: "text"`, etc.
-   * Nested .msg files (a .msg inside a .msg) are handled recursively.
+   * Priority order (highest → lowest):
+   *   1. PDF or text-based document (DOCX/XLSX) — definitive PO documents
+   *   2. Inner email body text — forwarded emails carry the actual content here
+   *   3. Image attachment — last resort; inline images are usually logos/signatures
    *
-   * Falls back to the inner email body as plain text if no supported attachment is found.
+   * This ordering prevents decorative inline images (logos, headers, email signatures)
+   * from blocking access to the body text that contains the actual PO data.
+   *
+   * Nested .msg files are handled recursively via extract().
    */
   private async extractMsg(base64: string, outerName: string): Promise<ExtractedContent | null> {
     const buffer = Buffer.from(base64, "base64");
@@ -173,15 +177,22 @@ export class AttachmentExtractor {
     const fileData = reader.getFileData();
 
     const attachments = fileData.attachments ?? [];
+    const body = fileData.body?.trim() ?? "";
+
     console.log(
       `[AttachmentExtractor] .msg "${outerName}": ` +
-      `${attachments.length} inner attachment(s), body length=${fileData.body?.length ?? 0}`
+      `${attachments.length} inner attachment(s), body length=${body.length}`
     );
 
+    // Scan all inner attachments — bucket by kind rather than returning on first match.
+    // We need to see what's available before deciding what to use.
+    let firstDocument: ExtractedContent | null = null; // pdf or text (DOCX/XLSX)
+    let firstImage: ExtractedContent | null = null;
+
     for (const attInfo of attachments) {
-      const inner      = reader.getAttachment(attInfo);
-      const innerName  = inner.fileName;
-      const innerCt    = mimeFromExtension(innerName);
+      const inner       = reader.getAttachment(attInfo);
+      const innerName   = inner.fileName;
+      const innerCt     = mimeFromExtension(innerName);
       const innerBase64 = Buffer.from(inner.content).toString("base64");
 
       console.log(`[AttachmentExtractor] .msg inner attachment: "${innerName}" (${innerCt})`);
@@ -195,16 +206,37 @@ export class AttachmentExtractor {
       };
 
       const extracted = await this.extract(synthetic);
-      if (extracted) return extracted;
+      if (!extracted) continue;
+
+      if (extracted.kind === "pdf" || extracted.kind === "text") {
+        // Document found — use immediately, no need to scan further.
+        console.log(`[AttachmentExtractor] .msg "${outerName}": using inner document "${innerName}"`);
+        return extracted;
+      }
+
+      // Image — keep as fallback but keep scanning for a document.
+      if (extracted.kind === "image" && !firstImage) {
+        firstImage = extracted;
+      }
     }
 
-    // No inner attachments yielded a result — fall back to the inner email body.
-    const body = fileData.body?.trim() ?? "";
+    // No document attachment found.
+    // Prefer the inner email body — for forwarded emails this is where PO data lives.
     if (body) {
       console.log(
-        `[AttachmentExtractor] .msg "${outerName}": no extractable inner attachments — using inner body text`
+        `[AttachmentExtractor] .msg "${outerName}": ` +
+        `no document attachment found — using inner body text` +
+        (firstImage ? ` (skipping ${firstImage.name} image)` : "")
       );
       return { kind: "text", content: body, name: outerName, originalBase64: base64 };
+    }
+
+    // Body is empty — fall back to the image if one was found.
+    if (firstImage) {
+      console.log(
+        `[AttachmentExtractor] .msg "${outerName}": body empty — falling back to image "${firstImage.name}"`
+      );
+      return firstImage;
     }
 
     console.warn(`[AttachmentExtractor] .msg "${outerName}": no extractable content found.`);
