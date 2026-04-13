@@ -215,10 +215,19 @@ export class AttachmentExtractor {
     for (const attInfo of attachments) {
       const inner       = reader.getAttachment(attInfo);
       const innerName   = inner.fileName;
-      const innerCt     = mimeFromExtension(innerName);
       const innerBase64 = Buffer.from(inner.content).toString("base64");
 
-      console.log(`[AttachmentExtractor] .msg inner attachment: "${innerName}" (${innerCt}, ${inner.content.length}B)`);
+      // Outlook embeds nested messages as "Outlook Item" attachments. Their filename
+      // is the email subject (e.g. "RE: Purchase Order") with no .msg extension, so
+      // mimeFromExtension would return application/octet-stream and the nested message
+      // would be silently dropped. Detect them via innerMsgContentFields and force the
+      // correct MIME type so the recursion path fires.
+      const isEmbeddedMessage = !!attInfo.innerMsgContentFields;
+      const innerCt = isEmbeddedMessage
+        ? "application/vnd.ms-outlook"
+        : mimeFromExtension(innerName);
+
+      console.log(`[AttachmentExtractor] .msg inner attachment: "${innerName}" (${innerCt}, ${inner.content.length}B${isEmbeddedMessage ? ", embedded message" : ""})`);
 
       const synthetic: EmailAttachment = {
         id:           `msg-inner-${innerName}`,
