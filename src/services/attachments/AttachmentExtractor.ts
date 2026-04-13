@@ -181,13 +181,15 @@ export class AttachmentExtractor {
   /**
    * Parse a .msg (Outlook email) file and extract its inner attachments and/or body.
    *
+   * Always scans EVERY inner attachment before deciding what to use.
    * Priority order (highest → lowest):
-   *   1. PDF or text-based document (DOCX/XLSX) — definitive PO documents
-   *   2. Inner email body text — forwarded emails carry the actual content here
-   *   3. Image attachment — last resort; inline images are usually logos/signatures
+   *   1. PDF / DOCX / XLSX — the actual PO document
+   *   2. Inner email body text — forwarded emails carry PO data here
+   *   3. Image — last resort only; inline images are almost always logos/signatures
    *
-   * This ordering prevents decorative inline images (logos, headers, email signatures)
-   * from blocking access to the body text that contains the actual PO data.
+   * Never stops early on an image. Logo and header images (image001.jpg, etc.) that
+   * appear first in the attachment list are collected as a fallback only — the full
+   * scan always completes so that a PDF appearing later is never missed.
    *
    * Nested .msg files are handled recursively via extract().
    */
@@ -204,10 +206,11 @@ export class AttachmentExtractor {
       `${attachments.length} inner attachment(s), body length=${body.length}`
     );
 
-    // Scan all inner attachments — bucket by kind rather than returning on first match.
-    // We need to see what's available before deciding what to use.
-    let firstDocument: ExtractedContent | null = null; // pdf or text (DOCX/XLSX)
-    let firstImage: ExtractedContent | null = null;
+    // Always scan every attachment. Collect documents and images into separate
+    // buckets — never return early — so that a PDF listed after image001.jpg is
+    // never skipped.
+    const documents: ExtractedContent[] = []; // pdf or text (DOCX/XLSX/MSG)
+    const images:    ExtractedContent[] = []; // image/* — fallback only
 
     for (const attInfo of attachments) {
       const inner       = reader.getAttachment(attInfo);
@@ -215,7 +218,7 @@ export class AttachmentExtractor {
       const innerCt     = mimeFromExtension(innerName);
       const innerBase64 = Buffer.from(inner.content).toString("base64");
 
-      console.log(`[AttachmentExtractor] .msg inner attachment: "${innerName}" (${innerCt})`);
+      console.log(`[AttachmentExtractor] .msg inner attachment: "${innerName}" (${innerCt}, ${inner.content.length}B)`);
 
       const synthetic: EmailAttachment = {
         id:           `msg-inner-${innerName}`,
@@ -226,37 +229,54 @@ export class AttachmentExtractor {
       };
 
       const extracted = await this.extract(synthetic);
-      if (!extracted) continue;
-
-      if (extracted.kind === "pdf" || extracted.kind === "text") {
-        // Document found — use immediately, no need to scan further.
-        console.log(`[AttachmentExtractor] .msg "${outerName}": using inner document "${innerName}"`);
-        return extracted;
+      if (!extracted) {
+        console.log(`[AttachmentExtractor] .msg inner "${innerName}": extract() returned null — skipping`);
+        continue;
       }
 
-      // Image — keep as fallback but keep scanning for a document.
-      if (extracted.kind === "image" && !firstImage) {
-        firstImage = extracted;
+      if (extracted.kind === "pdf" || extracted.kind === "text") {
+        documents.push(extracted);
+        console.log(`[AttachmentExtractor] .msg inner "${innerName}": bucketed as document (kind=${extracted.kind})`);
+      } else if (extracted.kind === "image") {
+        images.push(extracted);
+        console.log(`[AttachmentExtractor] .msg inner "${innerName}": bucketed as image (fallback only)`);
       }
     }
 
-    // No document attachment found.
-    // Prefer the inner email body — for forwarded emails this is where PO data lives.
+    console.log(
+      `[AttachmentExtractor] .msg "${outerName}" scan complete: ` +
+      `${documents.length} document(s), ${images.length} image(s), body=${body.length > 0 ? "present" : "empty"}`
+    );
+
+    // 1. Prefer the first real document — PDF wins, then DOCX/XLSX.
+    if (documents.length > 0) {
+      // Sort: pdf before text so a PDF attachment beats a text-extracted DOCX.
+      const sorted = [...documents].sort((a, b) => {
+        if (a.kind === "pdf" && b.kind !== "pdf") return -1;
+        if (a.kind !== "pdf" && b.kind === "pdf") return  1;
+        return 0;
+      });
+      const winner = sorted[0]!;
+      console.log(`[AttachmentExtractor] .msg "${outerName}": using document "${winner.name}" (kind=${winner.kind})`);
+      return winner;
+    }
+
+    // 2. No document — use inner email body text if available.
     if (body) {
       console.log(
-        `[AttachmentExtractor] .msg "${outerName}": ` +
-        `no document attachment found — using inner body text` +
-        (firstImage ? ` (skipping ${firstImage.name} image)` : "")
+        `[AttachmentExtractor] .msg "${outerName}": no document found — using inner body text` +
+        (images.length > 0 ? ` (skipping ${images.length} image(s): ${images.map(i => i.name).join(", ")})` : "")
       );
       return { kind: "text", content: body, name: outerName, originalBase64: base64 };
     }
 
-    // Body is empty — fall back to the image if one was found.
-    if (firstImage) {
+    // 3. Body empty — last resort: first image.
+    if (images.length > 0) {
       console.log(
-        `[AttachmentExtractor] .msg "${outerName}": body empty — falling back to image "${firstImage.name}"`
+        `[AttachmentExtractor] .msg "${outerName}": body empty, no documents — ` +
+        `falling back to image "${images[0]!.name}"`
       );
-      return firstImage;
+      return images[0]!;
     }
 
     console.warn(`[AttachmentExtractor] .msg "${outerName}": no extractable content found.`);
