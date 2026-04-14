@@ -1,6 +1,7 @@
 import axios from "axios";
 import { NotificationService } from "./NotificationService.js";
-import { NotificationPayload, NotificationResult, POLineItem } from "../../types/index.js";
+import { NotificationPayload, NotificationResult, POLineItem, TrackedPO } from "../../types/index.js";
+import { POTracker } from "../po/POTracker.js";
 
 interface RfqExtractedData {
   contactName?: string | null;
@@ -27,53 +28,152 @@ interface TeamsConfig {
  * Microsoft Teams notification provider.
  *
  * Uses the Teams Incoming Webhook with Adaptive Cards (Teams-compatible format).
+ * PDF POs are tracked in the database and include a "Claim Order" button that
+ * opens a KAIRA web page (baseUrl/teams/claim/:id) where a team member can
+ * claim the order — this is the Teams equivalent of Slack's interactive button,
+ * since incoming webhooks are one-way and cannot receive button click events.
+ *
  * To activate: set NOTIFICATION_PROVIDER=teams and TEAMS_WEBHOOK_URL in .env.
  */
 export class TeamsNotificationService implements NotificationService {
   readonly name = "Teams";
 
-  constructor(private readonly cfg: TeamsConfig) {}
+  constructor(
+    private readonly cfg: TeamsConfig,
+    private readonly tracker: POTracker,
+    private readonly baseUrl: string,
+  ) {}
 
   async send(payload: NotificationPayload): Promise<NotificationResult> {
-    const card = this.buildAdaptiveCard(payload);
+    if (payload.type === "pdf_po") {
+      return this.sendPdfPo(payload);
+    }
 
+    // RFQ, text_po, general_inquiry — no tracking needed, plain card post
+    const card = this.buildAdaptiveCard(payload);
     try {
-      await axios.post(this.cfg.webhookUrl, {
-        type: "message",
-        attachments: [
-          {
-            contentType: "application/vnd.microsoft.card.adaptive",
-            contentUrl: null,
-            content: card,
-          },
-        ],
-      });
+      await this.postCard(card);
     } catch (err) {
       console.error("[TeamsNotificationService] Failed to post message:", err);
     }
     return {};
   }
 
+  // ─── PDF PO — tracked, with Claim Order button ────────────────────────────
+
+  private async sendPdfPo(payload: NotificationPayload): Promise<NotificationResult> {
+    const { email, purchaseOrder, attachmentName } = payload;
+    if (!purchaseOrder || !email) return {};
+
+    const storedBase64 =
+      payload.documentBase64 ??
+      email.attachments.find((a) => a.name === attachmentName)?.contentBytes ??
+      "";
+
+    const tracked = await this.tracker.track({
+      emailId:       email.id,
+      purchaseOrder,
+      email,
+      pdfBase64:     storedBase64,
+      pdfName:       attachmentName ?? "purchase_order.pdf",
+    });
+
+    const card = this.buildAdaptiveCard(payload, tracked.id);
+    try {
+      await this.postCard(card);
+    } catch (err) {
+      console.error("[TeamsNotificationService] Failed to post PO:", err);
+    }
+
+    return { poTrackingId: tracked.id };
+  }
+
+  /**
+   * Post a new Teams channel card announcing that an order has been claimed.
+   * Called from the /teams/claim/:id web route after a successful claim.
+   */
+  async sendClaimNotification(tracked: TrackedPO): Promise<void> {
+    const po = tracked.purchaseOrder;
+    const claimedAt = tracked.claimedAt
+      ? new Date(tracked.claimedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+      : "unknown time";
+
+    const card = {
+      $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+      type:    "AdaptiveCard",
+      version: "1.5",
+      body: [
+        {
+          type:   "TextBlock",
+          text:   "✅ Purchase Order Claimed",
+          size:   "Large",
+          weight: "Bolder",
+          color:  "Good",
+        },
+        {
+          type:  "FactSet",
+          facts: [
+            fact("PO Number",  po.poNumber ?? "—"),
+            fact("Claimed By", tracked.claimedByName ?? "—"),
+            fact("Claimed At", claimedAt),
+            ...(po.total != null ? [fact("Total", formatCurrencyTeams(po.total, po.currency))] : []),
+          ],
+        },
+      ],
+      msteams: { width: "Full" },
+    };
+
+    try {
+      await this.postCard(card);
+    } catch (err) {
+      console.error("[TeamsNotificationService] Failed to send claim notification:", err);
+    }
+  }
+
+  private async postCard(card: unknown): Promise<void> {
+    await axios.post(this.cfg.webhookUrl, {
+      type: "message",
+      attachments: [{
+        contentType: "application/vnd.microsoft.card.adaptive",
+        contentUrl:  null,
+        content:     card,
+      }],
+    });
+  }
+
   // ─── Adaptive Card builder ───────────────────────────────────────────────
 
-  private buildAdaptiveCard(payload: NotificationPayload): unknown {
-    const body = this.buildBody(payload);
+  private buildAdaptiveCard(payload: NotificationPayload, trackingId?: string): unknown {
+    const body    = this.buildBody(payload, trackingId);
+    const actions = trackingId ? this.buildClaimAction(trackingId) : undefined;
     return {
       $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
-      type: "AdaptiveCard",
+      type:    "AdaptiveCard",
       version: "1.5",
       body,
+      ...(actions ? { actions } : {}),
       msteams: { width: "Full" },
     };
   }
 
-  private buildBody(payload: NotificationPayload): unknown[] {
+  private buildBody(payload: NotificationPayload, _trackingId?: string): unknown[] {
     switch (payload.type) {
-      case "pdf_po":         return this.pdfPoBody(payload);
-      case "rfq":            return this.rfqBody(payload);
-      case "text_po":        return this.textPoBody(payload);
+      case "pdf_po":          return this.pdfPoBody(payload);
+      case "rfq":             return this.rfqBody(payload);
+      case "text_po":         return this.textPoBody(payload);
       case "general_inquiry": return this.generalInquiryBody(payload);
     }
+  }
+
+  private buildClaimAction(trackingId: string): unknown[] {
+    return [
+      {
+        type:  "Action.OpenUrl",
+        title: "Claim Order",
+        url:   `${this.baseUrl}/teams/claim/${encodeURIComponent(trackingId)}`,
+        style: "positive",
+      },
+    ];
   }
 
   private pdfPoBody(payload: NotificationPayload): unknown[] {

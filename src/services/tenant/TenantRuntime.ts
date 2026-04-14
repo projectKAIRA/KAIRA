@@ -10,6 +10,7 @@ import { NotificationPayload, NotificationResult } from "../../types/index.js";
 import { SlackNotificationService } from "../notifications/SlackNotificationService.js";
 import { TeamsNotificationService } from "../notifications/TeamsNotificationService.js";
 import { SlackInteractionService } from "../notifications/SlackInteractionService.js";
+import { config as appConfig } from "../../config/index.js";
 
 /**
  * No-op notifier used when a tenant hasn't connected a notification channel yet.
@@ -127,7 +128,7 @@ function buildNotifier(config: TenantConfig, tracker: POTracker): NotificationSe
         );
         return new PendingNotificationService(config.name, "Teams webhook URL not set");
       }
-      return new TeamsNotificationService({ webhookUrl: t.webhookUrl });
+      return new TeamsNotificationService({ webhookUrl: t.webhookUrl }, tracker, appConfig.oauth.baseUrl);
     }
 
     default: {

@@ -11,6 +11,7 @@ import { createStripeRouter } from "./routes/stripe.js";
 import { createSlackRouter } from "./routes/slack.js";
 import { createDashboardRouter } from "./routes/dashboard.js";
 import { createAccountRouter } from "./routes/account.js";
+import { createTeamsRouter } from "./routes/teams.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -62,6 +63,12 @@ export function createApp(scheduler: TenantScheduler): express.Application {
   // POST /account/lookup   — sends recovery email
 
   app.use("/account", createAccountRouter());
+
+  // ─── Teams claim page ─────────────────────────────────────────────────────
+  // GET  /teams/claim/:id  — view PO details and claim form
+  // POST /teams/claim/:id  — submit claim (name required)
+
+  app.use("/teams/claim", createTeamsRouter(scheduler));
 
   // ─── Tenant CRUD ─────────────────────────────────────────────────────────
 

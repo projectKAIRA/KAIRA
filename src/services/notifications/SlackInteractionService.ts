@@ -70,12 +70,23 @@ export class SlackInteractionService {
     const messageTs = payload.message.ts;
     const channelId = payload.channel.id;
 
-    // Mark as claimed
+    // Mark as claimed — returns null if already claimed by someone else
     const tracked = await this.tracker.claim(trackingId, slackUserId, slackUserName);
     if (!tracked) {
-      // Already claimed — update the message to reflect current state and return
       const existing = await this.tracker.get(trackingId);
-      if (existing) await this.updateChannelMessage(existing, channelId, messageTs);
+      if (existing) {
+        // Ensure the channel message shows the claimed state
+        await this.updateChannelMessage(existing, channelId, messageTs);
+        // Tell this user the order is taken
+        const claimedAt = existing.claimedAt
+          ? new Date(existing.claimedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+          : "an earlier time";
+        await this.sendEphemeral(
+          channelId,
+          slackUserId,
+          `⚠️ This order was already claimed by *${existing.claimedByName ?? existing.claimedBy ?? "someone"}* at ${claimedAt}.`,
+        );
+      }
       return;
     }
 
@@ -84,6 +95,14 @@ export class SlackInteractionService {
 
     // Open a DM and send full PO details + PDF
     await this.sendClaimDM(tracked, slackUserId);
+  }
+
+  private async sendEphemeral(channelId: string, userId: string, text: string): Promise<void> {
+    try {
+      await this.web.chat.postEphemeral({ channel: channelId, user: userId, text });
+    } catch (err) {
+      console.error("[SlackInteractionService] Failed to send ephemeral message:", err);
+    }
   }
 
   private async updateChannelMessage(tracked: TrackedPO | undefined, channelId: string, messageTs: string): Promise<void> {
