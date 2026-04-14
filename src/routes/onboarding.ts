@@ -43,6 +43,7 @@ import {
   retrieveCheckoutSession,
   priceIdToTier,
   getPlans,
+  getStripe,
 } from "../services/billing/StripeService.js";
 import { sendWelcomeEmail } from "../services/email/ConfirmationMailer.js";
 
@@ -117,7 +118,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     res.send(renderImap(sessionId, session.companyName));
   });
 
-  router.post("/imap", (req: Request, res: Response) => {
+  router.post("/imap", async (req: Request, res: Response) => {
     const sessionId = (req.body.session   as string | undefined) ?? "";
     const username  = (req.body.username  as string | undefined)?.trim() ?? "";
     const password  = (req.body.password  as string | undefined) ?? "";
@@ -136,6 +137,9 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       res.send(renderImap(sessionId, session.companyName, { username, host }, errors[0]!));
       return;
     }
+
+    // Duplicate check — runs as soon as the inbox email is known.
+    if (await checkEmailDuplicateAndBlock(res, session, username)) return;
 
     OAuthSessionStore.update(sessionId, {
       step:          "notification",
@@ -181,6 +185,9 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     const emailFromClaims = claims.preferred_username ?? claims.email ?? "";
     const userEmail = emailFromClaims || await fetchMicrosoftUserEmail(tokens.access_token);
     console.log(`[Onboarding] Microsoft callback — emailFromClaims="${emailFromClaims}", userEmail="${userEmail}"`);
+
+    // Duplicate check — runs as soon as the inbox email is known.
+    if (await checkEmailDuplicateAndBlock(res, session, userEmail)) return;
 
     OAuthSessionStore.update(state, {
       step:          "notification",
@@ -418,37 +425,8 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     const { connectedLabel, connectedEmail } = emailSummary(session);
     const emailTo = session.customerEmail || connectedEmail;
 
-    // ── Final abuse gate: check email + company name before creating tenant ──
-    const duplicate = await registry.checkForDuplicate(session.companyName, emailTo);
-    if (duplicate) {
-      await registry.logSignupBlock({
-        email:            emailTo,
-        companyName:      session.companyName,
-        reason:           duplicate.reason,
-        matchedTenantId:   duplicate.tenant.id,
-        matchedTenantName: duplicate.tenant.name,
-      });
-
-      // Cancel the Stripe subscription immediately — they shouldn't be charged.
-      if (stripeSubscriptionId && config.stripe.secretKey) {
-        try {
-          const { getStripe } = await import("../services/billing/StripeService.js");
-          await getStripe().subscriptions.cancel(stripeSubscriptionId);
-          console.log(`[Onboarding] Cancelled Stripe subscription ${stripeSubscriptionId} for blocked duplicate signup.`);
-        } catch (err) {
-          console.error("[Onboarding] Failed to cancel Stripe subscription for blocked signup:", err);
-        }
-      }
-
-      OAuthSessionStore.delete(sessionId);
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.send(renderError(
-        "An account already exists for this company.",
-        "Please sign in or contact support@trykaira.ai if you need help. Any payment has been automatically refunded.",
-        "/onboarding",
-      ));
-      return;
-    }
+    // ── Final abuse gate (safety net — email check should have caught this) ──
+    if (await checkEmailDuplicateAndBlock(res, session, emailTo)) return;
 
     const tenant = await registry.create({
       ...buildEmailProviderInput(session, tier),
@@ -557,6 +535,53 @@ function emailSummary(session: OnboardingSession): { connectedLabel: string; con
     return { connectedLabel: label, connectedEmail: session.imap.username };
   }
   return { connectedLabel: "Email", connectedEmail: "" };
+}
+
+/**
+ * If a duplicate email or company name is detected after the user has already
+ * paid, cancel their Stripe subscription immediately and return an error page.
+ * Returns true if a duplicate was found (caller should return after calling).
+ */
+async function checkEmailDuplicateAndBlock(
+  res: Response,
+  session: OnboardingSession,
+  email: string,
+): Promise<boolean> {
+  const dup = await registry.checkForDuplicate(session.companyName, email);
+  if (!dup) return false;
+
+  await registry.logSignupBlock({
+    email,
+    companyName:      session.companyName,
+    reason:           dup.reason,
+    matchedTenantId:   dup.tenant.id,
+    matchedTenantName: dup.tenant.name,
+  });
+
+  // Cancel the Stripe subscription — they shouldn't be charged.
+  if (session.stripeCheckoutSessionId && config.stripe.secretKey) {
+    try {
+      const checkout = await retrieveCheckoutSession(session.stripeCheckoutSessionId);
+      const subId = typeof checkout.subscription === "string"
+        ? checkout.subscription
+        : (checkout.subscription as { id?: string } | null)?.id ?? null;
+      if (subId) {
+        await getStripe().subscriptions.cancel(subId);
+        console.log(`[Onboarding] Cancelled Stripe subscription ${subId} for blocked duplicate.`);
+      }
+    } catch (err) {
+      console.error("[Onboarding] Failed to cancel Stripe sub for blocked signup:", err);
+    }
+  }
+
+  OAuthSessionStore.delete(session.id);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(renderError(
+    "An account already exists for this company.",
+    "Please sign in or contact support@trykaira.ai if you need help. Any payment has been automatically refunded.",
+    "/onboarding",
+  ));
+  return true;
 }
 
 async function activateTenant(tenantId: string, scheduler: TenantScheduler): Promise<void> {
