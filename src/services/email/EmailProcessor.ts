@@ -85,6 +85,18 @@ export class EmailProcessor {
         );
       }
 
+      // 0. Skip emails with no usable content — system messages, read receipts,
+      //    calendar noise, etc. produce empty subjects + empty bodies with no
+      //    attachments.  There is nothing to classify; notifying would be spam.
+      const hasSubject = email.subject.trim().length > 0;
+      const hasBody    = email.bodyText.trim().length > 0;
+      const hasSender  = email.sender.trim().length > 0 && email.sender.toLowerCase() !== "unknown";
+
+      if (!hasSubject && !hasBody && !hasSender && email.attachments.length === 0) {
+        console.log(`[EmailProcessor] Skipping email ${email.id} — no subject, body, sender, or attachments.`);
+        return { emailId: email.id, success: true, action: "skipped", details: "empty email" };
+      }
+
       // 1. Scan ALL attachments and pick the best one.
       //    Priority: PDF > DOCX/XLSX/text > image.
       //    Never stop early at an image — a PDF that appears later must win.
