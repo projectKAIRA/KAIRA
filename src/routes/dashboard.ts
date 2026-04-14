@@ -13,6 +13,7 @@
 import express, { Request, Response, Router } from "express";
 import { TenantRegistry } from "../services/tenant/TenantRegistry.js";
 import { TenantScheduler } from "../services/tenant/TenantScheduler.js";
+import { createBillingPortalSession, getPlans } from "../services/billing/StripeService.js";
 import { config } from "../config/index.js";
 
 const registry = new TenantRegistry();
@@ -56,13 +57,19 @@ export function createDashboardRouter(scheduler: TenantScheduler): Router {
     const slackError = req.query["slack_error"] as string | undefined;
     const teamsError = req.query["teams_error"] as string | undefined;
 
+    const billingError = req.query["billing_error"] as string | undefined;
+
     const flashSuccess = switched   ? `Switched to ${switched === "slack" ? "Slack" : "Microsoft Teams"} successfully.`
       : connected ? "Slack connected successfully."
       : teamsOk   ? "Teams webhook saved."
       : undefined;
-    const flashError = slackError ? `Slack error: ${slackError}`
-      : teamsError  ? "Invalid webhook URL — must start with https://"
+    const flashError = slackError    ? `Slack error: ${slackError}`
+      : teamsError   ? "Invalid webhook URL — must start with https://"
+      : billingError === "no_subscription" ? "No active subscription found. Please contact support."
+      : billingError ? "Could not open billing portal. Please try again or contact support."
       : undefined;
+
+    const billingPortalUrl = `/dashboard/billing-portal?t=${encodeURIComponent(tenantId)}`;
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderDashboard({
@@ -74,9 +81,38 @@ export function createDashboardRouter(scheduler: TenantScheduler): Router {
       activeProvider,
       trialDaysLeft,
       slackConnectUrl,
+      billingPortalUrl,
       flashSuccess,
       flashError,
     }));
+  });
+
+  // ─── GET /dashboard/billing-portal ────────────────────────────────────────
+
+  router.get("/billing-portal", async (req: Request, res: Response) => {
+    const tenantId = (req.query["t"] as string | undefined)?.trim() ?? "";
+
+    if (!tenantId) { res.status(400).send(errorPage("Missing account token.")); return; }
+
+    const tenant = await registry.findById(tenantId);
+    if (!tenant) { res.status(404).send(errorPage("Account not found.")); return; }
+
+    if (!tenant.stripeCustomerId) {
+      res.redirect(`/dashboard?t=${encodeURIComponent(tenantId)}&billing_error=no_subscription`);
+      return;
+    }
+
+    try {
+      const returnUrl = `${config.oauth.baseUrl}/dashboard?t=${encodeURIComponent(tenantId)}`;
+      const session   = await createBillingPortalSession({
+        stripeCustomerId: tenant.stripeCustomerId,
+        returnUrl,
+      });
+      res.redirect(session.url);
+    } catch (err) {
+      console.error("[Dashboard] Billing portal error:", err);
+      res.redirect(`/dashboard?t=${encodeURIComponent(tenantId)}&billing_error=portal_failed`);
+    }
   });
 
   // ─── POST /dashboard/switch-provider ──────────────────────────────────────
@@ -146,16 +182,17 @@ export function createDashboardRouter(scheduler: TenantScheduler): Router {
 // ─── Render ────────────────────────────────────────────────────────────────────
 
 interface DashboardData {
-  tenant:          Awaited<ReturnType<TenantRegistry["findById"]>> & {};
-  tenantId:        string;
-  slackConnected:  boolean;
-  teamsConnected:  boolean;
-  slackAvailable:  boolean;
-  activeProvider:  string;
-  trialDaysLeft:   number | null;
-  slackConnectUrl: string;
-  flashSuccess?:   string;
-  flashError?:     string;
+  tenant:           Awaited<ReturnType<TenantRegistry["findById"]>> & {};
+  tenantId:         string;
+  slackConnected:   boolean;
+  teamsConnected:   boolean;
+  slackAvailable:   boolean;
+  activeProvider:   string;
+  trialDaysLeft:    number | null;
+  slackConnectUrl:  string;
+  billingPortalUrl: string;
+  flashSuccess?:    string;
+  flashError?:      string;
 }
 
 function renderDashboard(d: DashboardData): string {
@@ -414,18 +451,24 @@ function renderDashboard(d: DashboardData): string {
 
       <!-- ── Plan & Trial ── -->
       <div class="card">
-        <div class="card-title">Plan</div>
+        <div class="card-title">Subscription</div>
         <div class="plan-name">${escHtml(planLabel)}</div>
         <div class="plan-sub" style="margin-bottom:0.75rem;">
           ${t.isTrialActive && d.trialDaysLeft !== null
             ? `14-day free trial — <strong>${d.trialDaysLeft} day${d.trialDaysLeft === 1 ? "" : "s"} remaining</strong>`
             : t.trialLimitReached ? "Trial limit reached"
-            : "Paid subscription"}
+            : "Active subscription"}
         </div>
-        <div class="status-row">
+        <div class="status-row" style="margin-bottom:1rem;">
           <span class="badge badge-plan">${escHtml(planLabel)}</span>
           ${trialBadge}
         </div>
+        ${t.stripeCustomerId
+          ? `<a class="btn btn-primary" href="${d.billingPortalUrl}" style="display:inline-flex;width:auto;">
+               Manage subscription &rarr;
+             </a>
+             <p class="hint" style="margin-top:0.6rem;">Upgrade, downgrade, or cancel — handled securely by Stripe.</p>`
+          : `<p class="hint">No billing on file. <a href="mailto:support@trykaira.ai" style="color:var(--purple);">Contact support</a> to manage your plan.</p>`}
       </div>
 
       <!-- ── Monitoring Status ── -->

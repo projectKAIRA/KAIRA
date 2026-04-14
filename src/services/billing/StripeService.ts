@@ -94,6 +94,26 @@ export async function retrieveCheckoutSession(
   });
 }
 
+// ─── Billing portal ──────────────────────────────────────────────────────────
+
+/**
+ * Create a Stripe Billing Portal session for an existing customer.
+ * The portal lets customers upgrade, downgrade, or cancel their subscription
+ * without any custom UI on our side.
+ *
+ * Requires the portal to be configured in the Stripe dashboard:
+ *   Dashboard → Billing → Customer portal → Activate
+ */
+export async function createBillingPortalSession(opts: {
+  stripeCustomerId: string;
+  returnUrl: string;
+}): Promise<Stripe.BillingPortal.Session> {
+  return getStripe().billingPortal.sessions.create({
+    customer:   opts.stripeCustomerId,
+    return_url: opts.returnUrl,
+  });
+}
+
 // ─── Webhook ──────────────────────────────────────────────────────────────────
 
 export function constructWebhookEvent(
