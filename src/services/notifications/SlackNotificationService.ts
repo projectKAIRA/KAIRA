@@ -384,36 +384,83 @@ export class SlackNotificationService implements NotificationService {
 
   private buildTextPoBlocks(payload: NotificationPayload): unknown[] {
     const { email, classification } = payload;
+    const d = (classification?.extractedData ?? {}) as RfqExtractedData;
+
+    const lineItemsText = d.lineItems && d.lineItems.length > 0
+      ? d.lineItems.map((li, i) =>
+          [
+            `*${i + 1}*`,
+            li.partNumber ? `PN: ${li.partNumber}` : null,
+            li.description,
+            li.quantity != null ? `Qty: ${li.quantity}${li.unit ? ` ${li.unit}` : ""}` : null,
+          ].filter(Boolean).join("  |  ")
+        ).join("\n")
+      : null;
+
+    const contactFields: ReturnType<typeof field>[] = [];
+    if (d.contactName) contactFields.push(field("Contact", d.contactName));
+    if (d.company)     contactFields.push(field("Company", d.company));
+    if (d.email)       contactFields.push(field("Email",   d.email));
+    if (d.phone)       contactFields.push(field("Phone",   d.phone));
+
     return [
       { type: "header", text: { type: "plain_text", text: "📝 Text Purchase Order Received", emoji: true } },
       {
         type: "section",
         fields: [
-          field("From", email.sender),
-          field("Subject", email.subject),
-          field("Received", email.receivedAt),
+          field("From",       email.sender),
+          field("Subject",    email.subject),
+          field("Received",   email.receivedAt),
           field("Confidence", classification?.confidence.toUpperCase() ?? "—"),
         ],
       },
       ...(classification?.reasoning ? [{ type: "section", text: mrkdwn(`*Summary:* ${classification.reasoning}`) }] : []),
+      ...(lineItemsText ? [
+          { type: "divider" },
+          { type: "section", text: mrkdwn(`*Ordered Items*\n\`\`\`${lineItemsText}\`\`\``) },
+        ] : []),
+      ...(contactFields.length > 0 ? [{ type: "section", fields: contactFields.slice(0, 10) }] : []),
       { type: "context", elements: [{ type: "mrkdwn", text: `_Classified as *Text PO* by KAIRA • ${new Date().toISOString()}_` }] },
     ];
   }
 
   private buildGeneralInquiryBlocks(payload: NotificationPayload): unknown[] {
     const { email, classification } = payload;
+    const d = (classification?.extractedData ?? {}) as RfqExtractedData;
+
+    const extractedFields: ReturnType<typeof field>[] = [];
+    if (d.contactName)  extractedFields.push(field("Contact",  d.contactName));
+    if (d.contactTitle) extractedFields.push(field("Title",    d.contactTitle));
+    if (d.company)      extractedFields.push(field("Company",  d.company));
+    if (d.email)        extractedFields.push(field("Email",    d.email));
+    if (d.phone)        extractedFields.push(field("Phone",    d.phone));
+
+    // Surface any other top-level string/number fields Claude extracted
+    const extraFields = Object.entries(d)
+      .filter(([k, v]) =>
+        !["contactName","contactTitle","company","email","phone","directPhone","cellPhone","lineItems"].includes(k) &&
+        v != null && (typeof v === "string" || typeof v === "number")
+      )
+      .map(([k, v]) => field(k, String(v)));
+
+    const allFields = [...extractedFields, ...extraFields].slice(0, 10);
+
     return [
       { type: "header", text: { type: "plain_text", text: "💬 General Inquiry Received", emoji: true } },
       {
         type: "section",
         fields: [
-          field("From", email.sender),
-          field("Subject", email.subject),
-          field("Received", email.receivedAt),
+          field("From",       email.sender),
+          field("Subject",    email.subject),
+          field("Received",   email.receivedAt),
           field("Confidence", classification?.confidence.toUpperCase() ?? "—"),
         ],
       },
       ...(classification?.reasoning ? [{ type: "section", text: mrkdwn(`*Summary:* ${classification.reasoning}`) }] : []),
+      ...(allFields.length > 0 ? [
+          { type: "divider" },
+          { type: "section", fields: allFields },
+        ] : []),
       { type: "context", elements: [{ type: "mrkdwn", text: `_Classified as *General Inquiry* by KAIRA • ${new Date().toISOString()}_` }] },
     ];
   }

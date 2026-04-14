@@ -2,6 +2,23 @@ import axios from "axios";
 import { NotificationService } from "./NotificationService.js";
 import { NotificationPayload, NotificationResult, POLineItem } from "../../types/index.js";
 
+interface RfqExtractedData {
+  contactName?: string | null;
+  contactTitle?: string | null;
+  company?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  directPhone?: string | null;
+  cellPhone?: string | null;
+  lineItems?: Array<{
+    partNumber?: string | null;
+    description: string;
+    quantity?: number | null;
+    unit?: string | null;
+  }> | null;
+  [key: string]: unknown;
+}
+
 interface TeamsConfig {
   webhookUrl: string;
 }
@@ -52,14 +69,10 @@ export class TeamsNotificationService implements NotificationService {
 
   private buildBody(payload: NotificationPayload): unknown[] {
     switch (payload.type) {
-      case "pdf_po":
-        return this.pdfPoBody(payload);
-      case "rfq":
-        return this.classifiedBody(payload, "📋 RFQ Received");
-      case "text_po":
-        return this.classifiedBody(payload, "📝 Text Purchase Order Received");
-      case "general_inquiry":
-        return this.classifiedBody(payload, "💬 General Inquiry Received");
+      case "pdf_po":         return this.pdfPoBody(payload);
+      case "rfq":            return this.rfqBody(payload);
+      case "text_po":        return this.textPoBody(payload);
+      case "general_inquiry": return this.generalInquiryBody(payload);
     }
   }
 
@@ -131,21 +144,141 @@ export class TeamsNotificationService implements NotificationService {
     ];
   }
 
-  private classifiedBody(payload: NotificationPayload, title: string): unknown[] {
+  private rfqBody(payload: NotificationPayload): unknown[] {
     const { email, classification } = payload;
+    const d = (classification?.extractedData ?? {}) as RfqExtractedData;
+
+    const lineItemsText = d.lineItems && d.lineItems.length > 0
+      ? d.lineItems.map((li, i) =>
+          [
+            `${i + 1}.`,
+            li.partNumber ? `PN: ${li.partNumber}` : null,
+            li.description,
+            li.quantity != null ? `Qty: ${li.quantity}${li.unit ? ` ${li.unit}` : ""}` : null,
+          ].filter(Boolean).join("  ")
+        ).join("\n")
+      : null;
+
+    const contactFacts = [
+      d.contactName  ? fact("Contact",  d.contactName)  : null,
+      d.contactTitle ? fact("Title",    d.contactTitle) : null,
+      d.company      ? fact("Company",  d.company)      : null,
+      d.email        ? fact("Email",    d.email)        : null,
+      d.phone        ? fact("Phone",    d.phone)        : null,
+      d.directPhone  ? fact("Direct",   d.directPhone)  : null,
+      d.cellPhone    ? fact("Cell",     d.cellPhone)    : null,
+    ].filter(Boolean) as ReturnType<typeof fact>[];
+
     return [
-      { type: "TextBlock", text: title, size: "Large", weight: "Bolder" },
+      { type: "TextBlock", text: "📋 RFQ Received", size: "Large", weight: "Bolder" },
       { type: "FactSet", facts: [
-          fact("From", email.sender),
-          fact("Subject", email.subject),
-          fact("Received", email.receivedAt),
+          fact("From",       email.sender),
+          fact("Subject",    email.subject),
+          fact("Received",   email.receivedAt),
           fact("Confidence", classification?.confidence.toUpperCase() ?? "—"),
         ],
       },
       ...(classification?.reasoning
         ? [{ type: "TextBlock", text: classification.reasoning, wrap: true }]
         : []),
-      { type: "TextBlock", text: `_Classified by KAIRA • ${new Date().toISOString()}_`, isSubtle: true, size: "Small" },
+      ...(lineItemsText ? [
+          { type: "TextBlock", text: "**Requested Items**", weight: "Bolder", spacing: "Medium" },
+          { type: "TextBlock", text: lineItemsText, wrap: true, fontType: "Monospace" },
+        ] : []),
+      ...(contactFacts.length > 0 ? [
+          { type: "TextBlock", text: "**Contact Info**", weight: "Bolder", spacing: "Medium" },
+          { type: "FactSet", facts: contactFacts },
+        ] : []),
+      { type: "TextBlock", text: `Classified by KAIRA • ${new Date().toISOString()}`, isSubtle: true, size: "Small", spacing: "Medium" },
+    ];
+  }
+
+  private textPoBody(payload: NotificationPayload): unknown[] {
+    const { email, classification } = payload;
+    const d = (classification?.extractedData ?? {}) as RfqExtractedData;
+
+    const lineItemsText = d.lineItems && d.lineItems.length > 0
+      ? d.lineItems.map((li, i) =>
+          [
+            `${i + 1}.`,
+            li.partNumber ? `PN: ${li.partNumber}` : null,
+            li.description,
+            li.quantity != null ? `Qty: ${li.quantity}${li.unit ? ` ${li.unit}` : ""}` : null,
+          ].filter(Boolean).join("  ")
+        ).join("\n")
+      : null;
+
+    const contactFacts = [
+      d.contactName ? fact("Contact", d.contactName) : null,
+      d.company     ? fact("Company", d.company)     : null,
+      d.email       ? fact("Email",   d.email)       : null,
+      d.phone       ? fact("Phone",   d.phone)       : null,
+    ].filter(Boolean) as ReturnType<typeof fact>[];
+
+    return [
+      { type: "TextBlock", text: "📝 Text Purchase Order Received", size: "Large", weight: "Bolder" },
+      { type: "FactSet", facts: [
+          fact("From",       email.sender),
+          fact("Subject",    email.subject),
+          fact("Received",   email.receivedAt),
+          fact("Confidence", classification?.confidence.toUpperCase() ?? "—"),
+        ],
+      },
+      ...(classification?.reasoning
+        ? [{ type: "TextBlock", text: classification.reasoning, wrap: true }]
+        : []),
+      ...(lineItemsText ? [
+          { type: "TextBlock", text: "**Ordered Items**", weight: "Bolder", spacing: "Medium" },
+          { type: "TextBlock", text: lineItemsText, wrap: true, fontType: "Monospace" },
+        ] : []),
+      ...(contactFacts.length > 0 ? [
+          { type: "TextBlock", text: "**Contact Info**", weight: "Bolder", spacing: "Medium" },
+          { type: "FactSet", facts: contactFacts },
+        ] : []),
+      { type: "TextBlock", text: `Classified by KAIRA • ${new Date().toISOString()}`, isSubtle: true, size: "Small", spacing: "Medium" },
+    ];
+  }
+
+  private generalInquiryBody(payload: NotificationPayload): unknown[] {
+    const { email, classification } = payload;
+    const d = (classification?.extractedData ?? {}) as RfqExtractedData;
+
+    // For general inquiries, pull any structured fields Claude extracted
+    const extractedFacts = [
+      d.contactName  ? fact("Contact",  d.contactName)  : null,
+      d.contactTitle ? fact("Title",    d.contactTitle) : null,
+      d.company      ? fact("Company",  d.company)      : null,
+      d.email        ? fact("Email",    d.email)        : null,
+      d.phone        ? fact("Phone",    d.phone)        : null,
+    ].filter(Boolean) as ReturnType<typeof fact>[];
+
+    // Also surface any other top-level string/number fields Claude added
+    const extraFacts = Object.entries(d)
+      .filter(([k, v]) =>
+        !["contactName","contactTitle","company","email","phone","directPhone","cellPhone","lineItems"].includes(k) &&
+        v != null && (typeof v === "string" || typeof v === "number")
+      )
+      .map(([k, v]) => fact(k, String(v)));
+
+    const allFacts = [...extractedFacts, ...extraFacts];
+
+    return [
+      { type: "TextBlock", text: "💬 General Inquiry Received", size: "Large", weight: "Bolder" },
+      { type: "FactSet", facts: [
+          fact("From",       email.sender),
+          fact("Subject",    email.subject),
+          fact("Received",   email.receivedAt),
+          fact("Confidence", classification?.confidence.toUpperCase() ?? "—"),
+        ],
+      },
+      ...(classification?.reasoning
+        ? [{ type: "TextBlock", text: classification.reasoning, wrap: true }]
+        : []),
+      ...(allFacts.length > 0 ? [
+          { type: "TextBlock", text: "**Details**", weight: "Bolder", spacing: "Medium" },
+          { type: "FactSet", facts: allFacts },
+        ] : []),
+      { type: "TextBlock", text: `Classified by KAIRA • ${new Date().toISOString()}`, isSubtle: true, size: "Small", spacing: "Medium" },
     ];
   }
 }
