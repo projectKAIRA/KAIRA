@@ -80,7 +80,7 @@ export async function createCheckoutSession(opts: {
       metadata: { kairaSessionId: opts.sessionId, companyName: opts.companyName },
     },
     line_items: [{ price: opts.priceId, quantity: 1 }],
-    success_url: `${opts.baseUrl}/onboarding/complete?session=${encodeURIComponent(opts.sessionId)}&payment=success`,
+    success_url: `${opts.baseUrl}/onboarding/connect?session=${encodeURIComponent(opts.sessionId)}&payment=success`,
     cancel_url:  `${opts.baseUrl}/onboarding/plans?session=${encodeURIComponent(opts.sessionId)}`,
     metadata: { kairaSessionId: opts.sessionId },
   });

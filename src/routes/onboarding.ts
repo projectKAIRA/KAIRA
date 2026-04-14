@@ -59,22 +59,39 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     res.send(renderStep1());
   });
 
-  // ─── Step 1 — Branch on provider choice ───────────────────────────────────
+  // ─── Connect — post-payment landing page ──────────────────────────────────
+  // Stripe redirects here after a successful checkout. The session already
+  // exists (created in POST /checkout) and has stripeCheckoutSessionId set.
+  // We just show the provider-choice page — no payment handling needed here.
 
-  router.post("/start", (req: Request, res: Response) => {
-    const companyName = (req.body.companyName as string | undefined)?.trim() ?? "";
-    const provider    = (req.body.provider    as string | undefined) ?? "microsoft";
+  router.get("/connect", (req: Request, res: Response) => {
+    const sessionId = (req.query.session as string | undefined) ?? "";
+    const session   = OAuthSessionStore.get(sessionId);
 
-    if (!companyName) {
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.send(renderStep1("Company name is required."));
+    // Require a valid session that came through checkout.
+    if (!session || !session.stripeCheckoutSessionId) {
+      res.redirect("/onboarding");
       return;
     }
 
-    const session = OAuthSessionStore.create(companyName);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(renderConnect(sessionId, session.companyName));
+  });
+
+  // ─── Branch on provider choice (post-payment) ─────────────────────────────
+
+  router.post("/start", (req: Request, res: Response) => {
+    const sessionId = (req.body.session  as string | undefined) ?? "";
+    const provider  = (req.body.provider as string | undefined) ?? "microsoft";
+
+    const session = OAuthSessionStore.get(sessionId);
+    if (!session || !session.stripeCheckoutSessionId) {
+      res.redirect("/onboarding");
+      return;
+    }
 
     if (provider === "imap") {
-      res.redirect(`/onboarding/imap?session=${encodeURIComponent(session.id)}`);
+      res.redirect(`/onboarding/imap?session=${encodeURIComponent(sessionId)}`);
       return;
     }
 
@@ -86,7 +103,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       return;
     }
 
-    res.redirect(buildMicrosoftAuthUrl(session.id));
+    res.redirect(buildMicrosoftAuthUrl(sessionId));
   });
 
   // ─── IMAP — credentials form ───────────────────────────────────────────────
@@ -254,7 +271,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       },
     });
 
-    res.redirect(`/onboarding/plans?session=${encodeURIComponent(state)}`);
+    res.redirect(`/onboarding/complete?session=${encodeURIComponent(state)}`);
   });
 
   // ─── Teams — manual webhook URL ───────────────────────────────────────────
@@ -284,7 +301,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       },
     });
 
-    res.redirect(`/onboarding/plans?session=${encodeURIComponent(sessionId)}`);
+    res.redirect(`/onboarding/complete?session=${encodeURIComponent(sessionId)}`);
   });
 
   // ─── Skip notification channel ────────────────────────────────────────────
@@ -299,40 +316,34 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     }
 
     OAuthSessionStore.update(sessionId, { step: "billing" });
-    res.redirect(`/onboarding/plans?session=${encodeURIComponent(sessionId)}`);
+    res.redirect(`/onboarding/complete?session=${encodeURIComponent(sessionId)}`);
   });
 
-  // ─── Step 3 — Plan selection ───────────────────────────────────────────────
+  // ─── /plans — Stripe cancel URL lands here, send back to step 1 ──────────
 
-  router.get("/plans", (req: Request, res: Response) => {
-    const sessionId = (req.query.session as string | undefined) ?? "";
-    const session   = OAuthSessionStore.get(sessionId);
-
-    if (!session || session.step !== "billing") {
-      res.redirect("/onboarding");
-      return;
-    }
-
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(renderPlans(sessionId, session.companyName));
+  router.get("/plans", (_req: Request, res: Response) => {
+    res.redirect("/onboarding");
   });
 
-  // ─── Checkout — create Stripe session + redirect ───────────────────────────
+  // ─── Checkout — create session + Stripe checkout, then redirect to Stripe ──
+  // This is now the FIRST real POST in the flow: company name + plan selection
+  // come in here, session is created, and the user goes straight to Stripe.
 
   router.post("/checkout", async (req: Request, res: Response) => {
-    const sessionId = (req.body.session as string | undefined) ?? "";
-    const priceId   = (req.body.priceId as string | undefined) ?? "";
+    const companyName = (req.body.companyName as string | undefined)?.trim() ?? "";
+    const priceId     = (req.body.priceId     as string | undefined) ?? "";
 
-    const session = OAuthSessionStore.get(sessionId);
-    if (!session || session.step !== "billing") {
-      res.redirect("/onboarding");
+    const validPrices = Object.values(config.stripe.prices);
+
+    if (!companyName) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(renderStep1("Company name is required."));
       return;
     }
 
-    const validPrices = Object.values(config.stripe.prices);
     if (!priceId || !validPrices.includes(priceId)) {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.send(renderPlans(sessionId, session.companyName, "Please select a plan."));
+      res.send(renderStep1(undefined, companyName, "Please select a plan."));
       return;
     }
 
@@ -344,46 +355,43 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       return;
     }
 
+    // Create the onboarding session now — before Stripe, so the session ID
+    // can be passed as client_reference_id and embedded in the success URL.
+    const session  = OAuthSessionStore.create(companyName);
+
     const checkout = await createCheckoutSession({
-      sessionId,
+      sessionId:   session.id,
       priceId,
-      companyName: session.companyName,
-      baseUrl: config.oauth.baseUrl,
+      companyName,
+      baseUrl:     config.oauth.baseUrl,
     });
 
-    OAuthSessionStore.update(sessionId, {
-      selectedPriceId:       priceId,
+    OAuthSessionStore.update(session.id, {
+      selectedPriceId:         priceId,
       stripeCheckoutSessionId: checkout.id,
     });
 
     res.redirect(checkout.url!);
   });
 
-  // ─── Complete — create + activate tenant after Stripe redirects back ───────
+  // ─── Complete — create + activate tenant after email + notification setup ──
+  // Payment happened before /connect, so we just create the tenant here.
+  // Session must be in "billing" step (set after Slack/Teams/skip).
 
   router.get("/complete", async (req: Request, res: Response) => {
-    const sessionId = (req.query.session  as string | undefined) ?? "";
-    const payment   = (req.query.payment  as string | undefined) ?? "";
+    const sessionId = (req.query.session as string | undefined) ?? "";
     const session   = OAuthSessionStore.get(sessionId);
 
-    // If no payment=success param, treat as a direct visit — just show the page
-    // for already-created tenants (e.g. after a page refresh).
-    if (payment !== "success" || !session) {
+    if (!session || session.step !== "billing" || !session.stripeCheckoutSessionId) {
+      // Direct visit / page refresh after already completing — show success page.
       const companyName = session?.companyName ?? "your company";
       const { connectedLabel, connectedEmail } = session ? emailSummary(session) : { connectedLabel: "Email", connectedEmail: "" };
-      OAuthSessionStore.delete(sessionId);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.send(renderComplete(companyName, connectedLabel, connectedEmail));
       return;
     }
 
-    if (!session.stripeCheckoutSessionId) {
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.send(renderError("Session incomplete.", "Billing configuration is missing.", "/onboarding"));
-      return;
-    }
-
-    // Retrieve the Stripe checkout session to get customer + subscription IDs.
+    // Retrieve Stripe checkout to get customer + subscription IDs.
     const checkout = await retrieveCheckoutSession(session.stripeCheckoutSessionId);
     const stripeCustomerId     = typeof checkout.customer     === "string" ? checkout.customer
                                : (checkout.customer as { id?: string } | null)?.id ?? null;
@@ -392,8 +400,8 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
 
     const tier  = session.selectedPriceId ? priceIdToTier(session.selectedPriceId) : "starter";
     const notif = session.notificationConfig;
-
-    const emailTo = session.customerEmail || (session ? emailSummary(session).connectedEmail : "");
+    const { connectedLabel, connectedEmail } = emailSummary(session);
+    const emailTo = session.customerEmail || connectedEmail;
 
     const tenant = await registry.create({
       ...buildEmailProviderInput(session, tier),
@@ -408,24 +416,20 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     await activateTenant(tenant.id, scheduler);
     OAuthSessionStore.update(sessionId, { tenantId: tenant.id, step: "complete" });
 
-    const { connectedLabel, connectedEmail } = emailSummary(session);
-
     // Fire confirmation email — best-effort, never blocks the response.
-    const resolvedEmailTo = session.customerEmail || connectedEmail;
-    console.log(`[Onboarding] Tenant activated. customerEmail="${session.customerEmail}", connectedEmail="${connectedEmail}", using="${resolvedEmailTo}", tier="${tier}"`);
-    if (resolvedEmailTo) {
+    console.log(`[Onboarding] Tenant activated. customerEmail="${session.customerEmail}", connectedEmail="${connectedEmail}", using="${emailTo}", tier="${tier}"`);
+    if (emailTo) {
       const notifChannel = notif?.provider === "teams" ? "Microsoft Teams" : "Slack";
-      console.log(`[Onboarding] Calling sendWelcomeEmail → ${resolvedEmailTo}`);
       sendWelcomeEmail({
-        toEmail:             resolvedEmailTo,
+        toEmail:             emailTo,
         companyName:         session.companyName,
         planTier:            tier,
         notificationChannel: notifChannel,
         tenantId:            tenant.id,
       }).then(() => {
-        console.log(`[Onboarding] sendWelcomeEmail resolved for ${resolvedEmailTo}`);
+        console.log(`[Onboarding] sendWelcomeEmail resolved for ${emailTo}`);
       }).catch((err: unknown) => {
-        console.error(`[Onboarding] sendWelcomeEmail rejected for ${resolvedEmailTo}:`, err);
+        console.error(`[Onboarding] sendWelcomeEmail rejected for ${emailTo}:`, err);
       });
     } else {
       console.warn("[Onboarding] No email address found in session — skipping welcome email.");
@@ -750,22 +754,93 @@ function html(body: string, wide = false): string {
 </html>`;
 }
 
-function renderStep1(errorMsg?: string): string {
+function renderStep1(nameError?: string, prefillName = "", planError?: string): string {
+  const plans = getPlans();
+
+  // Each plan card has its own <form> so it can submit independently.
+  // JS mirrors the shared company name input into each form's hidden field.
+  const cards = plans.map((plan) => `
+    <div class="plan-card${plan.highlight ? " highlight" : ""}">
+      ${plan.highlight ? `<div class="plan-badge">Most popular</div>` : ""}
+      <div class="plan-name">${escHtml(plan.name)}</div>
+      <div class="plan-desc">${escHtml(plan.description)}</div>
+      <ul class="plan-features">
+        ${plan.features.map((f) => `<li>${escHtml(f)}</li>`).join("")}
+      </ul>
+      <form method="POST" action="/onboarding/checkout">
+        <input type="hidden" name="companyName" class="company-mirror">
+        <input type="hidden" name="priceId"     value="${escAttr(plan.priceId)}">
+        <button type="submit" class="btn-plan">Start 14-day trial &rarr;</button>
+      </form>
+    </div>
+  `).join("");
+
   return html(`
     <div class="steps">
       <div class="step-dot active"></div>
       <div class="step-dot"></div>
       <div class="step-dot"></div>
     </div>
-    <div class="card">
-      <div class="card-title">Let's get you set up</div>
-      <div class="card-sub">Connect your inbox so KAIRA can start monitoring purchase orders automatically.</div>
-      ${errorMsg ? `<div class="error-msg">${escHtml(errorMsg)}</div>` : ""}
-      <form method="POST" action="/onboarding/start">
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <div class="card-title">Choose your plan</div>
+      <div class="card-sub" style="margin-bottom:0.75rem;">
+        14-day free trial on any plan. No charge until the trial ends.
+      </div>
+      <div style="max-width:320px;margin:0 auto;">
         <div class="field">
           <label for="companyName">Company name</label>
-          <input type="text" id="companyName" name="companyName" placeholder="Acme Corp" autocomplete="organization" required>
+          <input type="text" id="companyName" name="companyName"
+            value="${escAttr(prefillName)}"
+            placeholder="Acme Corp" autocomplete="organization">
+          ${nameError ? `<div class="error-msg" style="margin-top:0.5rem;">${escHtml(nameError)}</div>` : ""}
         </div>
+        ${planError ? `<div class="error-msg">${escHtml(planError)}</div>` : ""}
+      </div>
+    </div>
+    <div class="plans-grid">${cards}</div>
+    <p class="trial-notice">
+      14-day free trial &bull; Cancel anytime &bull; Secure checkout via Stripe<br>
+      By continuing you agree to our
+      <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and
+      <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+    </p>
+    <script>
+      const nameInput = document.getElementById('companyName');
+      function syncName() {
+        document.querySelectorAll('.company-mirror').forEach(m => m.value = nameInput.value);
+      }
+      nameInput.addEventListener('input', syncName);
+      syncName();
+      // Prevent plan form submission if company name is empty
+      document.querySelectorAll('.plan-card form').forEach(form => {
+        form.addEventListener('submit', (e) => {
+          if (!nameInput.value.trim()) {
+            e.preventDefault();
+            nameInput.focus();
+            nameInput.style.borderColor = 'var(--purple)';
+            nameInput.style.boxShadow   = '0 0 0 3px rgba(139,92,246,0.15)';
+          }
+        });
+      });
+    </script>
+  `, true);
+}
+
+function renderConnect(sessionId: string, companyName: string): string {
+  return html(`
+    <div class="steps">
+      <div class="step-dot done"></div>
+      <div class="step-dot active"></div>
+      <div class="step-dot"></div>
+    </div>
+    <div class="card">
+      <div class="pill">&#10003; Payment confirmed</div>
+      <div class="card-title">Connect your inbox</div>
+      <div class="card-sub">
+        Now let's connect the email inbox where ${escHtml(companyName)} receives purchase orders.
+      </div>
+      <form method="POST" action="/onboarding/start">
+        <input type="hidden" name="session" value="${escAttr(sessionId)}">
         <button type="submit" name="provider" value="microsoft" class="btn btn-ms">
           Connect Microsoft 365 &rarr;
         </button>
@@ -775,10 +850,7 @@ function renderStep1(errorMsg?: string): string {
         </button>
       </form>
       <p class="hint">
-        We request read-only access to your inbox. No emails are stored — only extracted PO data.<br>
-        By continuing you agree to our
-        <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and
-        <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+        We request read-only access to your inbox. No emails are stored — only extracted PO data.
       </p>
     </div>
   `);
