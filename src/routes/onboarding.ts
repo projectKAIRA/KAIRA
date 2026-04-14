@@ -930,7 +930,8 @@ function renderConnect(sessionId: string, companyName: string): string {
 
 function renderImap(sessionId: string, companyName: string, prefill: { username?: string; host?: string } = {}, errorMsg?: string): string {
   const username = escAttr(prefill.username ?? "");
-  const host     = escAttr(prefill.host     ?? "imap.gmail.com");
+  // Only pre-fill host if it came from a server-side validation round-trip (not the blank default).
+  const prefillHost = escAttr(prefill.host ?? "");
 
   return html(`
     <div class="steps">
@@ -942,27 +943,160 @@ function renderImap(sessionId: string, companyName: string, prefill: { username?
       <div class="card-title">Connect your inbox</div>
       <div class="card-sub">Enter your email credentials for ${escHtml(companyName)}.</div>
       ${errorMsg ? `<div class="error-msg">${escHtml(errorMsg)}</div>` : ""}
-      <form method="POST" action="/onboarding/imap">
+      <form method="POST" action="/onboarding/imap" id="imap-form">
         <input type="hidden" name="session" value="${escAttr(sessionId)}">
         <div class="field">
           <label for="username">Email address</label>
-          <input type="email" id="username" name="username" value="${username}" placeholder="orders@yourcompany.com" required>
+          <input type="email" id="username" name="username" value="${username}"
+                 placeholder="orders@yourcompany.com" required autocomplete="email">
         </div>
-        <div class="field">
-          <label for="password">App password</label>
-          <input type="password" id="password" name="password" placeholder="xxxx xxxx xxxx xxxx" required>
+        <div id="outlook-warning" style="display:none;" class="error-msg">
+          Please use the <strong>Microsoft 365</strong> button on the previous step instead —
+          Outlook / Hotmail / Live accounts require Microsoft OAuth, not IMAP credentials.
         </div>
-        <div class="field">
-          <label for="host">Mail server (IMAP host)</label>
-          <input type="text" id="host" name="host" value="${host}" placeholder="imap.gmail.com" required>
+        <div id="imap-fields">
+          <div class="field">
+            <label for="password">App password</label>
+            <input type="password" id="password" name="password"
+                   placeholder="xxxx xxxx xxxx xxxx" autocomplete="current-password">
+          </div>
+          <div class="field">
+            <label for="host">Mail server (IMAP host)</label>
+            <input type="text" id="host" name="host" value="${prefillHost}"
+                   placeholder="e.g. mail.yourdomain.com">
+          </div>
+          <div id="provider-hint" class="hint" style="margin-top:0.4rem;min-height:2.4rem;"></div>
+          <button type="submit" id="connect-btn" class="btn btn-submit">Connect inbox &rarr;</button>
         </div>
-        <button type="submit" class="btn btn-submit">Connect inbox &rarr;</button>
       </form>
-      <p class="hint">
-        Gmail requires an App Password — your regular password won't work.<br>
-        Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a> to generate one.
-      </p>
     </div>
+    <script>
+    (function () {
+      var PROVIDERS = [
+        {
+          domains: ["gmail.com", "googlemail.com"],
+          host: "imap.gmail.com",
+          hint: 'Gmail requires an App Password — your regular password won\\'t work. ' +
+                'Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a> to generate one.',
+          passwordLabel: "App password",
+          passwordPlaceholder: "xxxx xxxx xxxx xxxx",
+        },
+        {
+          domains: ["yahoo.com", "ymail.com"],
+          host: "imap.mail.yahoo.com",
+          hint: 'Yahoo requires an App Password. Go to your <a href="https://login.yahoo.com/account/security" target="_blank" rel="noopener">Yahoo Account Security</a> page, generate an app password, and paste it above.',
+          passwordLabel: "App password",
+          passwordPlaceholder: "xxxx xxxx xxxx xxxx",
+        },
+        {
+          domains: ["icloud.com", "me.com", "mac.com"],
+          host: "imap.mail.me.com",
+          hint: 'iCloud requires an App-Specific Password. Go to <a href="https://appleid.apple.com" target="_blank" rel="noopener">appleid.apple.com</a> &rarr; Sign-In and Security &rarr; App-Specific Passwords to generate one.',
+          passwordLabel: "App-specific password",
+          passwordPlaceholder: "xxxx-xxxx-xxxx-xxxx",
+        },
+        {
+          domains: ["zoho.com", "zohomail.com"],
+          host: "imap.zoho.com",
+          hint: 'Zoho Mail: make sure IMAP access is enabled in your Zoho Mail settings before connecting.',
+          passwordLabel: "Password",
+          passwordPlaceholder: "Your Zoho password",
+        },
+        {
+          domains: ["outlook.com", "hotmail.com", "live.com", "msn.com"],
+          host: null, // Outlook — must use Microsoft OAuth
+        },
+      ];
+
+      var emailEl    = document.getElementById("username");
+      var hostEl     = document.getElementById("host");
+      var passwordEl = document.getElementById("password");
+      var hintEl     = document.getElementById("provider-hint");
+      var warningEl  = document.getElementById("outlook-warning");
+      var fieldsEl   = document.getElementById("imap-fields");
+      var connectBtn = document.getElementById("connect-btn");
+      var passwordLabel = document.querySelector('label[for="password"]');
+      var hostLabel     = document.querySelector('label[for="host"]');
+
+      var initialHost = "${prefillHost}";
+
+      function detectProvider(email) {
+        var domain = (email.split("@")[1] || "").toLowerCase().trim();
+        if (!domain) return null;
+        for (var i = 0; i < PROVIDERS.length; i++) {
+          if (PROVIDERS[i].domains.indexOf(domain) !== -1) return PROVIDERS[i];
+        }
+        return { domains: [], host: "", hint: "", passwordLabel: "Password", passwordPlaceholder: "Your email password" };
+      }
+
+      function update() {
+        var email    = emailEl.value;
+        var provider = detectProvider(email);
+
+        // No "@" yet — keep form in neutral state
+        if (!provider) {
+          warningEl.style.display = "none";
+          fieldsEl.style.display  = "";
+          connectBtn.disabled     = false;
+          if (!initialHost) hostEl.value = "";
+          hintEl.innerHTML = "";
+          return;
+        }
+
+        // Outlook / Microsoft accounts — show warning, hide fields
+        if (provider.host === null) {
+          warningEl.style.display = "";
+          fieldsEl.style.display  = "none";
+          return;
+        }
+
+        // Known provider or generic domain
+        warningEl.style.display = "none";
+        fieldsEl.style.display  = "";
+        connectBtn.disabled     = false;
+
+        // Auto-fill host only if the field is still empty or was last auto-filled
+        if (provider.host && (!hostEl.value || hostEl.dataset.autofilled === "1")) {
+          hostEl.value = provider.host;
+          hostEl.dataset.autofilled = "1";
+        } else if (!provider.host && hostEl.dataset.autofilled === "1") {
+          // Switched to a generic/unknown domain — clear the auto-filled value
+          hostEl.value = "";
+          delete hostEl.dataset.autofilled;
+        }
+
+        // Update labels + placeholders
+        if (passwordLabel) passwordLabel.textContent = provider.passwordLabel || "Password";
+        if (passwordEl)    passwordEl.placeholder    = provider.passwordPlaceholder || "";
+        if (hostLabel)     hostLabel.textContent      = provider.host ? "Mail server (IMAP host)" : "Mail server (IMAP host)";
+        if (!provider.host) hostEl.placeholder = "e.g. mail.yourdomain.com";
+
+        hintEl.innerHTML = provider.hint || "";
+      }
+
+      // Track manual edits to host so we don't overwrite them
+      hostEl.addEventListener("input", function () {
+        delete hostEl.dataset.autofilled;
+      });
+
+      emailEl.addEventListener("input", update);
+      emailEl.addEventListener("change", update);
+
+      // Run on load if pre-filled from server
+      if (emailEl.value) update();
+
+      // Ensure password/host are required only when the fields are visible
+      document.getElementById("imap-form").addEventListener("submit", function () {
+        if (fieldsEl.style.display === "none") {
+          passwordEl.removeAttribute("required");
+          hostEl.removeAttribute("required");
+        } else {
+          passwordEl.setAttribute("required", "");
+          hostEl.setAttribute("required", "");
+        }
+      });
+    })();
+    </script>
   `);
 }
 
