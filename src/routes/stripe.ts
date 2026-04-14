@@ -13,9 +13,10 @@
 
 import express, { Request, Response, Router } from "express";
 import Stripe from "stripe";
-import { constructWebhookEvent } from "../services/billing/StripeService.js";
+import { constructWebhookEvent, priceIdToTier } from "../services/billing/StripeService.js";
 import { TenantRegistry } from "../services/tenant/TenantRegistry.js";
 import { getPrismaClient } from "../lib/prisma.js";
+import { PLAN_DOC_LIMITS } from "../types/tenant.js";
 
 const registry = new TenantRegistry();
 
@@ -120,7 +121,11 @@ async function onCheckoutCompleted(session: Stripe.Checkout.Session): Promise<vo
 /**
  * customer.subscription.updated
  *
- * Fired when a subscription changes status (e.g. trial → active, active → past_due).
+ * Fired when a subscription changes status or plan (e.g. trial → active,
+ * starter → growth, downgrade, etc.).
+ *
+ * When the plan tier changes we reset the monthly document count to 0 so
+ * the new plan's quota applies from a clean slate.
  */
 async function onSubscriptionUpdated(sub: Stripe.Subscription): Promise<void> {
   const tenant = await findTenantBySubscription(sub.id);
@@ -129,14 +134,38 @@ async function onSubscriptionUpdated(sub: Stripe.Subscription): Promise<void> {
   const isTrialing = sub.status === "trialing";
   const isActive   = sub.status === "active" || isTrialing;
 
-  await registry.update(tenant.id, {
-    isTrialActive: isTrialing,
-    isActive,
-    // Once the trial ends and subscription becomes active, clear trialLimitReached.
-    ...(sub.status === "active" && { trialLimitReached: false } as object),
+  // Derive the new plan tier from the subscription's price item.
+  const priceId  = sub.items.data[0]?.price?.id ?? "";
+  const newTier  = isTrialing ? "trial" : priceIdToTier(priceId);
+  const tierChanged = newTier !== tenant.planTier;
+
+  const db = getPrismaClient();
+  await db.tenant.update({
+    where: { id: tenant.id },
+    data: {
+      planTier:      newTier,
+      isTrialActive: isTrialing,
+      isActive,
+      // Clear the limit flag whenever the trial ends or the plan changes.
+      trialLimitReached: (sub.status === "active" || tierChanged) ? false : undefined,
+      // Reset monthly doc count on plan change so the new quota starts fresh.
+      ...(tierChanged && {
+        monthlyDocCount:   0,
+        monthlyDocResetAt: new Date(),
+      }),
+    },
   });
 
-  console.log(`[Stripe] Subscription ${sub.id} status → ${sub.status} for tenant ${tenant.id}.`);
+  if (tierChanged) {
+    const limit = PLAN_DOC_LIMITS[newTier];
+    const limitStr = limit === null ? "unlimited" : `${limit.toLocaleString()} docs/month`;
+    console.log(
+      `[Stripe] Tenant ${tenant.id} plan changed: ${tenant.planTier} → ${newTier} ` +
+      `(${limitStr}). Monthly doc count reset.`,
+    );
+  } else {
+    console.log(`[Stripe] Subscription ${sub.id} status → ${sub.status} for tenant ${tenant.id}.`);
+  }
 }
 
 /**

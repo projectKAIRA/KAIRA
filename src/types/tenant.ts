@@ -11,6 +11,19 @@ export type PlanTier = "none" | "trial" | "starter" | "growth" | "pro" | "enterp
 /** Monthly document quota for the Starter / Trial tier. */
 export const TRIAL_DOC_LIMIT = 100;
 
+/**
+ * Monthly document quotas per plan tier.
+ * `null` means unlimited (pro / enterprise).
+ */
+export const PLAN_DOC_LIMITS: Record<PlanTier, number | null> = {
+  none:       0,
+  trial:      100,
+  starter:    500,
+  growth:     2000,
+  pro:        null,
+  enterprise: null,
+};
+
 // ─── Microsoft Graph config ───────────────────────────────────────────────────
 
 export interface TenantGraphConfig {
