@@ -79,6 +79,8 @@ export interface BuyerInfo {
 export interface POLineItem {
   lineNumber: number | null;
   partNumber: string | null;
+  /** Buyer's internal / customer part number, if different from vendor partNumber. */
+  customerPartNumber: string | null;
   description: string;
   quantity: number | null;
   unitOfMeasure: string | null;

@@ -99,16 +99,30 @@ export class TeamsNotificationService implements NotificationService {
     ];
 
     const lineItems = po.lineItems.length > 0
-      ? po.lineItems.map((li: POLineItem) =>
-          [
-            li.lineNumber != null ? `${li.lineNumber})` : "—)",
-            li.description,
-            li.partNumber                 ? `PN: ${li.partNumber}`                              : null,
-            li.quantity   != null         ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}` : null,
-            li.unitPrice  != null         ? `@ ${formatCurrencyTeams(li.unitPrice,  po.currency)}` : null,
-            li.totalPrice != null         ? `= ${formatCurrencyTeams(li.totalPrice, po.currency)}` : null,
-          ].filter(Boolean).join("  ")
-        ).join("\n")
+      ? po.lineItems.map((li: POLineItem) => {
+          const num   = li.lineNumber != null ? `${li.lineNumber}.` : "—.";
+          const pn    = li.partNumber ? `PN: ${li.partNumber}` : null;
+          const desc  = li.description || null;
+          const qty   = li.quantity != null
+            ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}`
+            : null;
+          const price = [
+            li.unitPrice  != null ? `${formatCurrencyTeams(li.unitPrice,  po.currency)} ea`    : null,
+            li.totalPrice != null ? `${formatCurrencyTeams(li.totalPrice, po.currency)} total` : null,
+          ].filter(Boolean).join("  •  ") || null;
+
+          // First line: number + part number
+          // Second line: description (indented)
+          // Third line: qty + price (indented)
+          const cpn   = li.customerPartNumber ? `Internal PN: ${li.customerPartNumber}` : null;
+          const lines = [
+            [num, pn].filter(Boolean).join("  "),
+            cpn   ? `   ${cpn}`  : null,
+            desc  ? `   ${desc}` : null,
+            (qty || price) ? `   ${[qty, price].filter(Boolean).join("  •  ")}` : null,
+          ].filter(Boolean);
+          return lines.join("\n");
+        }).join("\n\n")
       : null;
 
     // Build vendor/buyer/address text blocks — only if relevant data is present

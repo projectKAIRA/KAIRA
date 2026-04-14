@@ -112,18 +112,26 @@ export class SlackNotificationService implements NotificationService {
 
     const lineItemsText =
       po.lineItems.length > 0
-        ? po.lineItems.map((li: POLineItem) =>
-            [
-              li.lineNumber != null ? `*${li.lineNumber}*` : null,
-              li.partNumber ? `PN: ${li.partNumber}` : null,
-              li.description,
-              li.quantity != null ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}` : null,
-              li.unitPrice != null ? `@ ${formatCurrency(li.unitPrice, po.currency)}` : null,
-              li.totalPrice != null ? `= ${formatCurrency(li.totalPrice, po.currency)}` : null,
-            ]
-              .filter(Boolean)
-              .join("  |  ")
-          ).join("\n")
+        ? po.lineItems.map((li: POLineItem) => {
+            const num   = li.lineNumber != null ? `${li.lineNumber}.` : "—.";
+            const pn    = li.partNumber ? `PN: ${li.partNumber}` : null;
+            const desc  = li.description || null;
+            const qty   = li.quantity != null
+              ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}`
+              : null;
+            const price = [
+              li.unitPrice  != null ? `${formatCurrency(li.unitPrice,  po.currency)} ea`    : null,
+              li.totalPrice != null ? `${formatCurrency(li.totalPrice, po.currency)} total` : null,
+            ].filter(Boolean).join("  •  ") || null;
+
+            const cpn = li.customerPartNumber ? `   Internal PN: ${li.customerPartNumber}` : null;
+            return [
+              [num, pn].filter(Boolean).join("  "),
+              cpn,
+              desc  ? `   ${desc}`  : null,
+              (qty || price) ? `   ${[qty, price].filter(Boolean).join("  •  ")}` : null,
+            ].filter(Boolean).join("\n");
+          }).join("\n\n")
         : "_No line items extracted_";
 
     // Build PO detail fields — only include non-null values
@@ -251,16 +259,26 @@ export class SlackNotificationService implements NotificationService {
     const po = tracked.purchaseOrder;
     const lineItemsText =
       po.lineItems.length > 0
-        ? po.lineItems.map((li) =>
-            [
-              li.lineNumber != null ? `${li.lineNumber}.` : "—.",
-              li.description,
-              li.quantity != null ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}` : null,
-              li.partNumber ? `PN: ${li.partNumber}` : null,
-              li.unitPrice  != null ? `${formatCurrency(li.unitPrice, po.currency)} ea` : null,
-              li.totalPrice != null ? `= ${formatCurrency(li.totalPrice, po.currency)}` : null,
-            ].filter(Boolean).join("  |  ")
-          ).join("\n")
+        ? po.lineItems.map((li) => {
+            const num   = li.lineNumber != null ? `${li.lineNumber}.` : "—.";
+            const pn    = li.partNumber ? `PN: ${li.partNumber}` : null;
+            const desc  = li.description || null;
+            const qty   = li.quantity != null
+              ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}`
+              : null;
+            const price = [
+              li.unitPrice  != null ? `${formatCurrency(li.unitPrice,  po.currency)} ea`    : null,
+              li.totalPrice != null ? `${formatCurrency(li.totalPrice, po.currency)} total` : null,
+            ].filter(Boolean).join("  •  ") || null;
+
+            const cpn = li.customerPartNumber ? `   Internal PN: ${li.customerPartNumber}` : null;
+            return [
+              [num, pn].filter(Boolean).join("  "),
+              cpn,
+              desc  ? `   ${desc}`  : null,
+              (qty || price) ? `   ${[qty, price].filter(Boolean).join("  •  ")}` : null,
+            ].filter(Boolean).join("\n");
+          }).join("\n\n")
         : "No line items extracted.";
 
     const dmFields = [

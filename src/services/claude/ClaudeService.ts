@@ -276,13 +276,14 @@ const PO_SCHEMA = `{
 
   "lineItems": [                          // Every line item in the document
     {
-      "lineNumber":    number | null,     // Line or item number
-      "partNumber":    string | null,     // Part number, SKU, item code, catalog number
-      "description":   string,            // Item description (required — use "" if truly absent)
-      "quantity":      number | null,
-      "unitOfMeasure": string | null,     // ea, pcs, lbs, kg, ft, etc.
-      "unitPrice":     number | null,
-      "totalPrice":    number | null      // Line total = quantity × unitPrice
+      "lineNumber":         number | null,  // Line or item number
+      "partNumber":         string | null,  // Vendor/supplier part number, SKU, item code, catalog number
+      "customerPartNumber": string | null,  // Buyer's own internal part number for this item (if present — often labeled "Your PN", "Customer PN", "Item #", etc.)
+      "description":        string,         // Item description (required — use "" if truly absent)
+      "quantity":           number | null,
+      "unitOfMeasure":      string | null,  // ea, pcs, lbs, kg, ft, etc.
+      "unitPrice":          number | null,
+      "totalPrice":         number | null   // Line total = quantity × unitPrice
     }
   ],
 
