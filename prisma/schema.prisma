@@ -44,7 +44,7 @@ model Tenant {
   /// Used for /users/{userEmail}/ Graph API endpoints (Microsoft provider only).
   userEmail         String  @default("")
   inboxFolder       String  @default("inbox")
-  pollIntervalSeconds Int   @default(60)
+  pollIntervalSeconds Int   @default(30)
 
   // ── OAuth delegated tokens (azureAuthMode = "oauth") ──────────────────────
   azureRefreshToken   String?

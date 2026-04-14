@@ -85,7 +85,7 @@ export class TenantRegistry {
         azureAuthMode:      input.graph?.authMode      ?? "app_only",
         userEmail:          input.graph?.userEmail      ?? "",
         inboxFolder:        input.graph?.inboxFolder    ?? input.imap?.inboxFolder ?? "inbox",
-        pollIntervalSeconds: input.graph?.pollIntervalSeconds ?? input.imap?.pollIntervalSeconds ?? 60,
+        pollIntervalSeconds: input.graph?.pollIntervalSeconds ?? input.imap?.pollIntervalSeconds ?? 30,
 
         // OAuth delegated tokens
         azureRefreshToken:   input.graph?.refreshToken   ?? null,
