@@ -15,6 +15,7 @@ import { TenantRegistry } from "../services/tenant/TenantRegistry.js";
 import { TenantScheduler } from "../services/tenant/TenantScheduler.js";
 import { createBillingPortalSession, getPlans } from "../services/billing/StripeService.js";
 import { config } from "../config/index.js";
+import { PLAN_DOC_LIMITS, PlanTier } from "../types/tenant.js";
 
 const registry = new TenantRegistry();
 
@@ -571,13 +572,7 @@ function renderDashboard(d: DashboardData): string {
 }
 
 function buildUsageBlock(t: NonNullable<Awaited<ReturnType<TenantRegistry["findById"]>>>): string {
-  const limits: Record<string, number> = {
-    starter: 100,
-    growth:  500,
-    pro:     2000,
-    trial:   50,
-  };
-  const limit = limits[t.planTier] ?? null;
+  const limit = PLAN_DOC_LIMITS[t.planTier as PlanTier] ?? null;
   const count = t.monthlyDocCount ?? 0;
 
   if (!limit) {
