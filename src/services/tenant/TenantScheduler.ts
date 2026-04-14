@@ -211,14 +211,14 @@ export class TenantScheduler {
 
     entry.isRunning = true;
     try {
+      // ── Monthly count reset (all tenants) ─────────────────────────────────
+      await TrialGuard.maybeResetMonthlyCount(tenantId);
+
       // ── Trial enforcement (pre-cycle) ──────────────────────────────────────
       const isTrial = entry.runtime.config.planTier === "trial" &&
                       entry.runtime.config.isTrialActive;
 
       if (isTrial) {
-        // Reset monthly count if we've crossed a calendar month boundary.
-        await TrialGuard.maybeResetMonthlyCount(tenantId);
-
         const status = await TrialGuard.check(tenantId);
 
         if (status.blocked && status.reason === "expired") {
@@ -252,28 +252,28 @@ export class TenantScheduler {
         `cycle complete. Results: [${summary}]`,
       );
 
-      // ── Trial enforcement (post-cycle) ─────────────────────────────────────
-      if (isTrial) {
-        const processed = results.filter(
-          (r) => r.success && r.action !== "error",
-        ).length;
+      // ── Doc count (all tenants) ────────────────────────────────────────────
+      // Only count real documents — not skipped empty emails or errors.
+      const processed = results.filter(
+        (r) => r.action === "pdf_po_extracted" || r.action === "email_classified",
+      ).length;
 
-        if (processed > 0) {
-          const { newCount, limitReached } = await TrialGuard.incrementDocCount(
-            tenantId,
-            processed,
-          );
+      if (processed > 0) {
+        const { newCount, limitReached } = await TrialGuard.incrementDocCount(
+          tenantId,
+          processed,
+        );
 
-          console.log(
-            `[TenantScheduler] Trial usage for "${entry.runtime.config.name}": ` +
-            `${newCount}/${entry.runtime.config.monthlyDocCount + processed} docs this month.`,
-          );
+        console.log(
+          `[TenantScheduler] Doc usage for "${entry.runtime.config.name}": ` +
+          `${newCount} docs this month (+${processed}).`,
+        );
 
-          if (limitReached) {
-            await TrialGuard.handleLimitReached(entry.runtime.config);
-            // Leave the polling loop running — the pre-cycle guard will skip
-            // future cycles until the monthly count resets or they upgrade.
-          }
+        // Limit enforcement applies only to active trials.
+        if (isTrial && limitReached) {
+          await TrialGuard.handleLimitReached(entry.runtime.config);
+          // Leave the polling loop running — the pre-cycle guard will skip
+          // future cycles until the monthly count resets or they upgrade.
         }
       }
     } catch (err) {
