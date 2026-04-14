@@ -89,7 +89,10 @@ export class TenantScheduler {
       return;
     }
 
-    const intervalMs = tenantConfig.graph.pollIntervalSeconds * 1000;
+    const pollSeconds = tenantConfig.providerType === "imap"
+      ? (tenantConfig.imap?.pollIntervalSeconds ?? tenantConfig.graph.pollIntervalSeconds)
+      : tenantConfig.graph.pollIntervalSeconds;
+    const intervalMs = pollSeconds * 1000;
     const entry: TenantEntry = {
       runtime,
       isRunning:   false,
@@ -108,7 +111,7 @@ export class TenantScheduler {
 
     console.log(
       `[TenantScheduler] Tenant "${tenantConfig.name}" registered — ` +
-      `polling every ${tenantConfig.graph.pollIntervalSeconds}s.`,
+      `polling every ${pollSeconds}s.`,
     );
 
     // Fire an immediate cycle so the first results appear without waiting
