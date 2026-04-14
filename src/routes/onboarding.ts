@@ -418,6 +418,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
         companyName:         session.companyName,
         planTier:            tier,
         notificationChannel: notifChannel,
+        tenantId:            tenant.id,
       }).then(() => {
         console.log(`[Onboarding] sendWelcomeEmail resolved for ${emailTo}`);
       }).catch((err: unknown) => {

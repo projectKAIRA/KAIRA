@@ -9,6 +9,7 @@ import { createOnboardingRouter } from "./routes/onboarding.js";
 import { createAdminRouter } from "./routes/admin.js";
 import { createStripeRouter } from "./routes/stripe.js";
 import { createSlackRouter } from "./routes/slack.js";
+import { createDashboardRouter } from "./routes/dashboard.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -46,6 +47,12 @@ export function createApp(scheduler: TenantScheduler): express.Application {
   // Redirect URI registered in Slack app: https://trykaira.ai/auth/slack/callback
 
   app.use("/auth/slack", createSlackRouter(scheduler));
+
+  // ─── Customer dashboard ────────────────────────────────────────────────────
+  // GET  /dashboard?t=<tenantId>               — account overview
+  // POST /dashboard/teams-webhook?t=<tenantId> — save Teams webhook URL
+
+  app.use("/dashboard", createDashboardRouter(scheduler));
 
   // ─── Tenant CRUD ─────────────────────────────────────────────────────────
 

@@ -56,26 +56,28 @@ export async function sendWelcomeEmail(opts: {
   companyName: string;
   planTier: PlanTier;
   notificationChannel: "Slack" | "Microsoft Teams";
+  tenantId: string;
 }): Promise<void> {
-  const { toEmail, companyName, planTier, notificationChannel } = opts;
+  const { toEmail, companyName, planTier, notificationChannel, tenantId } = opts;
 
   console.log(`[ConfirmationMailer] Preparing welcome email → ${toEmail} (company: "${companyName}", plan: ${planTier})`);
 
-  const { clientId, clientSecret, tenantId } = config.graph;
-  if (!clientId || !clientSecret || !tenantId || tenantId === "consumers") {
+  const { clientId, clientSecret, tenantId: azureTenantId } = config.graph;
+  if (!clientId || !clientSecret || !azureTenantId || azureTenantId === "consumers") {
     console.warn("[ConfirmationMailer] Azure app credentials not configured (AZURE_CLIENT_ID / AZURE_CLIENT_SECRET / AZURE_TENANT_ID) — skipping.");
     return;
   }
 
-  const plan  = tierLabel(planTier);
-  const token = await getAppToken();
+  const plan         = tierLabel(planTier);
+  const token        = await getAppToken();
+  const dashboardUrl = `${config.oauth.baseUrl}/dashboard?t=${encodeURIComponent(tenantId)}`;
 
   const body = {
     message: {
       subject: "Welcome to KAIRA — Your inbox is now being monitored",
       body: {
         contentType: "HTML",
-        content:     buildHtml(companyName, plan, notificationChannel),
+        content:     buildHtml(companyName, plan, notificationChannel, dashboardUrl),
       },
       from: {
         emailAddress: { address: SENDER },
@@ -122,7 +124,7 @@ function tierLabel(tier: PlanTier): string {
   return labels[tier] ?? "Starter";
 }
 
-function buildHtml(companyName: string, plan: string, channel: string): string {
+function buildHtml(companyName: string, plan: string, channel: string, dashboardUrl: string): string {
   // Status rows use <table> cells instead of flexbox — flexbox is stripped by
   // Outlook (Word rendering engine), which causes label+value to run together.
   const statusRow = (label: string, value: string, badge = false) => `
@@ -261,6 +263,20 @@ function buildHtml(companyName: string, plan: string, channel: string): string {
                 </tr>
               </table>
 
+              <!-- ── Dashboard link ── -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                     style="background:#F5F3FF;border:1px solid rgba(139,92,246,0.18);border-radius:12px;margin-bottom:28px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0;font-size:13px;line-height:1.7;color:#4B5563;font-family:'DM Sans',Arial,sans-serif;">
+                      You can always view your plan, update your Slack or Teams connection, and manage your account here:<br>
+                      <a href="${esc(dashboardUrl)}" style="color:#8B5CF6;font-weight:600;text-decoration:none;word-break:break-all;">${esc(dashboardUrl)}</a>
+                    </p>
+                    <p style="margin:8px 0 0;font-size:12px;color:#9CA3AF;font-family:'DM Sans',Arial,sans-serif;">Bookmark this link — it's your personal account page.</p>
+                  </td>
+                </tr>
+              </table>
+
               <p style="margin:0 0 32px;font-size:14px;line-height:1.75;color:#6B7280;font-family:'DM Sans',Arial,sans-serif;">
                 If you have any questions or need help, just reply to this email or reach out at
                 <a href="mailto:support@trykaira.ai" style="color:#8B5CF6;text-decoration:none;font-weight:500;">support@trykaira.ai</a> — we're here to help.
@@ -270,13 +286,16 @@ function buildHtml(companyName: string, plan: string, channel: string): string {
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="center" style="padding-bottom:8px;">
-                    <a href="https://trykaira.ai"
+                    <a href="${esc(dashboardUrl)}"
                        style="display:inline-block;background:#8B5CF6;color:#ffffff;font-family:'DM Sans',Arial,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:100px;letter-spacing:0.3px;">
-                      Visit trykaira.ai &rarr;
+                      Go to your dashboard &rarr;
                     </a>
                   </td>
                 </tr>
               </table>
+              <p style="margin:16px 0 0;font-size:12px;text-align:center;color:#9CA3AF;font-family:'DM Sans',Arial,sans-serif;">
+                Bookmark this link — it's your personal account page.
+              </p>
 
             </td>
           </tr>

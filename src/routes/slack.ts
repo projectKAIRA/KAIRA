@@ -66,7 +66,7 @@ export function createSlackRouter(scheduler: TenantScheduler): Router {
 
     if (error) {
       console.warn(`[SlackConnect] OAuth error for tenant ${tenantId}: ${error}`);
-      res.redirect(`/admin?slack_error=${encodeURIComponent(error)}`);
+      res.redirect(`/dashboard?t=${encodeURIComponent(tenantId)}&slack_error=${encodeURIComponent(error)}`);
       return;
     }
 
@@ -85,7 +85,7 @@ export function createSlackRouter(scheduler: TenantScheduler): Router {
 
     if (!slack.ok || !slack.access_token) {
       console.error(`[SlackConnect] Token exchange failed for tenant ${tenantId}:`, slack.error);
-      res.redirect(`/admin?slack_error=${encodeURIComponent(slack.error ?? "token_exchange_failed")}`);
+      res.redirect(`/dashboard?t=${encodeURIComponent(tenantId)}&slack_error=${encodeURIComponent(slack.error ?? "token_exchange_failed")}`);
       return;
     }
 
@@ -112,7 +112,7 @@ export function createSlackRouter(scheduler: TenantScheduler): Router {
       }
     }
 
-    res.redirect("/admin?slack_connected=1");
+    res.redirect(`/dashboard?t=${encodeURIComponent(tenantId)}&slack_connected=1`);
   });
 
   return router;
