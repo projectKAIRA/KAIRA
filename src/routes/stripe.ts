@@ -135,8 +135,10 @@ async function onSubscriptionUpdated(sub: Stripe.Subscription): Promise<void> {
   const isActive   = sub.status === "active" || isTrialing;
 
   // Derive the new plan tier from the subscription's price item.
-  const priceId  = sub.items.data[0]?.price?.id ?? "";
-  const newTier  = isTrialing ? "trial" : priceIdToTier(priceId);
+  // Trial is a billing state (isTrialActive), not a separate plan tier —
+  // a trialing Growth tenant has planTier="growth", isTrialActive=true.
+  const priceId     = sub.items.data[0]?.price?.id ?? "";
+  const newTier     = priceIdToTier(priceId);
   const tierChanged = newTier !== tenant.planTier;
 
   const db = getPrismaClient();

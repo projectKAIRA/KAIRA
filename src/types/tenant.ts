@@ -8,18 +8,18 @@ export type EmailProviderType = "microsoft" | "imap";
 
 export type PlanTier = "none" | "trial" | "starter" | "growth" | "pro" | "enterprise";
 
-/** Monthly document quota for the Starter / Trial tier. */
-export const TRIAL_DOC_LIMIT = 100;
-
 /**
  * Monthly document quotas per plan tier.
  * `null` means unlimited (pro / enterprise).
+ *
+ * These limits apply whether the tenant is on a trial or a paid subscription —
+ * trial is a billing state, not a separate tier.
  */
 export const PLAN_DOC_LIMITS: Record<PlanTier, number | null> = {
   none:       0,
-  trial:      100,
-  starter:    500,
-  growth:     2000,
+  trial:      100,   // fallback only — planTier should never be "trial" in practice
+  starter:    100,
+  growth:     500,
   pro:        null,
   enterprise: null,
 };

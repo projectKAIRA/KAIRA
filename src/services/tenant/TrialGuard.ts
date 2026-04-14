@@ -25,7 +25,7 @@
 
 import { WebClient } from "@slack/web-api";
 import { getPrismaClient } from "../../lib/prisma.js";
-import { TenantConfig, TRIAL_DOC_LIMIT } from "../../types/tenant.js";
+import { TenantConfig, PLAN_DOC_LIMITS, PlanTier } from "../../types/tenant.js";
 
 const UPGRADE_URL = "https://trykaira.ai";
 
@@ -58,14 +58,13 @@ export class TrialGuard {
     const row = await db.tenant.findUnique({
       where:  { id: tenantId },
       select: {
-        planTier:          true,
         isTrialActive:     true,
         trialEndDate:      true,
         trialLimitReached: true,
       },
     });
 
-    if (!row || row.planTier !== "trial" || !row.isTrialActive) {
+    if (!row || !row.isTrialActive) {
       return { blocked: false };
     }
 
@@ -124,7 +123,8 @@ export class TrialGuard {
 
   /**
    * Increment the monthly document count by `count` and return the new total.
-   * Also returns whether the new total has hit or exceeded TRIAL_DOC_LIMIT.
+   * Also returns whether the new total has hit or exceeded the plan's monthly limit.
+   * For unlimited plans (pro / enterprise) limitReached is always false.
    */
   static async incrementDocCount(
     tenantId: string,
@@ -134,10 +134,11 @@ export class TrialGuard {
     const row = await db.tenant.update({
       where: { id: tenantId },
       data:  { monthlyDocCount: { increment: count } },
-      select: { monthlyDocCount: true },
+      select: { monthlyDocCount: true, planTier: true },
     });
 
-    const limitReached = row.monthlyDocCount >= TRIAL_DOC_LIMIT;
+    const limit = PLAN_DOC_LIMITS[row.planTier as PlanTier] ?? null;
+    const limitReached = limit !== null && row.monthlyDocCount >= limit;
     return { newCount: row.monthlyDocCount, limitReached };
   }
 

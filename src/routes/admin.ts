@@ -10,7 +10,7 @@ import express, { Router, Request, Response } from "express";
 import Stripe from "stripe";
 import { TenantRegistry } from "../services/tenant/TenantRegistry.js";
 import { TenantScheduler } from "../services/tenant/TenantScheduler.js";
-import { TenantConfig, TRIAL_DOC_LIMIT } from "../types/tenant.js";
+import { TenantConfig, PLAN_DOC_LIMITS, PlanTier } from "../types/tenant.js";
 import { getStripe } from "../services/billing/StripeService.js";
 import { config } from "../config/index.js";
 
@@ -179,16 +179,17 @@ function renderRow(t: TenantConfig, now: Date): string {
 
   // Docs this month
   let docsCell: string;
-  if (t.planTier === "trial") {
-    const pct  = Math.min(100, Math.round((t.monthlyDocCount / TRIAL_DOC_LIMIT) * 100));
+  const docLimit = PLAN_DOC_LIMITS[t.planTier as PlanTier] ?? null;
+  if (docLimit !== null) {
+    const pct   = Math.min(100, Math.round((t.monthlyDocCount / docLimit) * 100));
     const color = pct >= 100 ? "red" : pct >= 75 ? "orange" : "green";
     docsCell = `
       <div class="doc-count">
-        <span class="${color === "red" ? "text-red" : color === "orange" ? "text-orange" : "text-green"}">${t.monthlyDocCount} / ${TRIAL_DOC_LIMIT}</span>
+        <span class="${color === "red" ? "text-red" : color === "orange" ? "text-orange" : "text-green"}">${t.monthlyDocCount} / ${docLimit}</span>
         <div class="bar-track"><div class="bar-fill bar-${color}" style="width:${pct}%"></div></div>
       </div>`;
   } else {
-    docsCell = `<span>${t.monthlyDocCount}</span>`;
+    docsCell = `<span>${t.monthlyDocCount} / ∞</span>`;
   }
 
   // Status badge

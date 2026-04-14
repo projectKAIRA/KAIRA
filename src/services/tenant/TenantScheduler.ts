@@ -215,8 +215,7 @@ export class TenantScheduler {
       await TrialGuard.maybeResetMonthlyCount(tenantId);
 
       // ── Trial enforcement (pre-cycle) ──────────────────────────────────────
-      const isTrial = entry.runtime.config.planTier === "trial" &&
-                      entry.runtime.config.isTrialActive;
+      const isTrial = entry.runtime.config.isTrialActive;
 
       if (isTrial) {
         const status = await TrialGuard.check(tenantId);
