@@ -4,6 +4,15 @@ import { NotificationService } from "../notifications/NotificationService.js";
 import { AttachmentExtractor, ExtractedContent } from "../attachments/AttachmentExtractor.js";
 import { EmailAttachment, EmailMessage, ProcessingResult } from "../../types/index.js";
 
+/** Priority score for attachment kinds — higher wins. */
+function attachmentPriority(kind: ExtractedContent["kind"]): number {
+  switch (kind) {
+    case "pdf":   return 3;
+    case "text":  return 2;  // DOCX / XLSX
+    case "image": return 1;
+  }
+}
+
 /**
  * Orchestrates the full email processing pipeline.
  *
@@ -76,15 +85,34 @@ export class EmailProcessor {
         );
       }
 
-      // 1. Try each attachment in order — stop at the first recognised one.
+      // 1. Scan ALL attachments and pick the best one.
+      //    Priority: PDF > DOCX/XLSX/text > image.
+      //    Never stop early at an image — a PDF that appears later must win.
+      let best: ExtractedContent | null = null;
+
       for (const attachment of email.attachments) {
         console.log(`[EmailProcessor] Extracting attachment "${attachment.name}" (${attachment.contentType}, ${attachment.size}B)`);
         const extracted = await this.extractor.extract(attachment);
-        if (extracted) {
-          console.log(`[EmailProcessor] Extracted "${attachment.name}" as kind="${extracted.kind}" — routing to document handler`);
-          return await this.handleDocumentEmail(email, extracted);
+
+        if (!extracted) {
+          console.warn(`[EmailProcessor] extract() returned null for "${attachment.name}" (${attachment.contentType}) — skipping`);
+          continue;
         }
-        console.warn(`[EmailProcessor] extract() returned null for "${attachment.name}" (${attachment.contentType}) — trying next attachment`);
+
+        console.log(`[EmailProcessor] Extracted "${attachment.name}" as kind="${extracted.kind}"`);
+
+        if (best === null || attachmentPriority(extracted.kind) > attachmentPriority(best.kind)) {
+          best = extracted;
+          console.log(`[EmailProcessor] New best attachment: "${extracted.name}" (kind=${extracted.kind})`);
+        }
+
+        // PDF is the highest priority — no need to check remaining attachments.
+        if (best.kind === "pdf") break;
+      }
+
+      if (best) {
+        console.log(`[EmailProcessor] Using attachment "${best.name}" (kind=${best.kind}) — routing to document handler`);
+        return await this.handleDocumentEmail(email, best);
       }
 
       // 2. No recognised attachment found.
