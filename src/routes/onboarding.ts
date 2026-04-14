@@ -1006,7 +1006,19 @@ function renderImap(sessionId: string, companyName: string, prefill: { username?
           domains: ["outlook.com", "hotmail.com", "live.com", "msn.com"],
           host: null, // Outlook — must use Microsoft OAuth
         },
+        {
+          domains: ["godaddy.com", "secureserver.net"],
+          host: "imap.secureserver.net",
+          hint: 'GoDaddy Workspace Email: use your full email address and your GoDaddy Workspace password. ' +
+                'If you have trouble connecting, visit your <a href="https://email.godaddy.com" target="_blank" rel="noopener">GoDaddy Webmail</a> to confirm your credentials.',
+          passwordLabel: "Password",
+          passwordPlaceholder: "Your GoDaddy Workspace password",
+        },
       ];
+
+      var GODADDY_FALLBACK_HINT =
+        'We\\'ve pre-filled the most common small-business mail server. ' +
+        'If this doesn\\'t work, contact your email provider for your IMAP host settings.';
 
       var emailEl    = document.getElementById("username");
       var hostEl     = document.getElementById("host");
@@ -1026,7 +1038,15 @@ function renderImap(sessionId: string, companyName: string, prefill: { username?
         for (var i = 0; i < PROVIDERS.length; i++) {
           if (PROVIDERS[i].domains.indexOf(domain) !== -1) return PROVIDERS[i];
         }
-        return { domains: [], host: "", hint: "", passwordLabel: "Password", passwordPlaceholder: "Your email password" };
+        // Unknown custom domain — GoDaddy is the most common small-business host,
+        // so pre-fill secureserver.net with a note that it may need adjusting.
+        return {
+          domains: [],
+          host: "imap.secureserver.net",
+          hint: GODADDY_FALLBACK_HINT,
+          passwordLabel: "Password",
+          passwordPlaceholder: "Your email password",
+        };
       }
 
       function update() {
@@ -1056,20 +1076,14 @@ function renderImap(sessionId: string, companyName: string, prefill: { username?
         connectBtn.disabled     = false;
 
         // Auto-fill host only if the field is still empty or was last auto-filled
-        if (provider.host && (!hostEl.value || hostEl.dataset.autofilled === "1")) {
+        if (!hostEl.value || hostEl.dataset.autofilled === "1") {
           hostEl.value = provider.host;
           hostEl.dataset.autofilled = "1";
-        } else if (!provider.host && hostEl.dataset.autofilled === "1") {
-          // Switched to a generic/unknown domain — clear the auto-filled value
-          hostEl.value = "";
-          delete hostEl.dataset.autofilled;
         }
 
         // Update labels + placeholders
         if (passwordLabel) passwordLabel.textContent = provider.passwordLabel || "Password";
         if (passwordEl)    passwordEl.placeholder    = provider.passwordPlaceholder || "";
-        if (hostLabel)     hostLabel.textContent      = provider.host ? "Mail server (IMAP host)" : "Mail server (IMAP host)";
-        if (!provider.host) hostEl.placeholder = "e.g. mail.yourdomain.com";
 
         hintEl.innerHTML = provider.hint || "";
       }
