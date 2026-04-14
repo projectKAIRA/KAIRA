@@ -2,7 +2,6 @@ import { ClientSecretCredential, DeviceCodeCredential } from "@azure/identity";
 import type { TokenCredential, AccessToken } from "@azure/identity";
 import { Client, ResponseType } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js";
-import { simpleParser } from "mailparser";
 import { getPrismaClient } from "../../lib/prisma.js";
 import { TenantGraphConfig } from "../../types/tenant.js";
 import { EmailAttachment, EmailMessage } from "../../types/index.js";
@@ -262,69 +261,156 @@ export class GraphService implements EmailFetcher {
   }
 
   /**
-   * Download an itemAttachment as raw MIME and extract its inner file attachments.
+   * Extract the inner file attachments from an Outlook Item (itemAttachment).
    *
-   * When a user forwards an email by attaching it as an "Outlook Item", Outlook
-   * sends it as an itemAttachment. The actual PO document (PDF, DOCX, etc.) lives
-   * inside that embedded email. This method downloads the MIME bytes via /$value,
-   * parses them with mailparser, and returns only the real file attachments —
-   * skipping any inline CID images (logos, signature graphics).
+   * When a user forwards an email by attaching it as an "Outlook Item", Graph
+   * returns it as #microsoft.graph.itemAttachment — no contentBytes, no file.
+   * The actual PO document lives inside the embedded email.
+   *
+   * Strategy: use $expand to get the inner message + its attachments directly
+   * from the Graph API. This avoids MIME parsing entirely and is far more
+   * reliable than the /$value approach (which can return 404 on item attachments).
+   *
+   * Falls back to /$value + raw base64 extraction if $expand returns nothing.
    */
   private async extractItemAttachmentFiles(
     messageId: string,
     attachmentId: string,
     attName: string,
   ): Promise<EmailAttachment[]> {
+    // ── Primary: Graph $expand ────────────────────────────────────────────────
     try {
+      const expanded = await this.client
+        .api(
+          `/users/${this.userEmail}/messages/${messageId}/attachments/${attachmentId}` +
+          `?$expand=microsoft.graph.itemAttachment/item($expand=attachments)`
+        )
+        .get() as ExpandedItemAttachment;
+
+      const innerAtts: GraphAttachment[] = expanded?.item?.attachments ?? [];
+
+      console.log(
+        `[GraphService] itemAttachment "${attName}" expanded — ` +
+        `inner message has ${innerAtts.length} attachment(s): ` +
+        `[${innerAtts.map(a => `"${a.name}" type=${a["@odata.type"] ?? "?"} inline=${a.isInline ?? false}`).join(", ")}]`
+      );
+
+      const results: EmailAttachment[] = [];
+
+      for (const innerAtt of innerAtts) {
+        const odataType = innerAtt["@odata.type"] ?? "";
+        const innerName = innerAtt.name ?? "attachment";
+
+        // Only process real file attachments
+        if (odataType !== "#microsoft.graph.fileAttachment") {
+          console.log(`[GraphService] Inner att "${innerName}": skipping (type=${odataType})`);
+          continue;
+        }
+
+        // Skip inline CID images — logos, signature graphics, never PO data
+        if (innerAtt.isInline) {
+          console.log(`[GraphService] Inner att "${innerName}": skipping inline image`);
+          continue;
+        }
+
+        let contentBytes = innerAtt.contentBytes ?? "";
+
+        // Large attachments (> ~3 MB) won't have inline contentBytes.
+        // Download via /$value using the inner message ID if available.
+        if (!contentBytes && innerAtt.id) {
+          const innerMsgId = expanded?.item?.id;
+          if (innerMsgId) {
+            try {
+              console.log(`[GraphService] Inner att "${innerName}" has no contentBytes — downloading via inner message /$value`);
+              const buf = await this.client
+                .api(`/users/${this.userEmail}/messages/${innerMsgId}/attachments/${innerAtt.id}/$value`)
+                .responseType(ResponseType.ARRAYBUFFER)
+                .get() as ArrayBuffer;
+              contentBytes = Buffer.from(buf).toString("base64");
+            } catch (dlErr) {
+              console.warn(
+                `[GraphService] Inner att "${innerName}" /$value download failed:`,
+                (dlErr as Error).message ?? dlErr
+              );
+            }
+          }
+        }
+
+        if (!contentBytes) {
+          console.warn(`[GraphService] Inner att "${innerName}": no contentBytes after all attempts — skipping`);
+          continue;
+        }
+
+        const size = innerAtt.size ?? 0;
+        console.log(`[GraphService] Inner att "${innerName}" (${innerAtt.contentType ?? "?"}, ${size}B) — including`);
+
+        results.push({
+          id:           `item-${attachmentId}-${innerName}`,
+          name:         innerName,
+          contentType:  innerAtt.contentType ?? "application/octet-stream",
+          contentBytes,
+          size,
+        });
+      }
+
+      if (results.length > 0 || innerAtts.length > 0) {
+        console.log(
+          `[GraphService] itemAttachment "${attName}": ` +
+          `${results.length} file(s) extracted via $expand — ` +
+          `[${results.map(r => `"${r.name}"`).join(", ")}]`
+        );
+        return results;
+      }
+
+      // Expand returned no attachments at all — fall through to /$value fallback
+      console.log(`[GraphService] itemAttachment "${attName}": $expand returned no inner attachments — trying /$value fallback`);
+    } catch (err) {
+      console.error(
+        `[GraphService] $expand failed for itemAttachment "${attName}":`,
+        (err as Error).message ?? err
+      );
+    }
+
+    // ── Fallback: /$value raw bytes ───────────────────────────────────────────
+    // Some configurations (e.g. device code auth) may not support $expand on
+    // itemAttachments. Download the raw MIME bytes and extract base64 chunks.
+    try {
+      console.log(`[GraphService] itemAttachment "${attName}": attempting /$value fallback`);
       const mimeBuffer = await this.client
         .api(`/users/${this.userEmail}/messages/${messageId}/attachments/${attachmentId}/$value`)
         .responseType(ResponseType.ARRAYBUFFER)
         .get() as ArrayBuffer;
 
-      console.log(
-        `[GraphService] itemAttachment "${attName}" MIME downloaded — ${mimeBuffer.byteLength} bytes`
-      );
+      console.log(`[GraphService] itemAttachment "${attName}" /$value — ${mimeBuffer.byteLength} bytes`);
 
+      // Dynamically import mailparser (only used in this fallback path)
+      const { simpleParser } = await import("mailparser");
       const parsed = await simpleParser(Buffer.from(mimeBuffer));
       const results: EmailAttachment[] = [];
 
       for (const innerAtt of parsed.attachments ?? []) {
         if (!innerAtt.content || !innerAtt.filename) continue;
-
-        // Skip CID-referenced inline images — they're always logos or signature art.
-        // Real document attachments (PDFs, Word docs) are always content-disposition: attachment.
         if (innerAtt.contentDisposition === "inline") {
-          console.log(
-            `[GraphService] itemAttachment inner "${innerAtt.filename}": skipping inline image`
-          );
+          console.log(`[GraphService] /$value inner "${innerAtt.filename}": skipping inline`);
           continue;
         }
-
-        const base64 = innerAtt.content.toString("base64");
-        const size   = innerAtt.size ?? innerAtt.content.length;
-        console.log(
-          `[GraphService] itemAttachment inner "${innerAtt.filename}" — ` +
-          `contentType="${innerAtt.contentType}" size=${size}B`
-        );
-
         results.push({
           id:           `item-${attachmentId}-${innerAtt.filename}`,
           name:         innerAtt.filename,
           contentType:  innerAtt.contentType ?? "application/octet-stream",
-          contentBytes: base64,
-          size,
+          contentBytes: innerAtt.content.toString("base64"),
+          size:         innerAtt.size ?? innerAtt.content.length,
         });
       }
 
       console.log(
-        `[GraphService] itemAttachment "${attName}": ` +
-        `extracted ${results.length} inner file(s) — ` +
-        `[${results.map(r => `"${r.name}"`).join(", ")}]`
+        `[GraphService] itemAttachment "${attName}" /$value fallback: ` +
+        `${results.length} file(s) — [${results.map(r => `"${r.name}"`).join(", ")}]`
       );
       return results;
     } catch (err) {
       console.error(
-        `[GraphService] Failed to extract itemAttachment "${attName}":`,
+        `[GraphService] /$value fallback also failed for "${attName}":`,
         (err as Error).message ?? err
       );
       return [];
@@ -489,6 +575,14 @@ interface GraphAttachment {
   size?: number;
   /** True for CID-referenced images embedded in the HTML body (logos, signatures). */
   isInline?: boolean;
+}
+
+/** Shape returned by $expand on an itemAttachment. */
+interface ExpandedItemAttachment {
+  item?: {
+    id?: string;
+    attachments?: GraphAttachment[];
+  };
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
