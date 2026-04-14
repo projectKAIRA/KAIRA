@@ -6,9 +6,26 @@ import { ClaudeService } from "../claude/ClaudeService.js";
 import { POTracker } from "../po/POTracker.js";
 import { EmailProcessor } from "../email/EmailProcessor.js";
 import { NotificationService } from "../notifications/NotificationService.js";
+import { NotificationPayload, NotificationResult } from "../../types/index.js";
 import { SlackNotificationService } from "../notifications/SlackNotificationService.js";
 import { TeamsNotificationService } from "../notifications/TeamsNotificationService.js";
 import { SlackInteractionService } from "../notifications/SlackInteractionService.js";
+
+/**
+ * No-op notifier used when a tenant hasn't connected a notification channel yet.
+ * Email processing continues — alerts are simply dropped with a warning.
+ */
+class PendingNotificationService implements NotificationService {
+  readonly name = "pending";
+  constructor(private readonly tenantName: string, private readonly reason: string) {}
+  async send(_payload: NotificationPayload): Promise<NotificationResult> {
+    console.warn(
+      `[TenantRuntime] Tenant "${this.tenantName}" has no notification channel configured ` +
+      `(${this.reason}) — alert dropped. Connect Slack or Teams from the dashboard.`,
+    );
+    return {};
+  }
+}
 
 /**
  * TenantRuntime
@@ -83,17 +100,19 @@ function buildNotifier(config: TenantConfig, tracker: POTracker): NotificationSe
     case "slack": {
       const s = config.slack;
       if (!s.botToken) {
-        throw new Error(
-          `[TenantRuntime] Tenant "${config.name}" is configured for Slack but SLACK_BOT_TOKEN is missing.`,
+        console.warn(
+          `[TenantRuntime] Tenant "${config.name}" notification provider is "slack" but no bot token is stored. ` +
+          `Connect Slack from the dashboard to enable alerts.`,
         );
+        return new PendingNotificationService(config.name, "Slack bot token not set");
       }
       return new SlackNotificationService(
         {
-          botToken:      s.botToken,
-          poChannel:     s.poChannelId    ?? "",
-          webhookRfq:    s.webhookRfq     ?? "",
+          botToken:       s.botToken,
+          poChannel:      s.poChannelId    ?? "",
+          webhookRfq:     s.webhookRfq     ?? "",
           webhookInquiry: s.webhookInquiry ?? "",
-          botName:       s.botName,
+          botName:        s.botName,
         },
         tracker,
       );
@@ -102,9 +121,11 @@ function buildNotifier(config: TenantConfig, tracker: POTracker): NotificationSe
     case "teams": {
       const t = config.teams;
       if (!t.webhookUrl) {
-        throw new Error(
-          `[TenantRuntime] Tenant "${config.name}" is configured for Teams but TEAMS_WEBHOOK_URL is missing.`,
+        console.warn(
+          `[TenantRuntime] Tenant "${config.name}" notification provider is "teams" but no webhook URL is stored. ` +
+          `Add a Teams webhook from the dashboard to enable alerts.`,
         );
+        return new PendingNotificationService(config.name, "Teams webhook URL not set");
       }
       return new TeamsNotificationService({ webhookUrl: t.webhookUrl });
     }
