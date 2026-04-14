@@ -21,10 +21,13 @@ export function createAdminRouter(scheduler: TenantScheduler): Router {
 
   router.get("/", async (req: Request, res: Response) => {
     if (!await checkAuth(req, res)) return;
-    const tenants = await registry.findAll();
+    const [tenants, blocks] = await Promise.all([
+      registry.findAll(),
+      registry.getSignupBlocks(50),
+    ]);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(renderDashboard(tenants));
+    res.send(renderDashboard(tenants, blocks));
   });
 
   // ─── GET /admin/tenant/:id — per-tenant detail view ───────────────────────
@@ -104,10 +107,12 @@ async function checkAuth(req: Request, res: Response): Promise<boolean> {
 
 // ─── HTML ─────────────────────────────────────────────────────────────────────
 
-function renderDashboard(tenants: TenantConfig[]): string {
-  const now        = new Date();
+type SignupBlockRow = Awaited<ReturnType<TenantRegistry["getSignupBlocks"]>>[number];
+
+function renderDashboard(tenants: TenantConfig[], blocks: SignupBlockRow[]): string {
+  const now         = new Date();
   const totalActive = tenants.filter((t) => t.isActive).length;
-  const totalTrial  = tenants.filter((t) => t.planTier === "trial").length;
+  const totalTrial  = tenants.filter((t) => t.isTrialActive).length;
 
   const rows = tenants
     .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))
@@ -117,6 +122,49 @@ function renderDashboard(tenants: TenantConfig[]): string {
   const emptyRow = tenants.length === 0
     ? `<tr><td colspan="8" class="empty">No tenants yet. <a href="/onboarding">Add the first one →</a></td></tr>`
     : "";
+
+  // ── Blocked signups table ──────────────────────────────────────────────────
+  const blockRows = blocks.map((b) => `
+    <tr>
+      <td class="name">${esc(b.companyName)}</td>
+      <td>${esc(b.email || "—")}</td>
+      <td><span class="badge ${b.reason === "email_match" ? "badge-orange" : "badge-red"}">${b.reason === "email_match" ? "Email" : "Company name"}</span></td>
+      <td class="muted">${esc(b.matchedTenantName ?? "—")}</td>
+      <td class="muted">${b.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</td>
+    </tr>
+  `).join("");
+
+  const blocksSection = `
+    <div style="margin-top:32px;">
+      <div class="header" style="margin-bottom:16px;">
+        <div>
+          <div class="title" style="font-size:1.1rem;">Blocked Signup Attempts</div>
+          <div class="subtitle">Duplicate company name or email detected — signup was prevented.</div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="stat-val">${blocks.length}</span><span class="stat-lbl">Blocked</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Company name tried</th>
+              <th>Email tried</th>
+              <th>Reason</th>
+              <th>Matched tenant</th>
+              <th>When</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${blocks.length === 0
+              ? `<tr><td colspan="5" class="empty">No blocked attempts yet.</td></tr>`
+              : blockRows}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
 
   return page(`
     <div class="header">
@@ -152,6 +200,8 @@ function renderDashboard(tenants: TenantConfig[]): string {
         </tbody>
       </table>
     </div>
+
+    ${blocksSection}
 
     <p class="footer">KAIRA &bull; <a href="/health">health</a> &bull; <a href="/status">api status</a></p>
   `);

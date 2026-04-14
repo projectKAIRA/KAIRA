@@ -141,6 +141,26 @@ model TrackedOrder {
   @@index([tenantId, status])
 }
 
+/// Blocked signup attempt — logged whenever a duplicate company name or email
+/// is detected during onboarding so abuse patterns are visible in the admin panel.
+model SignupBlock {
+  id              String   @id @default(uuid())
+  /// The email address used in the blocked attempt.
+  email           String   @default("")
+  /// The company name used in the blocked attempt.
+  companyName     String
+  /// Why the attempt was blocked: "name_match" | "email_match"
+  reason          String
+  /// ID of the existing tenant that triggered the block (if still present).
+  matchedTenantId   String?
+  /// Name of the existing tenant that triggered the block.
+  matchedTenantName String?
+  createdAt       DateTime @default(now())
+
+  @@index([email])
+  @@index([companyName])
+}
+
 /// Persists the Microsoft Graph API delta query bookmark per tenant.
 /// Replaces the in-memory deltaLink cache in GraphService.
 model DeltaLink {

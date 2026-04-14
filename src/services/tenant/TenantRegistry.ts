@@ -67,6 +67,84 @@ export class TenantRegistry {
     return row ? toConfig(row) : null;
   }
 
+  /**
+   * Check whether an existing tenant (active OR inactive) matches the given
+   * company name or email address.  Used to block duplicate trial signups.
+   *
+   * Returns the first matching tenant config and the reason for the match,
+   * or null if no duplicate exists.
+   */
+  async checkForDuplicate(
+    companyName: string,
+    email?: string,
+  ): Promise<{ tenant: TenantConfig; reason: "name_match" | "email_match" } | null> {
+    const db = getPrismaClient();
+
+    // Company name — case-insensitive exact match across all tenants.
+    const byName = await db.tenant.findFirst({
+      where: { name: { equals: companyName, mode: "insensitive" } },
+    });
+    if (byName) return { tenant: toConfig(byName), reason: "name_match" };
+
+    // Email — check contactEmail, userEmail (Microsoft), and imapUser (IMAP).
+    if (email && email.trim()) {
+      const byEmail = await db.tenant.findFirst({
+        where: {
+          OR: [
+            { contactEmail: { equals: email, mode: "insensitive" } },
+            { userEmail:    { equals: email, mode: "insensitive" } },
+            { imapUser:     { equals: email, mode: "insensitive" } },
+          ],
+        },
+      });
+      if (byEmail) return { tenant: toConfig(byEmail), reason: "email_match" };
+    }
+
+    return null;
+  }
+
+  /**
+   * Persist a blocked signup attempt so it is visible in the admin panel.
+   */
+  async logSignupBlock(opts: {
+    email:            string;
+    companyName:      string;
+    reason:           "name_match" | "email_match";
+    matchedTenantId?:   string;
+    matchedTenantName?: string;
+  }): Promise<void> {
+    const db = getPrismaClient();
+    await db.signupBlock.create({
+      data: {
+        email:            opts.email,
+        companyName:      opts.companyName,
+        reason:           opts.reason,
+        matchedTenantId:   opts.matchedTenantId   ?? null,
+        matchedTenantName: opts.matchedTenantName ?? null,
+      },
+    });
+    console.warn(
+      `[TenantRegistry] Blocked signup — reason: ${opts.reason}, ` +
+      `company: "${opts.companyName}", email: "${opts.email}", ` +
+      `matched tenant: "${opts.matchedTenantName ?? "unknown"}" (${opts.matchedTenantId ?? "?"})`,
+    );
+  }
+
+  /**
+   * Return the most recent blocked signup attempts (newest first).
+   */
+  async getSignupBlocks(limit = 50): Promise<{
+    id: string; email: string; companyName: string; reason: string;
+    matchedTenantName: string | null; createdAt: Date;
+  }[]> {
+    const db = getPrismaClient();
+    return db.signupBlock.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: { id: true, email: true, companyName: true, reason: true, matchedTenantName: true, createdAt: true },
+    });
+  }
+
   // ─── Mutations ─────────────────────────────────────────────────────────────
 
   async create(input: CreateTenantInput): Promise<TenantConfig> {

@@ -355,6 +355,21 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       return;
     }
 
+    // ── Abuse check: block duplicate company names before payment ────────────
+    const duplicate = await registry.checkForDuplicate(companyName);
+    if (duplicate) {
+      await registry.logSignupBlock({
+        email:            "",
+        companyName,
+        reason:           duplicate.reason,
+        matchedTenantId:   duplicate.tenant.id,
+        matchedTenantName: duplicate.tenant.name,
+      });
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(renderStep1(undefined, companyName, "An account already exists for this company. Please sign in or contact support@trykaira.ai if you need help."));
+      return;
+    }
+
     // Create the onboarding session now — before Stripe, so the session ID
     // can be passed as client_reference_id and embedded in the success URL.
     const session  = OAuthSessionStore.create(companyName);
@@ -402,6 +417,38 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     const notif = session.notificationConfig;
     const { connectedLabel, connectedEmail } = emailSummary(session);
     const emailTo = session.customerEmail || connectedEmail;
+
+    // ── Final abuse gate: check email + company name before creating tenant ──
+    const duplicate = await registry.checkForDuplicate(session.companyName, emailTo);
+    if (duplicate) {
+      await registry.logSignupBlock({
+        email:            emailTo,
+        companyName:      session.companyName,
+        reason:           duplicate.reason,
+        matchedTenantId:   duplicate.tenant.id,
+        matchedTenantName: duplicate.tenant.name,
+      });
+
+      // Cancel the Stripe subscription immediately — they shouldn't be charged.
+      if (stripeSubscriptionId && config.stripe.secretKey) {
+        try {
+          const { getStripe } = await import("../services/billing/StripeService.js");
+          await getStripe().subscriptions.cancel(stripeSubscriptionId);
+          console.log(`[Onboarding] Cancelled Stripe subscription ${stripeSubscriptionId} for blocked duplicate signup.`);
+        } catch (err) {
+          console.error("[Onboarding] Failed to cancel Stripe subscription for blocked signup:", err);
+        }
+      }
+
+      OAuthSessionStore.delete(sessionId);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(renderError(
+        "An account already exists for this company.",
+        "Please sign in or contact support@trykaira.ai if you need help. Any payment has been automatically refunded.",
+        "/onboarding",
+      ));
+      return;
+    }
 
     const tenant = await registry.create({
       ...buildEmailProviderInput(session, tier),
