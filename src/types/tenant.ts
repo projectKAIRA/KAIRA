@@ -34,7 +34,7 @@ export interface TenantGraphConfig {
   accessToken?: string | null;
   /** Access token expiry (authMode === "oauth" only). */
   tokenExpiresAt?: Date | null;
-  /** UPN / email address of the mailbox to monitor (e.g. orders@leespring.com).
+  /** UPN / email address of the mailbox to monitor (e.g. orders@yourcompany.com).
    *  Used to construct /users/{userEmail}/ Graph API endpoints. */
   userEmail: string;
   /** Mail folder to monitor, e.g. "inbox" */

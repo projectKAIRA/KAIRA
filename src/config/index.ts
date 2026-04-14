@@ -20,7 +20,7 @@ export const config = {
     clientId: optional("AZURE_CLIENT_ID", ""),
     // Client secret for app-only (non-interactive) authentication
     clientSecret: optional("AZURE_CLIENT_SECRET", ""),
-    // UPN / email of the mailbox to monitor (e.g. orders@leespring.com)
+    // UPN / email of the mailbox to monitor (e.g. orders@yourcompany.com)
     userEmail: optional("GRAPH_USER_EMAIL", ""),
     // Folder to watch (defaults to "inbox")
     inboxFolderName: optional("GRAPH_INBOX_FOLDER", "inbox"),
