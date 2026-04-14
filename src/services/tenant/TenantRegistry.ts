@@ -49,6 +49,14 @@ export class TenantRegistry {
     return row ? toConfig(row) : null;
   }
 
+  /** Find a tenant by contact email. Returns null if not found. */
+  async findByContactEmail(email: string): Promise<TenantConfig | null> {
+    const row = await this.db.tenant.findFirst({
+      where: { contactEmail: { equals: email, mode: "insensitive" } },
+    });
+    return row ? toConfig(row) : null;
+  }
+
   // ─── Mutations ─────────────────────────────────────────────────────────────
 
   async create(input: CreateTenantInput): Promise<TenantConfig> {
@@ -102,6 +110,7 @@ export class TenantRegistry {
         trialEndDate:  input.trialEndDate   ?? null,
         stripeCustomerId:     input.stripeCustomerId     ?? null,
         stripeSubscriptionId: input.stripeSubscriptionId ?? null,
+        contactEmail:         input.contactEmail         ?? "",
       },
     });
 
@@ -162,6 +171,7 @@ export class TenantRegistry {
         ...(input.trialEndDate   !== undefined && { trialEndDate: input.trialEndDate }),
         ...(input.stripeCustomerId     !== undefined && { stripeCustomerId: input.stripeCustomerId }),
         ...(input.stripeSubscriptionId !== undefined && { stripeSubscriptionId: input.stripeSubscriptionId }),
+        ...(input.contactEmail         !== undefined && { contactEmail: input.contactEmail }),
       },
     });
 
@@ -202,6 +212,7 @@ function toConfig(row: TenantRow): TenantConfig {
     monthlyDocResetAt: row.monthlyDocResetAt,
     stripeCustomerId:     row.stripeCustomerId     ?? null,
     stripeSubscriptionId: row.stripeSubscriptionId ?? null,
+    contactEmail:         row.contactEmail         ?? "",
 
     providerType,
 

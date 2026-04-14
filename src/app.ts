@@ -10,6 +10,7 @@ import { createAdminRouter } from "./routes/admin.js";
 import { createStripeRouter } from "./routes/stripe.js";
 import { createSlackRouter } from "./routes/slack.js";
 import { createDashboardRouter } from "./routes/dashboard.js";
+import { createAccountRouter } from "./routes/account.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -53,6 +54,12 @@ export function createApp(scheduler: TenantScheduler): express.Application {
   // POST /dashboard/teams-webhook?t=<tenantId> — save Teams webhook URL
 
   app.use("/dashboard", createDashboardRouter(scheduler));
+
+  // ─── My Account — email-based dashboard link recovery ────────────────────
+  // GET  /account          — email input form
+  // POST /account/lookup   — sends recovery email
+
+  app.use("/account", createAccountRouter());
 
   // ─── Tenant CRUD ─────────────────────────────────────────────────────────
 

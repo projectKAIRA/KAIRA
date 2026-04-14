@@ -87,6 +87,11 @@ model Tenant {
   /// The timestamp when monthlyDocCount was last reset to 0 (start of month).
   monthlyDocResetAt   DateTime?
 
+  // ── Contact ────────────────────────────────────────────────────────────────
+  /// The customer's own email address (from Stripe checkout / onboarding).
+  /// Used for the "find my account" flow so customers can recover their dashboard link.
+  contactEmail         String  @default("")
+
   // ── Stripe billing ────────────────────────────────────────────────────────
   stripeCustomerId     String?
   stripeSubscriptionId String?

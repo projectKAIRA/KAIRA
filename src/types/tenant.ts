@@ -111,6 +111,8 @@ export interface TenantConfig {
   stripeCustomerId: string | null;
   /** Stripe subscription ID — set after Stripe Checkout completes. */
   stripeSubscriptionId: string | null;
+  /** Customer's own email address, used for the "find my account" recovery flow. */
+  contactEmail: string;
 
   /** Which email backend this tenant uses. */
   providerType: EmailProviderType;
@@ -153,6 +155,7 @@ export interface CreateTenantInput {
   trialEndDate?: Date | null;
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
+  contactEmail?: string;
 }
 
 /** Any subset of fields that can be changed after creation. */

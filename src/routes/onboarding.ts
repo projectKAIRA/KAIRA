@@ -393,6 +393,8 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     const tier  = session.selectedPriceId ? priceIdToTier(session.selectedPriceId) : "starter";
     const notif = session.notificationConfig;
 
+    const emailTo = session.customerEmail || (session ? emailSummary(session).connectedEmail : "");
+
     const tenant = await registry.create({
       ...buildEmailProviderInput(session, tier),
       ...(notif && { notification: { provider: notif.provider } }),
@@ -400,6 +402,7 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
       ...(notif?.teams && { teams: notif.teams }),
       stripeCustomerId,
       stripeSubscriptionId,
+      contactEmail: emailTo,
     });
 
     await activateTenant(tenant.id, scheduler);
@@ -408,21 +411,21 @@ export function createOnboardingRouter(scheduler: TenantScheduler): Router {
     const { connectedLabel, connectedEmail } = emailSummary(session);
 
     // Fire confirmation email — best-effort, never blocks the response.
-    const emailTo = session.customerEmail || connectedEmail;
-    console.log(`[Onboarding] Tenant activated. customerEmail="${session.customerEmail}", connectedEmail="${connectedEmail}", using="${emailTo}", tier="${tier}"`);
-    if (emailTo) {
+    const resolvedEmailTo = session.customerEmail || connectedEmail;
+    console.log(`[Onboarding] Tenant activated. customerEmail="${session.customerEmail}", connectedEmail="${connectedEmail}", using="${resolvedEmailTo}", tier="${tier}"`);
+    if (resolvedEmailTo) {
       const notifChannel = notif?.provider === "teams" ? "Microsoft Teams" : "Slack";
-      console.log(`[Onboarding] Calling sendWelcomeEmail → ${emailTo}`);
+      console.log(`[Onboarding] Calling sendWelcomeEmail → ${resolvedEmailTo}`);
       sendWelcomeEmail({
-        toEmail:             emailTo,
+        toEmail:             resolvedEmailTo,
         companyName:         session.companyName,
         planTier:            tier,
         notificationChannel: notifChannel,
         tenantId:            tenant.id,
       }).then(() => {
-        console.log(`[Onboarding] sendWelcomeEmail resolved for ${emailTo}`);
+        console.log(`[Onboarding] sendWelcomeEmail resolved for ${resolvedEmailTo}`);
       }).catch((err: unknown) => {
-        console.error(`[Onboarding] sendWelcomeEmail rejected for ${emailTo}:`, err);
+        console.error(`[Onboarding] sendWelcomeEmail rejected for ${resolvedEmailTo}:`, err);
       });
     } else {
       console.warn("[Onboarding] No email address found in session — skipping welcome email.");
