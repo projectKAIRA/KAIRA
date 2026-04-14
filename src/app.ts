@@ -30,6 +30,8 @@ export function createApp(scheduler: TenantScheduler): express.Application {
   app.get("/", (_req: Request, res: Response) => {
     res.sendFile(join(publicDir, "index.html"));
   });
+  app.get("/terms",   (_req: Request, res: Response) => res.sendFile(join(publicDir, "terms.html")));
+  app.get("/privacy", (_req: Request, res: Response) => res.sendFile(join(publicDir, "privacy.html")));
 
   // ─── Admin dashboard ─────────────────────────────────────────────────────
 
