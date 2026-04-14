@@ -35,7 +35,7 @@ export function createApp(scheduler: TenantScheduler): express.Application {
 
   // ─── Admin dashboard ─────────────────────────────────────────────────────
 
-  app.use("/admin", createAdminRouter());
+  app.use("/admin", createAdminRouter(scheduler));
 
   // ─── Self-serve onboarding ────────────────────────────────────────────────
   // All onboarding pages and OAuth callbacks are under /onboarding.

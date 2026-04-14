@@ -6,50 +6,100 @@
  * active/paused state in a clean HTML table.
  */
 
-import { Router, Request, Response } from "express";
+import express, { Router, Request, Response } from "express";
+import Stripe from "stripe";
 import { TenantRegistry } from "../services/tenant/TenantRegistry.js";
+import { TenantScheduler } from "../services/tenant/TenantScheduler.js";
 import { TenantConfig, TRIAL_DOC_LIMIT } from "../types/tenant.js";
+import { getStripe } from "../services/billing/StripeService.js";
 import { config } from "../config/index.js";
 
-export function createAdminRouter(): Router {
+export function createAdminRouter(scheduler: TenantScheduler): Router {
   const router   = Router();
+  router.use(express.urlencoded({ extended: false }));
   const registry = new TenantRegistry();
 
   router.get("/", async (req: Request, res: Response) => {
-    // ── Basic Auth ──────────────────────────────────────────────────────────
-    const adminPassword = config.admin.password;
-
-    if (!adminPassword) {
-      res.status(503).send(renderError("ADMIN_PASSWORD is not set in the environment."));
-      return;
-    }
-
-    const authHeader = req.headers["authorization"] ?? "";
-    const [scheme, encoded] = authHeader.split(" ");
-
-    if (scheme?.toLowerCase() !== "basic" || !encoded) {
-      res.setHeader("WWW-Authenticate", 'Basic realm="KAIRA Admin"');
-      res.status(401).send(renderError("Authentication required."));
-      return;
-    }
-
-    const decoded  = Buffer.from(encoded, "base64").toString("utf8");
-    const password = decoded.split(":").slice(1).join(":");   // everything after first ":"
-
-    if (password !== adminPassword) {
-      res.setHeader("WWW-Authenticate", 'Basic realm="KAIRA Admin"');
-      res.status(401).send(renderError("Incorrect password."));
-      return;
-    }
-
-    // ── Data ────────────────────────────────────────────────────────────────
+    if (!await checkAuth(req, res)) return;
     const tenants = await registry.findAll();
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderDashboard(tenants));
   });
 
+  // ─── GET /admin/tenant/:id — per-tenant detail view ───────────────────────
+
+  router.get("/tenant/:id", async (req: Request, res: Response) => {
+    if (!await checkAuth(req, res)) return;
+
+    const tenant = await registry.findById(req.params["id"] as string ?? "");
+    if (!tenant) { res.status(404).send(renderError("Tenant not found.")); return; }
+
+    const cancelled = (req.query["cancelled"] as string | undefined) === "1";
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(renderTenantDetail(tenant, cancelled));
+  });
+
+  // ─── POST /admin/tenant/:id/cancel — force cancel ─────────────────────────
+
+  router.post("/tenant/:id/cancel", async (req: Request, res: Response) => {
+    if (!await checkAuth(req, res)) return;
+
+    const id     = req.params["id"] as string;
+    const tenant = await registry.findById(id);
+    if (!tenant) { res.status(404).send(renderError("Tenant not found.")); return; }
+
+    // 1. Cancel Stripe subscription if one exists
+    if (tenant.stripeSubscriptionId && config.stripe.secretKey) {
+      try {
+        await getStripe().subscriptions.cancel(tenant.stripeSubscriptionId);
+        console.log(`[Admin] Cancelled Stripe subscription ${tenant.stripeSubscriptionId} for tenant "${tenant.name}"`);
+      } catch (err) {
+        console.error(`[Admin] Failed to cancel Stripe subscription for "${tenant.name}":`, err);
+      }
+    }
+
+    // 2. Deactivate tenant in DB
+    await registry.update(id, {
+      isActive:      false,
+      isTrialActive: false,
+      planTier:      "none",
+    });
+
+    // 3. Remove from live scheduler
+    if (scheduler.getRuntime(id)) {
+      scheduler.removeTenant(id);
+    }
+
+    console.log(`[Admin] Force-cancelled tenant "${tenant.name}" (${id})`);
+    res.redirect(`/admin/tenant/${id}?cancelled=1`);
+  });
+
   return router;
+}
+
+// ─── Auth helper ──────────────────────────────────────────────────────────────
+
+async function checkAuth(req: Request, res: Response): Promise<boolean> {
+  const adminPassword = config.admin.password;
+  if (!adminPassword) {
+    res.status(503).send(renderError("ADMIN_PASSWORD is not set in the environment."));
+    return false;
+  }
+  const authHeader = (Array.isArray(req.headers["authorization"]) ? req.headers["authorization"][0] : req.headers["authorization"]) ?? "";
+  const [scheme, encoded] = authHeader.split(" ");
+  if (scheme?.toLowerCase() !== "basic" || !encoded) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="KAIRA Admin"');
+    res.status(401).send(renderError("Authentication required."));
+    return false;
+  }
+  const password = Buffer.from(encoded, "base64").toString("utf8").split(":").slice(1).join(":");
+  if (password !== adminPassword) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="KAIRA Admin"');
+    res.status(401).send(renderError("Incorrect password."));
+    return false;
+  }
+  return true;
 }
 
 // ─── HTML ─────────────────────────────────────────────────────────────────────
@@ -93,6 +143,7 @@ function renderDashboard(tenants: TenantConfig[]): string {
             <th>Email&nbsp;provider</th>
             <th>Created</th>
             <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -167,7 +218,12 @@ function renderRow(t: TenantConfig, now: Date): string {
 
   return `
     <tr>
-      <td class="name">${esc(t.name)}<br><span class="tenant-id">${esc(t.id)}</span></td>
+      <td class="name">
+        <a href="/admin/tenant/${esc(t.id)}" style="color:inherit;text-decoration:none;">
+          ${esc(t.name)}
+        </a>
+        <br><span class="tenant-id">${esc(t.id)}</span>
+      </td>
       <td>${tierBadge}</td>
       <td>${trialCell}</td>
       <td>${docsCell}</td>
@@ -175,6 +231,7 @@ function renderRow(t: TenantConfig, now: Date): string {
       <td>${emailCell}</td>
       <td class="muted">${createdCell}</td>
       <td>${statusCell}</td>
+      <td><a href="/admin/tenant/${esc(t.id)}" style="font-size:11px;color:var(--purple-mid);text-decoration:none;white-space:nowrap;">View →</a></td>
     </tr>`;
 }
 
@@ -196,11 +253,147 @@ function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function renderTenantDetail(t: TenantConfig, cancelled: boolean): string {
+  const now = new Date();
+
+  const planLabel   = t.planTier === "none" ? "No Plan" : t.planTier.charAt(0).toUpperCase() + t.planTier.slice(1);
+  const statusBadge = t.isActive
+    ? `<span class="badge badge-green">● Active</span>`
+    : `<span class="badge badge-gray">● Paused</span>`;
+
+  let trialInfo = "—";
+  if (t.isTrialActive && t.trialEndDate) {
+    const days = Math.max(0, Math.ceil((new Date(t.trialEndDate).getTime() - now.getTime()) / 86_400_000));
+    trialInfo = `${days}d remaining`;
+  } else if (t.trialLimitReached) {
+    trialInfo = "Limit reached";
+  } else if (!t.isTrialActive && t.trialEndDate) {
+    trialInfo = "Expired";
+  }
+
+  const monitoredEmail  = t.providerType === "microsoft" ? (t.graph?.userEmail ?? "—") : (t.imap?.username ?? "—");
+  const providerLabel   = t.providerType === "microsoft" ? "Microsoft 365" : "IMAP";
+  const inboxFolder     = t.providerType === "microsoft" ? (t.graph?.inboxFolder ?? "—") : (t.imap?.inboxFolder ?? "—");
+  const pollSeconds     = t.providerType === "microsoft" ? t.graph?.pollIntervalSeconds : t.imap?.pollIntervalSeconds;
+
+  const slackConnected  = !!(t.slack?.botToken);
+  const teamsConnected  = !!(t.teams?.webhookUrl);
+  const activeProvider  = t.notification?.provider ?? "—";
+
+  const slackStatus = slackConnected
+    ? (activeProvider === "slack" ? `<span class="badge badge-green">● Active</span>` : `<span class="badge badge-gray">Connected</span>`)
+    : `<span class="badge badge-gray">Not connected</span>`;
+  const teamsStatus = teamsConnected
+    ? (activeProvider === "teams" ? `<span class="badge badge-green">● Active</span>` : `<span class="badge badge-gray">Connected</span>`)
+    : `<span class="badge badge-gray">Not connected</span>`;
+
+  const flash = cancelled
+    ? `<div class="flash-ok">✓ Tenant cancelled and deactivated successfully.</div>`
+    : "";
+
+  const cancelForm = t.isActive ? `
+    <div class="danger-zone">
+      <div class="danger-title">Danger Zone</div>
+      <p class="danger-desc">Force-cancelling will immediately deactivate this tenant, stop all email processing, and cancel their Stripe subscription. This cannot be undone.</p>
+      <form method="POST" action="/admin/tenant/${esc(t.id)}/cancel" onsubmit="return confirm('Are you sure you want to force-cancel ${esc(t.name)}? This will immediately stop their service and cancel their Stripe subscription.')">
+        <button type="submit" class="btn-cancel">Force Cancel Subscription &amp; Deactivate</button>
+      </form>
+    </div>` : `
+    <div class="danger-zone">
+      <div class="danger-title">Danger Zone</div>
+      <p class="danger-desc" style="color:var(--text-muted);">This tenant is already deactivated.</p>
+    </div>`;
+
+  return page(`
+    <div class="header">
+      <div>
+        <a href="/admin" style="font-size:12px;color:var(--text-muted);text-decoration:none;">← All tenants</a>
+        <div class="title" style="margin-top:8px;">${esc(t.name)}</div>
+        <div class="subtitle">${esc(t.id)}</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        ${statusBadge}
+        <span class="badge badge-${tierColor(t.planTier)}">${esc(planLabel)}</span>
+      </div>
+    </div>
+
+    ${flash}
+
+    <div class="detail-grid">
+
+      <div class="detail-card">
+        <div class="detail-card-title">Subscription</div>
+        <div class="info-row"><span class="info-label">Plan</span><span class="info-value">${esc(planLabel)}</span></div>
+        <div class="info-row"><span class="info-label">Trial</span><span class="info-value">${esc(trialInfo)}</span></div>
+        <div class="info-row"><span class="info-label">Docs this month</span><span class="info-value">${t.monthlyDocCount}</span></div>
+        <div class="info-row"><span class="info-label">Stripe Customer</span><span class="info-value mono">${t.stripeCustomerId ?? "—"}</span></div>
+        <div class="info-row"><span class="info-label">Stripe Subscription</span><span class="info-value mono">${t.stripeSubscriptionId ?? "—"}</span></div>
+        <div class="info-row"><span class="info-label">Contact email</span><span class="info-value">${esc(t.contactEmail || "—")}</span></div>
+      </div>
+
+      <div class="detail-card">
+        <div class="detail-card-title">Monitoring</div>
+        <div class="info-row"><span class="info-label">Status</span><span class="info-value">${statusBadge}</span></div>
+        <div class="info-row"><span class="info-label">Provider</span><span class="info-value">${esc(providerLabel)}</span></div>
+        <div class="info-row"><span class="info-label">Inbox</span><span class="info-value">${esc(monitoredEmail)}</span></div>
+        <div class="info-row"><span class="info-label">Folder</span><span class="info-value">${esc(inboxFolder)}</span></div>
+        <div class="info-row"><span class="info-label">Poll interval</span><span class="info-value">${pollSeconds ?? "—"}s</span></div>
+        <div class="info-row"><span class="info-label">Created</span><span class="info-value">${t.createdAt?.toLocaleDateString("en-US", { dateStyle: "medium" }) ?? "—"}</span></div>
+      </div>
+
+      <div class="detail-card">
+        <div class="detail-card-title">Notification Channels</div>
+        <div class="info-row">
+          <span class="info-label">Slack</span>
+          <span class="info-value" style="display:flex;gap:8px;align-items:center;">${slackStatus}</span>
+        </div>
+        ${slackConnected ? `<div class="info-row"><span class="info-label">Bot token</span><span class="info-value mono">${t.slack?.botToken ? t.slack.botToken.slice(0, 12) + "••••••" : "—"}</span></div>` : ""}
+        <div class="info-row" style="margin-top:8px;">
+          <span class="info-label">Microsoft Teams</span>
+          <span class="info-value" style="display:flex;gap:8px;align-items:center;">${teamsStatus}</span>
+        </div>
+        ${teamsConnected ? `<div class="info-row"><span class="info-label">Webhook</span><span class="info-value mono" style="font-size:10px;word-break:break-all;">${t.teams?.webhookUrl ? t.teams.webhookUrl.slice(0, 40) + "…" : "—"}</span></div>` : ""}
+        <div class="info-row" style="margin-top:8px;"><span class="info-label">Active channel</span><span class="info-value">${esc(activeProvider)}</span></div>
+      </div>
+
+      <div class="detail-card">
+        <div class="detail-card-title">Customer Dashboard</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Open the dashboard exactly as this customer sees it.</p>
+        <a href="/dashboard?t=${esc(t.id)}" target="_blank" rel="noopener"
+           style="display:inline-block;background:var(--purple);color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:100px;text-decoration:none;">
+          Open customer dashboard →
+        </a>
+      </div>
+
+    </div>
+
+    ${cancelForm}
+
+    <p class="footer" style="margin-top:32px;"><a href="/admin">← Back to all tenants</a></p>
+  `, `
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    @media (max-width: 700px) { .detail-grid { grid-template-columns: 1fr; } }
+    .detail-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+    .detail-card-title { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { font-size: 12px; color: var(--text-muted); }
+    .info-value { font-size: 12px; font-weight: 500; color: var(--text); text-align: right; }
+    .mono { font-family: monospace; font-size: 11px; }
+    .flash-ok { background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2); color: #4ade80; border-radius: 10px; padding: 12px 16px; font-size: 13px; margin-bottom: 20px; }
+    .danger-zone { border: 1px solid rgba(248,113,113,0.25); border-radius: 14px; padding: 20px; background: rgba(248,113,113,0.04); }
+    .danger-title { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #f87171; margin-bottom: 10px; }
+    .danger-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.6; }
+    .btn-cancel { background: #f87171; color: #fff; border: none; padding: 10px 20px; border-radius: 100px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+    .btn-cancel:hover { background: #ef4444; }
+  `);
+}
+
 function renderError(msg: string): string {
   return page(`<div class="error-box">${esc(msg)}</div>`);
 }
 
-function page(body: string): string {
+function page(body: string, extraCss = ""): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -384,6 +577,7 @@ function page(body: string): string {
 
     a { color: var(--purple-mid); text-decoration: none; }
     a:hover { text-decoration: underline; }
+    ${extraCss}
   </style>
 </head>
 <body>
