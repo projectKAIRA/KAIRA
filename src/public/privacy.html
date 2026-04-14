@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — KAIRA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink:          #0D0D14;
+      --ink-soft:     #3D3A52;
+      --ink-muted:    #7A778F;
+      --purple:       #8B5CF6;
+      --purple-mid:   #A78BFA;
+      --purple-light: #C4B5FD;
+      --purple-pale:  #EDE9FE;
+      --purple-ghost: #F5F3FF;
+    }
+    body {
+      font-family: 'DM Sans', Arial, sans-serif;
+      background: #fff;
+      color: var(--ink);
+      line-height: 1.7;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 52px;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(24px);
+      border-bottom: 1px solid rgba(139,92,246,0.10);
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none;
+    }
+    .nav-logo-butterfly { width: 36px; height: 36px; }
+    .nav-logo-text { display: flex; flex-direction: column; }
+    .nav-logo-project { font-family: 'Dancing Script', cursive; font-size: 11px; color: var(--purple-mid); line-height: 1; }
+    .nav-logo-kaira   { font-size: 13px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: var(--ink); line-height: 1; margin-top: 2px; }
+    .nav-links { display: flex; align-items: center; gap: 32px; list-style: none; }
+    .nav-links a { font-size: 14px; font-weight: 500; color: var(--ink-soft); text-decoration: none; transition: color .2s; }
+    .nav-links a:hover { color: var(--purple); }
+    .nav-cta {
+      font-size: 13px; font-weight: 600;
+      background: var(--purple); color: #fff;
+      padding: 9px 22px; border-radius: 100px;
+      text-decoration: none; transition: opacity .2s;
+    }
+    .nav-cta:hover { opacity: 0.88; }
+
+    /* ── Page layout ── */
+    .page-wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 64px 24px 96px;
+    }
+    .page-label {
+      display: inline-block;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--purple); background: var(--purple-pale);
+      padding: 4px 12px; border-radius: 100px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 2.2rem; font-weight: 700; color: var(--ink);
+      line-height: 1.2; margin-bottom: 8px;
+    }
+    .last-updated {
+      font-size: 13px; color: var(--ink-muted); margin-bottom: 48px;
+    }
+
+    /* ── Section ── */
+    .section { margin-bottom: 36px; }
+    .section h2 {
+      font-size: 1rem; font-weight: 700; color: var(--ink);
+      margin-bottom: 10px;
+    }
+    .section p { font-size: 15px; color: var(--ink-soft); }
+    .section ul {
+      margin: 10px 0 0 20px;
+      font-size: 15px; color: var(--ink-soft);
+    }
+    .section ul li { margin-bottom: 6px; }
+
+    /* ── Highlight box (what we don't do) ── */
+    .highlight-box {
+      background: var(--purple-ghost);
+      border: 1px solid rgba(139,92,246,0.15);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-top: 12px;
+    }
+    .highlight-box ul {
+      margin: 0 0 0 18px;
+    }
+    .highlight-box ul li {
+      font-size: 15px; color: var(--ink-soft); margin-bottom: 6px;
+    }
+    .highlight-box ul li::marker { color: var(--purple); }
+
+    .divider {
+      height: 1px; background: rgba(139,92,246,0.10);
+      margin: 40px 0;
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 40px 52px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      background: var(--ink);
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 16px;
+    }
+    .footer-logo { display: flex; align-items: center; gap: 10px; }
+    .footer-butterfly { width: 28px; height: 28px; opacity: 0.5; }
+    .footer-logo-text { font-family: 'Dancing Script', cursive; font-size: 20px; color: rgba(255,255,255,0.4); }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: 12.5px; color: rgba(255,255,255,0.35); text-decoration: none; transition: color .2s; }
+    .footer-links a:hover { color: var(--purple-mid); }
+    footer p { font-size: 12.5px; color: rgba(255,255,255,0.25); }
+
+    @media (max-width: 640px) {
+      nav { padding: 16px 24px; }
+      .nav-links { display: none; }
+      .page-wrap { padding: 40px 20px 72px; }
+      h1 { font-size: 1.6rem; }
+      footer { flex-direction: column; text-align: center; padding: 32px 24px; }
+      .footer-links { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a class="nav-logo" href="/">
+      <svg class="nav-logo-butterfly" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 55 C40 40, 15 30, 10 15 C8 8, 18 5, 25 12 C32 19, 42 38, 50 55Z" stroke="#A78BFA" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M50 55 C60 40, 85 30, 90 15 C92 8, 82 5, 75 12 C68 19, 58 38, 50 55Z" stroke="#A78BFA" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M50 55 C38 65, 12 72, 8 88 C6 95, 18 97, 26 88 C34 79, 44 65, 50 55Z" stroke="#C4B5FD" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M50 55 C62 65, 88 72, 92 88 C94 95, 82 97, 74 88 C66 79, 56 65, 50 55Z" stroke="#C4B5FD" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <circle cx="50" cy="55" r="3" fill="#8B5CF6" opacity="0.6"/>
+        <line x1="50" y1="58" x2="50" y2="78" stroke="#8B5CF6" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+      </svg>
+      <div class="nav-logo-text">
+        <span class="nav-logo-project">Project</span>
+        <span class="nav-logo-kaira">Kaira</span>
+      </div>
+    </a>
+    <ul class="nav-links">
+      <li><a href="/#how">How it works</a></li>
+      <li><a href="/#features">Features</a></li>
+      <li><a href="/#pricing">Pricing</a></li>
+      <li><a href="/account">My Account</a></li>
+    </ul>
+    <a href="mailto:support@trykaira.ai" class="nav-cta">Request Demo</a>
+  </nav>
+
+  <div class="page-wrap">
+    <span class="page-label">Legal</span>
+    <h1>Privacy Policy</h1>
+    <p class="last-updated">Last updated: April 14, 2026</p>
+
+    <div class="section">
+      <h2>1. What We Collect</h2>
+      <ul>
+        <li>Email metadata (sender, subject, timestamp) for processing</li>
+        <li>Attachment content (PDFs, Word docs, Excel files, images) for data extraction</li>
+        <li>Account information (company name, email address)</li>
+        <li>Billing information (processed by Stripe — we never store card details)</li>
+        <li>Usage data (documents processed, plan tier)</li>
+      </ul>
+    </div>
+    <div class="divider"></div>
+
+    <div class="section">
+      <h2>2. How We Use It</h2>
+      <ul>
+        <li>To monitor your inbox and process incoming business documents</li>
+        <li>To send notifications to your connected Slack or Teams workspace</li>
+        <li>To manage your subscription and billing</li>
+        <li>To provide customer support</li>
+      </ul>
+    </div>
+    <div class="divider"></div>
+
+    <div class="section">
+      <h2>3. What We Don't Do</h2>
+      <div class="highlight-box">
+        <ul>
+          <li>We do not store full email content</li>
+          <li>We do not sell your data to third parties</li>
+          <li>We do not use your data to train AI models</li>
+          <li>We do not share your data except as described below</li>
+        </ul>
+      </div>
+    </div>
+    <div class="divider"></div>
+
+    <div class="section">
+      <h2>4. Third Parties We Share Data With</h2>
+      <ul>
+        <li><strong>Anthropic</strong> — processes document content via Claude API for extraction (enterprise privacy terms apply, no training on your data)</li>
+        <li><strong>Stripe</strong> — handles billing and payment processing</li>
+        <li><strong>Microsoft</strong> — inbox access via Graph API</li>
+        <li><strong>Google</strong> — inbox access via Gmail API</li>
+        <li><strong>Slack / Microsoft Teams</strong> — notification delivery</li>
+      </ul>
+    </div>
+    <div class="divider"></div>
+
+    <div class="section">
+      <h2>5. Data Retention</h2>
+      <p>Extracted PO data is retained for as long as your account is active. Upon cancellation, your data is deleted within 30 days upon request.</p>
+    </div>
+    <div class="divider"></div>
+
+    <div class="section">
+      <h2>6. Your Rights</h2>
+      <p>You may request deletion of your data at any time by emailing <a href="mailto:support@trykaira.ai" style="color:var(--purple);text-decoration:none;font-weight:500;">support@trykaira.ai</a>. You may revoke inbox access at any time through Microsoft or Google account settings.</p>
+    </div>
+    <div class="divider"></div>
+
+    <div class="section">
+      <h2>7. Security</h2>
+      <p>We use industry-standard encryption in transit (HTTPS) and at rest. Access to production systems is restricted.</p>
+    </div>
+    <div class="divider"></div>
+
+    <div class="section">
+      <h2>8. Cookies</h2>
+      <p>We use essential cookies only for session management. We do not use tracking or advertising cookies.</p>
+    </div>
+    <div class="divider"></div>
+
+    <div class="section">
+      <h2>9. Changes</h2>
+      <p>We may update this policy and will notify you by email of material changes.</p>
+    </div>
+    <div class="divider"></div>
+
+    <div class="section">
+      <h2>10. Contact</h2>
+      <p><a href="mailto:support@trykaira.ai" style="color:var(--purple);text-decoration:none;font-weight:500;">support@trykaira.ai</a></p>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-logo">
+      <svg class="footer-butterfly" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 55 C40 40, 15 30, 10 15 C8 8, 18 5, 25 12 C32 19, 42 38, 50 55Z" stroke="#A78BFA" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M50 55 C60 40, 85 30, 90 15 C92 8, 82 5, 75 12 C68 19, 58 38, 50 55Z" stroke="#A78BFA" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M50 55 C38 65, 12 72, 8 88 C6 95, 18 97, 26 88 C34 79, 44 65, 50 55Z" stroke="#C4B5FD" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M50 55 C62 65, 88 72, 92 88 C94 95, 82 97, 74 88 C66 79, 56 65, 50 55Z" stroke="#C4B5FD" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+      <span class="footer-logo-text">Project Kaira</span>
+    </div>
+    <div class="footer-links">
+      <a href="/terms">Terms of Service</a>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="mailto:support@trykaira.ai">support@trykaira.ai</a>
+    </div>
+    <p>© 2026 KAIRA. Built for manufacturers who deserve better.</p>
+  </footer>
+
+</body>
+</html>

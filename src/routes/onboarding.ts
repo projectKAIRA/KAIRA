@@ -774,7 +774,12 @@ function renderStep1(errorMsg?: string): string {
           Connect Gmail / Other Email &rarr;
         </button>
       </form>
-      <p class="hint">We request read-only access to your inbox. No emails are stored — only extracted PO data.</p>
+      <p class="hint">
+        We request read-only access to your inbox. No emails are stored — only extracted PO data.<br>
+        By continuing you agree to our
+        <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and
+        <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+      </p>
     </div>
   `);
 }
