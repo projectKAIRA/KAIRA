@@ -49,10 +49,20 @@ export class TenantRegistry {
     return row ? toConfig(row) : null;
   }
 
-  /** Find a tenant by contact email. Returns null if not found. */
+  /** Find a tenant by contact email.
+   *  Checks contactEmail first; falls back to userEmail (Microsoft) and
+   *  imapUser (IMAP) so tenants created before contactEmail was added can
+   *  still recover their dashboard link.
+   */
   async findByContactEmail(email: string): Promise<TenantConfig | null> {
     const row = await this.db.tenant.findFirst({
-      where: { contactEmail: { equals: email, mode: "insensitive" } },
+      where: {
+        OR: [
+          { contactEmail: { equals: email, mode: "insensitive" } },
+          { userEmail:    { equals: email, mode: "insensitive" } },
+          { imapUser:     { equals: email, mode: "insensitive" } },
+        ],
+      },
     });
     return row ? toConfig(row) : null;
   }

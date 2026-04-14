@@ -7,6 +7,7 @@
 
 import express, { Request, Response, Router } from "express";
 import { TenantRegistry } from "../services/tenant/TenantRegistry.js";
+import { getAppToken } from "../services/email/ConfirmationMailer.js";
 import { config } from "../config/index.js";
 
 const registry = new TenantRegistry();
@@ -54,6 +55,9 @@ export function createAccountRouter(): Router {
 
 // ─── Email sender ──────────────────────────────────────────────────────────────
 
+const SENDER         = "support@trykaira.ai";
+const GRAPH_SEND_URL = `https://graph.microsoft.com/v1.0/users/${SENDER}/sendMail`;
+
 async function sendRecoveryEmail(toEmail: string, companyName: string, dashboardUrl: string): Promise<void> {
   const { clientId, clientSecret, tenantId } = config.graph;
   if (!clientId || !clientSecret || !tenantId || tenantId === "consumers") {
@@ -61,25 +65,7 @@ async function sendRecoveryEmail(toEmail: string, companyName: string, dashboard
     return;
   }
 
-  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-  const tokenRes = await fetch(tokenUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id:     clientId,
-      client_secret: clientSecret,
-      scope:         "https://graph.microsoft.com/.default",
-      grant_type:    "client_credentials",
-    }),
-  });
-
-  const tokenData = await tokenRes.json() as { access_token?: string; error?: string; error_description?: string };
-  if (!tokenData.access_token) {
-    throw new Error(`Token fetch failed: ${tokenData.error} — ${tokenData.error_description}`);
-  }
-
-  const SENDER        = "support@trykaira.ai";
-  const GRAPH_SEND_URL = `https://graph.microsoft.com/v1.0/users/${SENDER}/sendMail`;
+  const token = await getAppToken();
 
   const body = {
     message: {
@@ -96,7 +82,7 @@ async function sendRecoveryEmail(toEmail: string, companyName: string, dashboard
 
   const sendRes = await fetch(GRAPH_SEND_URL, {
     method:  "POST",
-    headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body:    JSON.stringify(body),
   });
 

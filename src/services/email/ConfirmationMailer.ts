@@ -8,7 +8,7 @@ const GRAPH_SEND_URL = `https://graph.microsoft.com/v1.0/users/${SENDER}/sendMai
 
 let _cachedToken: { value: string; expiresAt: number } | null = null;
 
-async function getAppToken(): Promise<string> {
+export async function getAppToken(): Promise<string> {
   if (_cachedToken && Date.now() < _cachedToken.expiresAt - 60_000) {
     return _cachedToken.value;
   }
