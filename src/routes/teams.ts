@@ -1,10 +1,14 @@
-import { Router, Request, Response } from "express";
+import express, { Router, Request, Response } from "express";
 import { TenantScheduler } from "../services/tenant/TenantScheduler.js";
 import { TeamsNotificationService } from "../services/notifications/TeamsNotificationService.js";
 import { TrackedPO, POLineItem } from "../types/index.js";
 
 export function createTeamsRouter(scheduler: TenantScheduler): Router {
   const router = Router();
+
+  // Parse application/x-www-form-urlencoded bodies (HTML form submissions)
+  router.use(express.urlencoded({ extended: false }));
+
   router.use((_req, res, next) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     next();
@@ -132,7 +136,11 @@ function renderSuccess(tracked: TrackedPO): string {
       <div class="success-sub">
         Claimed by <strong>${escHtml(tracked.claimedByName ?? "")}</strong>
         ${claimedAt ? `at ${escHtml(claimedAt)}` : ""}.
-        <br>Keep this page open — the full PO details are below for your reference.
+      </div>
+      <div class="save-notice">
+        📋 <strong>This page is your order record.</strong>
+        Bookmark it, print it, or copy the details below — all PO information is shown in full.
+        <button onclick="window.print()" class="btn-print">🖨️ Print / Save as PDF</button>
       </div>
     </div>
 
@@ -418,6 +426,26 @@ function page(body: string): string {
     }
 
     code { font-family: monospace; font-size: 0.85em; background: var(--purple-ghost); padding: 0.1em 0.35em; border-radius: 4px; }
+
+    /* Save notice */
+    .save-notice {
+      margin-top: 1.25rem; background: var(--purple-ghost); border: 1px solid rgba(139,92,246,0.2);
+      border-radius: 12px; padding: 0.9rem 1rem; font-size: 0.84rem; color: var(--ink-soft);
+      line-height: 1.55;
+    }
+    .btn-print {
+      display: block; width: 100%; margin-top: 0.75rem; padding: 0.6rem 1rem;
+      border-radius: 100px; border: 1px solid rgba(139,92,246,0.3);
+      background: var(--white); color: var(--purple); font-size: 0.85rem;
+      font-family: 'DM Sans', sans-serif; font-weight: 500; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-print:hover { background: var(--purple-pale); border-color: var(--purple); }
+
+    @media print {
+      body::after, .logo, .save-notice { display: none !important; }
+      .card { box-shadow: none; border: 1px solid #ddd; }
+    }
   </style>
 </head>
 <body>
