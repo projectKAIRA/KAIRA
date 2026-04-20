@@ -67,8 +67,10 @@ export function createDashboardRouter(scheduler: TenantScheduler): Router {
       : undefined;
     const flashError = slackError    ? `Slack error: ${slackError}`
       : teamsError   ? "Invalid webhook URL — must start with https://"
-      : billingError === "no_subscription" ? "No active subscription found. Please contact support."
-      : billingError ? "Could not open billing portal. Please try again or contact support."
+      : billingError === "no_subscription"      ? "No active subscription found. Please contact support."
+      : billingError === "portal_not_configured" ? "The billing portal isn't activated in Stripe yet. Enable it at: Stripe Dashboard → Settings → Billing → Customer portal → Activate."
+      : billingError === "portal_no_customer"    ? "Your billing account needs to be re-linked (test-mode customer). Please contact support@trykaira.ai."
+      : billingError ? "Could not open billing portal. Please try again or contact support@trykaira.ai."
       : undefined;
 
     const billingPortalUrl = `/dashboard/billing-portal?t=${encodeURIComponent(tenantId)}`;
@@ -116,8 +118,27 @@ export function createDashboardRouter(scheduler: TenantScheduler): Router {
       });
       res.redirect(session.url);
     } catch (err) {
-      console.error("[Dashboard] Billing portal error:", err);
-      res.redirect(`/dashboard?t=${encodeURIComponent(tenantId)}&billing_error=portal_failed`);
+      // Log the real Stripe error for Railway diagnostics
+      const stripeErr = err as { code?: string; type?: string; message?: string };
+      console.error(
+        `[Dashboard] Billing portal failed for tenant ${tenantId} ` +
+        `(customer: ${tenant.stripeCustomerId}): ` +
+        `type=${stripeErr.type ?? "unknown"} code=${stripeErr.code ?? "—"} ` +
+        `msg="${stripeErr.message ?? String(err)}"`,
+      );
+
+      // Detect the two most common causes when switching test → live:
+      //   1. Portal not configured in live mode → "No configuration was found"
+      //   2. Test-mode customer used with live key → "No such customer"
+      let errorCode = "portal_failed";
+      const msg = stripeErr.message ?? "";
+      if (msg.includes("No configuration") || msg.includes("configuration_not_found")) {
+        errorCode = "portal_not_configured";
+      } else if (msg.includes("No such customer") || stripeErr.code === "resource_missing") {
+        errorCode = "portal_no_customer";
+      }
+
+      res.redirect(`/dashboard?t=${encodeURIComponent(tenantId)}&billing_error=${errorCode}`);
     }
   });
 
