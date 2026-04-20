@@ -185,16 +185,21 @@ export class TeamsNotificationService implements NotificationService {
       fact("From",     email.sender),
       fact("Subject",  email.subject),
       fact("Received", email.receivedAt),
-      ...(payload.attachmentName                ? [fact("Attachment",    payload.attachmentName)]                 : []),
-      ...(po.poNumber                           ? [fact("PO Number",     po.poNumber)]                           : []),
-      ...(po.orderDate                          ? [fact("Order Date",     po.orderDate)]                          : []),
-      ...(po.requestedDeliveryDate              ? [fact("Delivery Date",  po.requestedDeliveryDate)]              : []),
-      ...(po.paymentTerms                       ? [fact("Payment Terms",  po.paymentTerms)]                       : []),
-      ...(po.currency                           ? [fact("Currency",       po.currency)]                           : []),
-      ...(po.total        != null               ? [fact("Grand Total",    formatCurrencyTeams(po.total, po.currency))] : []),
-      ...(po.subtotal     != null               ? [fact("Subtotal",       formatCurrencyTeams(po.subtotal,     po.currency))] : []),
-      ...(po.tax          != null               ? [fact("Tax",            formatCurrencyTeams(po.tax,          po.currency))] : []),
-      ...(po.shippingCost != null               ? [fact("Shipping",       formatCurrencyTeams(po.shippingCost, po.currency))] : []),
+      ...(payload.attachmentName                ? [fact("Attachment",    payload.attachmentName)]                        : []),
+      ...(po.poNumber                           ? [fact("PO Number",     po.poNumber)]                                  : []),
+      ...(po.releaseNumber                      ? [fact("Release No.",   po.releaseNumber)]                             : []),
+      ...(po.orderDate                          ? [fact("Order Date",    po.orderDate)]                                  : []),
+      ...(po.requestedDeliveryDate              ? [fact("Delivery Date", po.requestedDeliveryDate)]                      : []),
+      ...(po.requiredByDate                     ? [fact("Required By",   po.requiredByDate)]                            : []),
+      ...(po.paymentTerms                       ? [fact("Payment Terms", po.paymentTerms)]                               : []),
+      ...(po.shipVia                            ? [fact("Ship Via",      po.shipVia)]                                   : []),
+      ...(po.fobTerms                           ? [fact("FOB",           po.fobTerms)]                                  : []),
+      ...(po.isBlanketPo                        ? [fact("Order Type",    "Blanket / Standing Order")]                   : []),
+      ...(po.currency                           ? [fact("Currency",      po.currency)]                                   : []),
+      ...(po.total        != null               ? [fact("Grand Total",   formatCurrencyTeams(po.total, po.currency))]    : []),
+      ...(po.subtotal     != null               ? [fact("Subtotal",      formatCurrencyTeams(po.subtotal,     po.currency))] : []),
+      ...(po.tax          != null               ? [fact("Tax",           formatCurrencyTeams(po.tax,          po.currency))] : []),
+      ...(po.shippingCost != null               ? [fact("Shipping",      formatCurrencyTeams(po.shippingCost, po.currency))] : []),
       fact("Confidence", po.rawConfidence.toUpperCase()),
     ];
 
@@ -233,14 +238,19 @@ export class TeamsNotificationService implements NotificationService {
     const billToLine = (po.billTo || po.buyer)
       ? [
           po.billTo?.company ?? po.buyer?.company ?? po.buyer?.name,
+          po.billTo?.poBox   ? `PO Box: ${po.billTo.poBox}` : null,
           po.billTo?.address ?? po.buyer?.address,
           po.buyer?.email,
           po.buyer?.phone,
         ].filter(Boolean).join(", ")
       : null;
 
-    const shipToLine = (po.shipTo && (po.shipTo.company || po.shipTo.address))
-      ? [po.shipTo.company, po.shipTo.address].filter(Boolean).join(", ")
+    const shipToLine = (po.shipTo && (po.shipTo.company || po.shipTo.address || po.shipTo.poBox))
+      ? [
+          po.shipTo.company,
+          po.shipTo.poBox ? `PO Box: ${po.shipTo.poBox}` : null,
+          po.shipTo.address,
+        ].filter(Boolean).join(", ")
       : null;
 
     return [

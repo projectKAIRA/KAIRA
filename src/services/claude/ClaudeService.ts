@@ -240,12 +240,29 @@ Your job is to extract ALL structured data from purchase orders with the highest
    - "Bill To" (who gets invoiced) vs "Ship To" (where goods are delivered)
    - "Vendor/Supplier" (who KAIRA's customer is ordering FROM) vs "Buyer" (who is placing the order)
 6. For payment terms, capture the exact text (e.g. "Net 30", "2/10 Net 30", "Due on receipt").
-7. If a document is clearly not a purchase order, set rawConfidence to "low" and fill what you can.`;
+7. Distinguish between requestedDeliveryDate (when goods should arrive/ship) and requiredByDate
+   (a separate "Required By", "Need By", or "Requested By" date representing the fulfillment deadline).
+   Some POs carry both — extract each independently. If the document has only one date label and it
+   reads as a fulfillment deadline ("Required By", "Need By", "Must Arrive By"), populate requiredByDate.
+8. For releaseNumber, look for fields like "Release No.", "Release #", "Ship-to PO", "Order Release",
+   or any secondary reference number distinct from the main PO number.
+9. For shipVia, look for "Ship Via", "Shipping Method", "Carrier", "Ship Method", "Route Via".
+10. For fobTerms, look for any "FOB" label (e.g. "FOB Destination", "FOB Origin", "FOB Point").
+11. Set isBlanketPo to true if the document uses words like "Blanket PO", "Standing Order",
+    "Blanket Order", "Blanket Purchase Order", or similar — otherwise null.
+12. For Bill To and Ship To addresses, if a PO Box is explicitly present (e.g. "P.O. Box 4521",
+    "PO Box 100"), capture it in the poBox field in addition to the street address.
+13. If a document is clearly not a purchase order, set rawConfidence to "low" and fill what you can.`;
 
 const PO_SCHEMA = `{
   "poNumber":             string | null,  // PO number / Purchase Order number / Order number
   "orderDate":            string | null,  // Date the PO was issued
-  "requestedDeliveryDate": string | null, // Requested delivery date / ship date / need-by date
+  "requestedDeliveryDate": string | null, // Requested delivery / ship date — when goods should arrive or ship
+  "requiredByDate":       string | null,  // "Required By" / "Need By" / "Requested By" date — fulfillment deadline (may differ from delivery date)
+  "releaseNumber":        string | null,  // Release No. / Ship-to PO # / Order Release — secondary reference number if present
+  "shipVia":              string | null,  // Ship Via / Shipping Method / Carrier (e.g. "UPS Ground", "FedEx", "Best Way", "Freight")
+  "fobTerms":             string | null,  // FOB terms if stated (e.g. "FOB Destination", "FOB Origin")
+  "isBlanketPo":          boolean | null, // true if the PO is a blanket or standing order, otherwise null
 
   "vendor": {                             // The vendor / supplier being ordered FROM
     "name":    string | null,
@@ -266,12 +283,14 @@ const PO_SCHEMA = `{
 
   "billTo": {                             // Bill To — company/address that receives the invoice
     "company": string | null,
-    "address": string | null
+    "address": string | null,             // Street address (exclude PO Box — put that in poBox)
+    "poBox":   string | null              // PO Box number if explicitly present (e.g. "P.O. Box 1234")
   } | null,
 
   "shipTo": {                             // Ship To — company/address where goods are delivered
     "company": string | null,
-    "address": string | null
+    "address": string | null,             // Street address (exclude PO Box — put that in poBox)
+    "poBox":   string | null              // PO Box number if explicitly present
   } | null,
 
   "lineItems": [                          // Every line item in the document
@@ -326,6 +345,11 @@ function defaultPurchaseOrder(): PurchaseOrderData {
     poNumber: null,
     orderDate: null,
     requestedDeliveryDate: null,
+    requiredByDate: null,
+    releaseNumber: null,
+    shipVia: null,
+    fobTerms: null,
+    isBlanketPo: null,
     vendor: null,
     buyer: null,
     billTo: null,

@@ -198,12 +198,17 @@ function renderPoDetails(tracked: TrackedPO): string {
     infoRow("From",     email.sender),
     infoRow("Subject",  email.subject),
     infoRow("Received", email.receivedAt),
-    po.poNumber              ? infoRow("PO Number",     po.poNumber)             : "",
-    po.orderDate             ? infoRow("Order Date",     po.orderDate)            : "",
-    po.requestedDeliveryDate ? infoRow("Delivery Date",  po.requestedDeliveryDate) : "",
-    po.paymentTerms          ? infoRow("Payment Terms",  po.paymentTerms)         : "",
-    po.currency              ? infoRow("Currency",       po.currency)             : "",
-    po.total        != null  ? infoRow("Total",          fmtCurrency(po.total, po.currency)) : "",
+    po.poNumber              ? infoRow("PO Number",     po.poNumber)                          : "",
+    po.releaseNumber         ? infoRow("Release No.",   po.releaseNumber)                     : "",
+    po.orderDate             ? infoRow("Order Date",    po.orderDate)                          : "",
+    po.requestedDeliveryDate ? infoRow("Delivery Date", po.requestedDeliveryDate)              : "",
+    po.requiredByDate        ? infoRow("Required By",   po.requiredByDate)                    : "",
+    po.paymentTerms          ? infoRow("Payment Terms", po.paymentTerms)                       : "",
+    po.shipVia               ? infoRow("Ship Via",      po.shipVia)                           : "",
+    po.fobTerms              ? infoRow("FOB",           po.fobTerms)                          : "",
+    po.isBlanketPo           ? infoRow("Order Type",    "🔄 Blanket / Standing Order")        : "",
+    po.currency              ? infoRow("Currency",      po.currency)                           : "",
+    po.total        != null  ? infoRow("Total",         fmtCurrency(po.total, po.currency))   : "",
   ].filter(Boolean).join("");
 
   // Vendor / Bill To / Ship To
@@ -215,14 +220,19 @@ function renderPoDetails(tracked: TrackedPO): string {
   const billToText = (po.billTo || po.buyer)
     ? [
         po.billTo?.company ?? po.buyer?.company ?? po.buyer?.name,
+        po.billTo?.poBox   ? `PO Box: ${po.billTo.poBox}` : null,
         po.billTo?.address ?? po.buyer?.address,
         po.buyer?.email,
         po.buyer?.phone,
       ].filter(Boolean).join(" • ")
     : null;
 
-  const shipToText = (po.shipTo && (po.shipTo.company || po.shipTo.address))
-    ? [po.shipTo.company, po.shipTo.address].filter(Boolean).join(", ")
+  const shipToText = (po.shipTo && (po.shipTo.company || po.shipTo.address || po.shipTo.poBox))
+    ? [
+        po.shipTo.company,
+        po.shipTo.poBox ? `PO Box: ${po.shipTo.poBox}` : null,
+        po.shipTo.address,
+      ].filter(Boolean).join(", ")
     : null;
 
   // Line items

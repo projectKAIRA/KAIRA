@@ -140,11 +140,16 @@ export class SlackNotificationService implements NotificationService {
 
     // Build PO detail fields — only include non-null values
     const poFields = [
-      po.poNumber           ? field("PO Number",     po.poNumber)            : null,
-      po.orderDate          ? field("Order Date",     po.orderDate)           : null,
-      po.requestedDeliveryDate ? field("Delivery Date", po.requestedDeliveryDate) : null,
-      po.paymentTerms       ? field("Payment Terms",  po.paymentTerms)        : null,
-      po.currency           ? field("Currency",       po.currency)            : null,
+      po.poNumber              ? field("PO Number",      po.poNumber)                   : null,
+      po.releaseNumber         ? field("Release No.",     po.releaseNumber)              : null,
+      po.orderDate             ? field("Order Date",      po.orderDate)                  : null,
+      po.requestedDeliveryDate ? field("Delivery Date",   po.requestedDeliveryDate)      : null,
+      po.requiredByDate        ? field("Required By",     po.requiredByDate)             : null,
+      po.paymentTerms          ? field("Payment Terms",   po.paymentTerms)               : null,
+      po.shipVia               ? field("Ship Via",        po.shipVia)                    : null,
+      po.fobTerms              ? field("FOB",             po.fobTerms)                   : null,
+      po.currency              ? field("Currency",        po.currency)                   : null,
+      po.isBlanketPo           ? field("Order Type",      "🔄 Blanket / Standing Order") : null,
       field("Confidence", po.rawConfidence.toUpperCase()),
     ].filter(Boolean) as ReturnType<typeof field>[];
 
@@ -213,6 +218,7 @@ export class SlackNotificationService implements NotificationService {
               `*Bill To*\n` +
               [
                 po.billTo?.company ?? po.buyer?.company ?? po.buyer?.name,
+                po.billTo?.poBox   ? `PO Box: ${po.billTo.poBox}` : null,
                 po.billTo?.address ?? po.buyer?.address,
                 po.buyer?.contact,
                 po.buyer?.email,
@@ -222,12 +228,16 @@ export class SlackNotificationService implements NotificationService {
           }]
         : []),
       // Ship To
-      ...(po.shipTo && (po.shipTo.company || po.shipTo.address)
+      ...(po.shipTo && (po.shipTo.company || po.shipTo.address || po.shipTo.poBox)
         ? [{
             type: "section",
             text: mrkdwn(
               `*Ship To*\n` +
-              [po.shipTo.company, po.shipTo.address].filter(Boolean).join("\n")
+              [
+                po.shipTo.company,
+                po.shipTo.poBox ? `PO Box: ${po.shipTo.poBox}` : null,
+                po.shipTo.address,
+              ].filter(Boolean).join("\n")
             ),
           }]
         : []),
@@ -286,12 +296,17 @@ export class SlackNotificationService implements NotificationService {
         : "No line items extracted.";
 
     const dmFields = [
-      po.poNumber              ? field("PO Number",     po.poNumber)                             : null,
-      po.orderDate             ? field("Order Date",     po.orderDate)                            : null,
-      po.requestedDeliveryDate ? field("Delivery Date",  po.requestedDeliveryDate)                : null,
-      po.total        != null  ? field("Total",          formatCurrency(po.total, po.currency))   : null,
-      po.paymentTerms          ? field("Payment Terms",  po.paymentTerms)                         : null,
-      po.currency              ? field("Currency",       po.currency)                             : null,
+      po.poNumber              ? field("PO Number",     po.poNumber)                              : null,
+      po.releaseNumber         ? field("Release No.",   po.releaseNumber)                         : null,
+      po.orderDate             ? field("Order Date",    po.orderDate)                             : null,
+      po.requestedDeliveryDate ? field("Delivery Date", po.requestedDeliveryDate)                 : null,
+      po.requiredByDate        ? field("Required By",   po.requiredByDate)                        : null,
+      po.total        != null  ? field("Total",         formatCurrency(po.total, po.currency))    : null,
+      po.paymentTerms          ? field("Payment Terms", po.paymentTerms)                          : null,
+      po.shipVia               ? field("Ship Via",      po.shipVia)                               : null,
+      po.fobTerms              ? field("FOB",           po.fobTerms)                              : null,
+      po.currency              ? field("Currency",      po.currency)                              : null,
+      po.isBlanketPo           ? field("Order Type",    "🔄 Blanket / Standing Order")            : null,
     ].filter(Boolean) as ReturnType<typeof field>[];
 
     return [
@@ -319,6 +334,7 @@ export class SlackNotificationService implements NotificationService {
               `*Bill To*\n` +
               [
                 po.billTo?.company ?? po.buyer?.company ?? po.buyer?.name,
+                po.billTo?.poBox   ? `PO Box: ${po.billTo.poBox}` : null,
                 po.billTo?.address ?? po.buyer?.address,
                 po.buyer?.contact,
                 po.buyer?.email,
@@ -327,12 +343,16 @@ export class SlackNotificationService implements NotificationService {
             ),
           }]
         : []),
-      ...(po.shipTo && (po.shipTo.company || po.shipTo.address)
+      ...(po.shipTo && (po.shipTo.company || po.shipTo.address || po.shipTo.poBox)
         ? [{
             type: "section",
             text: mrkdwn(
               `*Ship To*\n` +
-              [po.shipTo.company, po.shipTo.address].filter(Boolean).join("\n")
+              [
+                po.shipTo.company,
+                po.shipTo.poBox ? `PO Box: ${po.shipTo.poBox}` : null,
+                po.shipTo.address,
+              ].filter(Boolean).join("\n")
             ),
           }]
         : []),
@@ -607,10 +627,12 @@ export class SlackNotificationService implements NotificationService {
         field("From",     o.email.sender),
         field("Received", received),
         ...(po.poNumber           ? [field("PO Number",    po.poNumber)]                           : []),
+        ...(po.releaseNumber      ? [field("Release No.",  po.releaseNumber)]                      : []),
         ...(po.total     != null  ? [field("Total",        formatCurrency(po.total, po.currency))]  : []),
-        ...(po.paymentTerms       ? [field("Payment Terms", po.paymentTerms)]                        : []),
-        ...(po.orderDate          ? [field("Order Date",    po.orderDate)]                           : []),
-      ].slice(0, 6) as ReturnType<typeof field>[];
+        ...(po.requiredByDate     ? [field("Required By",  po.requiredByDate)]                     : []),
+        ...(po.shipVia            ? [field("Ship Via",     po.shipVia)]                            : []),
+        ...(po.paymentTerms       ? [field("Payment Terms", po.paymentTerms)]                      : []),
+      ].slice(0, 8) as ReturnType<typeof field>[];
 
       return [
         { type: "divider" },

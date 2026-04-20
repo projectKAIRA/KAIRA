@@ -35,7 +35,21 @@ export interface EmailClassification {
 export interface PurchaseOrderData {
   poNumber: string | null;
   orderDate: string | null;
+  /** Requested delivery / ship date — when the goods should be delivered or shipped. */
   requestedDeliveryDate: string | null;
+  /** "Required By" / "Need By" / "Requested By" date — when the customer needs
+   *  fulfillment. Distinct from requestedDeliveryDate; some POs carry both. */
+  requiredByDate: string | null;
+  /** Release number / Ship-to PO number — secondary reference on the PO
+   *  (e.g. "Release No.", "Ship-to PO #", "Release Order"). */
+  releaseNumber: string | null;
+  /** Ship Via / Shipping Method — how the customer wants goods shipped
+   *  (e.g. "UPS Ground", "FedEx Priority", "Freight", "Best Way"). */
+  shipVia: string | null;
+  /** FOB terms — if stated on the PO (e.g. "FOB Destination", "FOB Origin"). */
+  fobTerms: string | null;
+  /** true if the PO is explicitly identified as a blanket or standing order. */
+  isBlanketPo: boolean | null;
   vendor: VendorInfo | null;
   buyer: BuyerInfo | null;
   /** Bill To — the company/address that should receive the invoice. */
@@ -57,6 +71,8 @@ export interface PurchaseOrderData {
 export interface AddressBlock {
   company: string | null;
   address: string | null;
+  /** PO Box number if present in the address (e.g. "P.O. Box 1234"). */
+  poBox: string | null;
 }
 
 export interface VendorInfo {
