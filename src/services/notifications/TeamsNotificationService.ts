@@ -177,62 +177,60 @@ export class TeamsNotificationService implements NotificationService {
   }
 
   private pdfPoBody(payload: NotificationPayload): unknown[] {
-    const po = payload.purchaseOrder!;
+    const po    = payload.purchaseOrder!;
     const email = payload.email;
 
-    // Build header facts — only include non-null values
-    const headerFacts = [
-      fact("From",     email.sender),
-      fact("Subject",  email.subject),
-      fact("Received", email.receivedAt),
-      ...(payload.attachmentName                ? [fact("Attachment",    payload.attachmentName)]                        : []),
-      ...(po.poNumber                           ? [fact("PO Number",     po.poNumber)]                                  : []),
-      ...(po.releaseNumber                      ? [fact("Release No.",   po.releaseNumber)]                             : []),
-      ...(po.orderDate                          ? [fact("Order Date",    po.orderDate)]                                  : []),
-      ...(po.requestedDeliveryDate              ? [fact("Delivery Date", po.requestedDeliveryDate)]                      : []),
-      ...(po.requiredByDate                     ? [fact("Required By",   po.requiredByDate)]                            : []),
-      ...(po.paymentTerms                       ? [fact("Payment Terms", po.paymentTerms)]                               : []),
-      ...(po.shipVia                            ? [fact("Ship Via",      po.shipVia)]                                   : []),
-      ...(po.fobTerms                           ? [fact("FOB",           po.fobTerms)]                                  : []),
-      ...(po.isBlanketPo                        ? [fact("Order Type",    "Blanket / Standing Order")]                   : []),
-      ...(po.currency                           ? [fact("Currency",      po.currency)]                                   : []),
-      ...(po.total        != null               ? [fact("Grand Total",   formatCurrencyTeams(po.total, po.currency))]    : []),
-      ...(po.subtotal     != null               ? [fact("Subtotal",      formatCurrencyTeams(po.subtotal,     po.currency))] : []),
-      ...(po.tax          != null               ? [fact("Tax",           formatCurrencyTeams(po.tax,          po.currency))] : []),
-      ...(po.shippingCost != null               ? [fact("Shipping",      formatCurrencyTeams(po.shippingCost, po.currency))] : []),
-      fact("Confidence", po.rawConfidence.toUpperCase()),
+    // ── Confidence badge color ────────────────────────────────────────────────
+    const confColor = po.rawConfidence === "high" ? "Good" : po.rawConfidence === "medium" ? "Warning" : "Attention";
+    const confLabel = po.rawConfidence.toUpperCase();
+
+    // ── Helper: one label+value column ───────────────────────────────────────
+    const col = (label: string, value: string, opts: Record<string, unknown> = {}): unknown => ({
+      type: "Column",
+      width: "stretch",
+      items: [
+        { type: "TextBlock", text: label,  size: "Small", isSubtle: true, wrap: false, spacing: "None" },
+        { type: "TextBlock", text: value,  weight: "Bolder", spacing: "None", wrap: true, ...opts },
+      ],
+    });
+
+    // ── Helper: a 2-col (or 1-col) field row ─────────────────────────────────
+    const row2 = (
+      l1: string, v1: string,
+      l2?: string | null, v2?: string | null,
+      opts?: Record<string, unknown>,
+    ): unknown => ({
+      type: "ColumnSet",
+      spacing: "Small",
+      columns: [
+        col(l1, v1, opts ?? {}),
+        ...(l2 && v2 ? [col(l2, v2, opts ?? {})] : [{ type: "Column", width: "stretch", items: [] }]),
+      ],
+    });
+
+    // ── PO metadata pairs ─────────────────────────────────────────────────────
+    const metaRows: unknown[] = [];
+    const metaPairs: Array<[string, string]> = [
+      ...(po.poNumber              ? [["PO Number",     po.poNumber]              as [string, string]] : []),
+      ...(po.releaseNumber         ? [["Release No.",   po.releaseNumber]         as [string, string]] : []),
+      ...(po.orderDate             ? [["Order Date",    po.orderDate]             as [string, string]] : []),
+      ...(po.requestedDeliveryDate ? [["Delivery Date", po.requestedDeliveryDate] as [string, string]] : []),
+      ...(po.requiredByDate        ? [["Required By",   po.requiredByDate]        as [string, string]] : []),
+      ...(po.paymentTerms          ? [["Payment Terms", po.paymentTerms]          as [string, string]] : []),
+      ...(po.shipVia               ? [["Ship Via",      po.shipVia]               as [string, string]] : []),
+      ...(po.fobTerms              ? [["FOB",           po.fobTerms]              as [string, string]] : []),
+      ...(po.currency              ? [["Currency",      po.currency]              as [string, string]] : []),
     ];
+    // Emit pairs as 2-column rows, last one solo if odd count
+    for (let i = 0; i < metaPairs.length; i += 2) {
+      const [l1, v1] = metaPairs[i]!;
+      const next = metaPairs[i + 1];
+      metaRows.push(row2(l1, v1, next?.[0] ?? null, next?.[1] ?? null));
+    }
 
-    const lineItems = po.lineItems.length > 0
-      ? po.lineItems.map((li: POLineItem) => {
-          const num   = li.lineNumber != null ? `${li.lineNumber}.` : "—.";
-          const pn    = li.partNumber ? `PN: ${li.partNumber}` : null;
-          const desc  = li.description || null;
-          const qty   = li.quantity != null
-            ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}`
-            : null;
-          const price = [
-            li.unitPrice  != null ? `${formatCurrencyTeams(li.unitPrice,  po.currency)} ea`    : null,
-            li.totalPrice != null ? `${formatCurrencyTeams(li.totalPrice, po.currency)} total` : null,
-          ].filter(Boolean).join("  •  ") || null;
-
-          // First line: number + part number
-          // Second line: description (indented)
-          // Third line: qty + price (indented)
-          const cpn   = li.customerPartNumber ? `Internal PN: ${li.customerPartNumber}` : null;
-          const lines = [
-            [num, pn].filter(Boolean).join("  "),
-            cpn   ? `   ${cpn}`  : null,
-            desc  ? `   ${desc}` : null,
-            (qty || price) ? `   ${[qty, price].filter(Boolean).join("  •  ")}` : null,
-          ].filter(Boolean);
-          return lines.join("\n");
-        }).join("\n\n")
-      : null;
-
-    // Build vendor/buyer/address text blocks — only if relevant data is present
+    // ── Address blocks ────────────────────────────────────────────────────────
     const vendorLine = po.vendor
-      ? [po.vendor.name, po.vendor.address, po.vendor.contact, po.vendor.email, po.vendor.phone].filter(Boolean).join(", ")
+      ? [po.vendor.name, po.vendor.address, po.vendor.contact, po.vendor.email, po.vendor.phone].filter(Boolean).join("  ·  ")
       : null;
 
     const billToLine = (po.billTo || po.buyer)
@@ -242,7 +240,7 @@ export class TeamsNotificationService implements NotificationService {
           po.billTo?.address ?? po.buyer?.address,
           po.buyer?.email,
           po.buyer?.phone,
-        ].filter(Boolean).join(", ")
+        ].filter(Boolean).join("  ·  ")
       : null;
 
     const shipToLine = (po.shipTo && (po.shipTo.company || po.shipTo.address || po.shipTo.poBox))
@@ -250,21 +248,193 @@ export class TeamsNotificationService implements NotificationService {
           po.shipTo.company,
           po.shipTo.poBox ? `PO Box: ${po.shipTo.poBox}` : null,
           po.shipTo.address,
-        ].filter(Boolean).join(", ")
+        ].filter(Boolean).join("  ·  ")
       : null;
 
+    // ── Line items — one ColumnSet per item ───────────────────────────────────
+    const lineItemBlocks: unknown[] = po.lineItems.slice(0, 20).flatMap((li: POLineItem, idx) => {
+      const desc = li.description || "(no description)";
+      const pn   = [li.partNumber, li.customerPartNumber ? `Cust. PN: ${li.customerPartNumber}` : null]
+        .filter(Boolean).join("  /  ");
+      const qty  = li.quantity  != null
+        ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}`
+        : null;
+      const up   = li.unitPrice  != null ? `${formatCurrencyTeams(li.unitPrice,  po.currency)} ea` : null;
+      const tp   = li.totalPrice != null ? formatCurrencyTeams(li.totalPrice, po.currency)          : null;
+      const meta = [pn, qty].filter(Boolean).join("  ·  ");
+
+      return [{
+        type: "ColumnSet",
+        separator: idx > 0,
+        spacing: "Small",
+        columns: [
+          {
+            type: "Column",
+            width: "stretch",
+            items: [
+              { type: "TextBlock", text: desc, weight: "Bolder", wrap: true,  spacing: "None" },
+              ...(meta ? [{ type: "TextBlock", text: meta, size: "Small", isSubtle: true, spacing: "None", wrap: true }] : []),
+              ...(up   ? [{ type: "TextBlock", text: up,   size: "Small", isSubtle: true, spacing: "None" }]             : []),
+            ],
+          },
+          {
+            type: "Column",
+            width: "auto",
+            items: [
+              ...(tp ? [{ type: "TextBlock", text: tp, weight: "Bolder", horizontalAlignment: "Right", spacing: "None" }] : []),
+            ],
+          },
+        ],
+      }];
+    });
+
+    if (po.lineItems.length > 20) {
+      lineItemBlocks.push({
+        type: "TextBlock",
+        text: `… and ${po.lineItems.length - 20} more items`,
+        isSubtle: true,
+        size: "Small",
+        spacing: "Small",
+      });
+    }
+
+    // ── Totals ────────────────────────────────────────────────────────────────
+    const subTotalRows: unknown[] = [];
+    const subPairs: Array<[string, string]> = [
+      ...(po.subtotal     != null ? [["Subtotal",  formatCurrencyTeams(po.subtotal,     po.currency)] as [string, string]] : []),
+      ...(po.tax          != null ? [["Tax",        formatCurrencyTeams(po.tax,          po.currency)] as [string, string]] : []),
+      ...(po.shippingCost != null ? [["Shipping",   formatCurrencyTeams(po.shippingCost, po.currency)] as [string, string]] : []),
+    ];
+    for (let i = 0; i < subPairs.length; i += 2) {
+      const [l1, v1] = subPairs[i]!;
+      const next = subPairs[i + 1];
+      subTotalRows.push(row2(l1, v1, next?.[0] ?? null, next?.[1] ?? null));
+    }
+
     return [
-      { type: "TextBlock", text: "📄 Purchase Order Received", size: "Large", weight: "Bolder" },
-      { type: "FactSet", facts: headerFacts },
-      ...(vendorLine  ? [{ type: "TextBlock", text: `**Vendor:** ${vendorLine}`,   wrap: true }] : []),
-      ...(billToLine  ? [{ type: "TextBlock", text: `**Bill To:** ${billToLine}`,   wrap: true }] : []),
-      ...(shipToLine  ? [{ type: "TextBlock", text: `**Ship To:** ${shipToLine}`,   wrap: true }] : []),
-      ...(lineItems   ? [
-          { type: "TextBlock", text: "**Line Items**", weight: "Bolder" },
-          { type: "TextBlock", text: lineItems, wrap: true, fontType: "Monospace" },
-        ] : []),
-      ...(po.notes    ? [{ type: "TextBlock", text: `**Notes:** ${po.notes}`, wrap: true }] : []),
-      { type: "TextBlock", text: `Processed by KAIRA • ${new Date().toISOString()}`, isSubtle: true, size: "Small" },
+      // ── Title bar ────────────────────────────────────────────────────────────
+      {
+        type: "ColumnSet",
+        columns: [
+          {
+            type: "Column",
+            width: "auto",
+            verticalContentAlignment: "Center",
+            items: [{ type: "TextBlock", text: "📦", size: "ExtraLarge", spacing: "None" }],
+          },
+          {
+            type: "Column",
+            width: "stretch",
+            verticalContentAlignment: "Center",
+            items: [
+              { type: "TextBlock", text: "Purchase Order Received", size: "Large", weight: "Bolder", spacing: "None", wrap: false },
+              { type: "TextBlock", text: `from ${email.sender}`, size: "Small", isSubtle: true, spacing: "None", wrap: true },
+            ],
+          },
+          {
+            type: "Column",
+            width: "auto",
+            verticalContentAlignment: "Center",
+            items: [
+              { type: "TextBlock", text: `● ${confLabel}`, color: confColor, weight: "Bolder", horizontalAlignment: "Right", spacing: "None" },
+            ],
+          },
+        ],
+      },
+
+      // ── Email metadata ────────────────────────────────────────────────────────
+      { type: "FactSet", separator: true, spacing: "Small", facts: [
+          fact("Subject",    email.subject),
+          fact("Received",   email.receivedAt),
+          ...(payload.attachmentName ? [fact("File", payload.attachmentName)] : []),
+        ],
+      },
+
+      // ── PO identity row ───────────────────────────────────────────────────────
+      ...(po.poNumber || po.releaseNumber || po.isBlanketPo ? [{
+        type: "TextBlock",
+        separator: true,
+        spacing: "Medium",
+        text: [
+          po.poNumber      ? `**PO #${po.poNumber}**`              : "**Purchase Order**",
+          po.releaseNumber ? `Release: ${po.releaseNumber}`        : null,
+          po.isBlanketPo   ? "🔄 Blanket Order"                   : null,
+        ].filter(Boolean).join("   ·   "),
+        size: "Medium",
+        wrap: true,
+      }] : []),
+
+      // ── PO metadata (2-col pairs) ─────────────────────────────────────────────
+      ...(metaRows.length > 0 ? [
+        { type: "TextBlock", text: "ORDER DETAILS", size: "Small", weight: "Bolder", isSubtle: true, spacing: "Medium" },
+        ...metaRows,
+      ] : []),
+
+      // ── Addresses ────────────────────────────────────────────────────────────
+      ...(vendorLine || billToLine || shipToLine ? [
+        { type: "TextBlock", text: "PARTIES", size: "Small", weight: "Bolder", isSubtle: true, spacing: "Medium" },
+        ...(vendorLine  ? [{ type: "TextBlock", text: `**Vendor:** ${vendorLine}`,   wrap: true, spacing: "Small" }] : []),
+        ...(billToLine  ? [{ type: "TextBlock", text: `**Bill To:** ${billToLine}`,  wrap: true, spacing: "Small" }] : []),
+        ...(shipToLine  ? [{ type: "TextBlock", text: `**Ship To:** ${shipToLine}`,  wrap: true, spacing: "Small" }] : []),
+      ] : []),
+
+      // ── Line items ────────────────────────────────────────────────────────────
+      ...(po.lineItems.length > 0 ? [
+        {
+          type: "TextBlock",
+          text: `LINE ITEMS  (${po.lineItems.length})`,
+          size: "Small",
+          weight: "Bolder",
+          isSubtle: true,
+          spacing: "Medium",
+        },
+        {
+          type: "Container",
+          style: "emphasis",
+          bleed: false,
+          spacing: "Small",
+          items: lineItemBlocks,
+        },
+      ] : []),
+
+      // ── Sub-totals ────────────────────────────────────────────────────────────
+      ...subTotalRows,
+
+      // ── Grand total — prominent ───────────────────────────────────────────────
+      ...(po.total != null ? [{
+        type: "ColumnSet",
+        separator: true,
+        spacing: "Small",
+        columns: [
+          { type: "Column", width: "stretch", items: [
+              { type: "TextBlock", text: "ORDER TOTAL", size: "Medium", weight: "Bolder", spacing: "None" },
+            ],
+          },
+          { type: "Column", width: "auto", items: [
+              { type: "TextBlock", text: formatCurrencyTeams(po.total, po.currency), size: "Large", weight: "Bolder", horizontalAlignment: "Right", color: "Good", spacing: "None" },
+            ],
+          },
+        ],
+      }] : []),
+
+      // ── Notes ─────────────────────────────────────────────────────────────────
+      ...(po.notes ? [{
+        type: "TextBlock",
+        text: `**Notes:** ${po.notes}`,
+        wrap: true,
+        isSubtle: true,
+        size: "Small",
+        spacing: "Medium",
+      }] : []),
+
+      // ── Footer ────────────────────────────────────────────────────────────────
+      {
+        type: "TextBlock",
+        text: `Processed by KAIRA  ·  ${new Date().toISOString()}`,
+        isSubtle: true,
+        size: "Small",
+        spacing: "Medium",
+      },
     ];
   }
 

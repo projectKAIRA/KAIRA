@@ -111,106 +111,116 @@ export class SlackNotificationService implements NotificationService {
   // ─── Build claimed/unclaimed PO blocks (used by SlackInteractionService) ─
 
   buildPdfPoBlocks(payload: NotificationPayload, trackingId: string, claimed?: { byName: string; at: string }): unknown[] {
-    const po = payload.purchaseOrder!;
+    const po    = payload.purchaseOrder!;
     const email = payload.email;
 
-    const lineItemsText =
-      po.lineItems.length > 0
-        ? po.lineItems.map((li: POLineItem) => {
-            const num   = li.lineNumber != null ? `${li.lineNumber}.` : "—.";
-            const pn    = li.partNumber ? `PN: ${li.partNumber}` : null;
-            const desc  = li.description || null;
-            const qty   = li.quantity != null
-              ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}`
-              : null;
-            const price = [
-              li.unitPrice  != null ? `${formatCurrency(li.unitPrice,  po.currency)} ea`    : null,
-              li.totalPrice != null ? `${formatCurrency(li.totalPrice, po.currency)} total` : null,
-            ].filter(Boolean).join("  •  ") || null;
+    // ── Confidence icon ───────────────────────────────────────────────────────
+    const confIcon  = po.rawConfidence === "high" ? "🟢" : po.rawConfidence === "medium" ? "🟡" : "🔴";
+    const confLabel = po.rawConfidence.toUpperCase();
 
-            const cpn = li.customerPartNumber ? `   Internal PN: ${li.customerPartNumber}` : null;
-            return [
-              [num, pn].filter(Boolean).join("  "),
-              cpn,
-              desc  ? `   ${desc}`  : null,
-              (qty || price) ? `   ${[qty, price].filter(Boolean).join("  •  ")}` : null,
-            ].filter(Boolean).join("\n");
-          }).join("\n\n")
-        : "_No line items extracted_";
+    // ── Line items — clean mrkdwn rows, no code block ─────────────────────────
+    const lineItemsText = po.lineItems.length > 0
+      ? po.lineItems.slice(0, 15).map((li: POLineItem) => {
+          const num  = li.lineNumber != null ? `*${li.lineNumber}.*` : "•";
+          const desc = li.description ? `*${li.description}*` : "*(no description)*";
+          const pn   = li.partNumber         ? `PN: ${li.partNumber}`                                       : null;
+          const cpn  = li.customerPartNumber ? `Cust. PN: ${li.customerPartNumber}`                         : null;
+          const qty  = li.quantity  != null  ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}` : null;
+          const up   = li.unitPrice  != null ? `${formatCurrency(li.unitPrice,  po.currency)} ea`           : null;
+          const tp   = li.totalPrice != null ? `${formatCurrency(li.totalPrice, po.currency)}`              : null;
+          const meta = [pn, cpn, qty, up, tp].filter(Boolean).join("  ·  ");
+          return `${num}  ${desc}${meta ? `\n      ${meta}` : ""}`;
+        }).join("\n\n") +
+        (po.lineItems.length > 15 ? `\n\n_… and ${po.lineItems.length - 15} more items_` : "")
+      : "_No line items extracted_";
 
-    // Build PO detail fields — only include non-null values
+    // ── PO metadata fields — 2-column grid ────────────────────────────────────
     const poFields = [
-      po.poNumber              ? field("PO Number",      po.poNumber)                   : null,
-      po.releaseNumber         ? field("Release No.",     po.releaseNumber)              : null,
-      po.orderDate             ? field("Order Date",      po.orderDate)                  : null,
-      po.requestedDeliveryDate ? field("Delivery Date",   po.requestedDeliveryDate)      : null,
-      po.requiredByDate        ? field("Required By",     po.requiredByDate)             : null,
-      po.paymentTerms          ? field("Payment Terms",   po.paymentTerms)               : null,
-      po.shipVia               ? field("Ship Via",        po.shipVia)                    : null,
-      po.fobTerms              ? field("FOB",             po.fobTerms)                   : null,
-      po.currency              ? field("Currency",        po.currency)                   : null,
-      po.isBlanketPo           ? field("Order Type",      "🔄 Blanket / Standing Order") : null,
-      field("Confidence", po.rawConfidence.toUpperCase()),
+      po.poNumber              ? field("PO Number",     po.poNumber)              : null,
+      po.releaseNumber         ? field("Release No.",   po.releaseNumber)         : null,
+      po.orderDate             ? field("Order Date",    po.orderDate)             : null,
+      po.requestedDeliveryDate ? field("Delivery Date", po.requestedDeliveryDate) : null,
+      po.requiredByDate        ? field("Required By",   po.requiredByDate)        : null,
+      po.paymentTerms          ? field("Payment Terms", po.paymentTerms)          : null,
+      po.shipVia               ? field("Ship Via",      po.shipVia)               : null,
+      po.fobTerms              ? field("FOB",           po.fobTerms)              : null,
+      po.currency              ? field("Currency",      po.currency)              : null,
     ].filter(Boolean) as ReturnType<typeof field>[];
 
-    // Totals — only include non-null amounts
-    const totalFields = [
+    // ── Sub-total breakdown ───────────────────────────────────────────────────
+    const subFields = [
       po.subtotal     != null ? field("Subtotal",  formatCurrency(po.subtotal,     po.currency)) : null,
       po.tax          != null ? field("Tax",        formatCurrency(po.tax,          po.currency)) : null,
       po.shippingCost != null ? field("Shipping",   formatCurrency(po.shippingCost, po.currency)) : null,
-      po.total        != null ? field("*Total*", `*${formatCurrency(po.total, po.currency)}*`)   : null,
     ].filter(Boolean) as ReturnType<typeof field>[];
 
+    // ── Claim / claimed block ─────────────────────────────────────────────────
     const claimBlock = claimed
-      ? {
-          type: "section",
-          text: mrkdwn(`✅ *Claimed by ${claimed.byName}* at ${claimed.at}`),
-        }
+      ? { type: "section", text: mrkdwn(`✅  *Claimed by ${claimed.byName}*  ·  ${claimed.at}`) }
       : {
           type: "actions",
           block_id: "po_actions",
-          elements: [
-            {
-              type: "button",
-              text: { type: "plain_text", text: "Claim Order", emoji: true },
-              style: "primary",
-              action_id: CLAIM_ACTION_ID,
-              value: trackingId,
-              confirm: {
-                title: { type: "plain_text", text: "Claim this order?" },
-                text: { type: "mrkdwn", text: "You'll receive a DM with the full PO details and the original PDF." },
-                confirm: { type: "plain_text", text: "Yes, claim it" },
-                deny: { type: "plain_text", text: "Cancel" },
-              },
+          elements: [{
+            type:      "button",
+            text:      { type: "plain_text", text: "🏷️  Claim Order", emoji: true },
+            style:     "primary",
+            action_id: CLAIM_ACTION_ID,
+            value:     trackingId,
+            confirm: {
+              title:   { type: "plain_text", text: "Claim this order?" },
+              text:    { type: "mrkdwn",     text: "You'll receive a DM with the full PO details and the original PDF." },
+              confirm: { type: "plain_text", text: "Yes, claim it" },
+              deny:    { type: "plain_text", text: "Cancel" },
             },
-          ],
+          }],
         };
 
     return [
-      { type: "header", text: { type: "plain_text", text: "📄 Purchase Order Received", emoji: true } },
+      // ── Header ──────────────────────────────────────────────────────────────
+      { type: "header", text: { type: "plain_text", text: "📦  Purchase Order Received", emoji: true } },
+
+      // ── Email origin ─────────────────────────────────────────────────────────
       {
         type: "section",
         fields: [
           field("From",     email.sender),
-          field("Subject",  email.subject),
           field("Received", email.receivedAt),
-          ...(payload.attachmentName ? [field("Attachment", payload.attachmentName)] : []),
+          field("Subject",  email.subject),
+          ...(payload.attachmentName ? [field("File", payload.attachmentName)] : []),
         ],
       },
+
+      // ── PO identity + confidence banner ──────────────────────────────────────
+      {
+        type: "section",
+        text: mrkdwn(
+          [
+            po.poNumber    ? `*PO #${po.poNumber}*`           : "*Purchase Order*",
+            po.releaseNumber ? `Release: ${po.releaseNumber}` : null,
+            `${confIcon}  ${confLabel}`,
+            po.isBlanketPo ? "  🔄  *Blanket Order*"          : null,
+          ].filter(Boolean).join("   ·   ")
+        ),
+      },
+
       { type: "divider" },
+
+      // ── PO metadata (2-col) ───────────────────────────────────────────────────
       ...(poFields.length > 0 ? [{ type: "section", fields: poFields }] : []),
-      // Vendor section — only if any vendor field is present
+
+      // ── Vendor ───────────────────────────────────────────────────────────────
       ...(po.vendor && (po.vendor.name || po.vendor.address || po.vendor.contact || po.vendor.email || po.vendor.phone)
         ? [{
             type: "section",
             text: mrkdwn(
               `*Vendor / Supplier*\n` +
               [po.vendor.name, po.vendor.address, po.vendor.contact, po.vendor.email, po.vendor.phone]
-                .filter(Boolean).join("\n")
+                .filter(Boolean).join("  ·  ")
             ),
           }]
         : []),
-      // Buyer / Bill To — show buyer contact info and/or billTo address
+
+      // ── Bill To ───────────────────────────────────────────────────────────────
       ...(po.buyer || po.billTo
         ? [{
             type: "section",
@@ -223,11 +233,12 @@ export class SlackNotificationService implements NotificationService {
                 po.buyer?.contact,
                 po.buyer?.email,
                 po.buyer?.phone,
-              ].filter(Boolean).join("\n")
+              ].filter(Boolean).join("  ·  ")
             ),
           }]
         : []),
-      // Ship To
+
+      // ── Ship To ───────────────────────────────────────────────────────────────
       ...(po.shipTo && (po.shipTo.company || po.shipTo.address || po.shipTo.poBox)
         ? [{
             type: "section",
@@ -237,19 +248,44 @@ export class SlackNotificationService implements NotificationService {
                 po.shipTo.company,
                 po.shipTo.poBox ? `PO Box: ${po.shipTo.poBox}` : null,
                 po.shipTo.address,
-              ].filter(Boolean).join("\n")
+              ].filter(Boolean).join("  ·  ")
             ),
           }]
         : []),
+
       { type: "divider" },
-      { type: "section", text: mrkdwn(`*Line Items*\n\`\`\`${lineItemsText}\`\`\``) },
-      ...(totalFields.length > 0 ? [{ type: "section", fields: totalFields }] : []),
-      ...(po.notes ? [{ type: "section", text: mrkdwn(`*Notes:* ${po.notes}`) }] : []),
+
+      // ── Line items ────────────────────────────────────────────────────────────
+      {
+        type: "section",
+        text: mrkdwn(
+          `*Line Items${po.lineItems.length > 0 ? `  (${po.lineItems.length})` : ""}*\n\n${lineItemsText}`
+        ),
+      },
+
+      // ── Sub-totals ────────────────────────────────────────────────────────────
+      ...(subFields.length > 0 ? [{ type: "section", fields: subFields }] : []),
+
+      // ── Grand total — prominent ───────────────────────────────────────────────
+      ...(po.total != null
+        ? [{
+            type: "section",
+            text: mrkdwn(`*Order Total*\n*${formatCurrency(po.total, po.currency)}*`),
+          }]
+        : []),
+
+      // ── Notes ─────────────────────────────────────────────────────────────────
+      ...(po.notes ? [{ type: "section", text: mrkdwn(`*Notes*\n${po.notes}`) }] : []),
+
       { type: "divider" },
+
+      // ── Action ────────────────────────────────────────────────────────────────
       claimBlock,
+
+      // ── Footer ────────────────────────────────────────────────────────────────
       {
         type: "context",
-        elements: [{ type: "mrkdwn", text: `_Processed by KAIRA • ${new Date().toISOString()}_` }],
+        elements: [{ type: "mrkdwn", text: `_Processed by KAIRA  ·  ${new Date().toISOString()}_` }],
       },
     ];
   }
@@ -271,62 +307,76 @@ export class SlackNotificationService implements NotificationService {
   /** Build DM blocks with full PO details (no claim button). */
   buildPoDmBlocks(tracked: TrackedPO): unknown[] {
     const po = tracked.purchaseOrder;
-    const lineItemsText =
-      po.lineItems.length > 0
-        ? po.lineItems.map((li) => {
-            const num   = li.lineNumber != null ? `${li.lineNumber}.` : "—.";
-            const pn    = li.partNumber ? `PN: ${li.partNumber}` : null;
-            const desc  = li.description || null;
-            const qty   = li.quantity != null
-              ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}`
-              : null;
-            const price = [
-              li.unitPrice  != null ? `${formatCurrency(li.unitPrice,  po.currency)} ea`    : null,
-              li.totalPrice != null ? `${formatCurrency(li.totalPrice, po.currency)} total` : null,
-            ].filter(Boolean).join("  •  ") || null;
 
-            const cpn = li.customerPartNumber ? `   Internal PN: ${li.customerPartNumber}` : null;
-            return [
-              [num, pn].filter(Boolean).join("  "),
-              cpn,
-              desc  ? `   ${desc}`  : null,
-              (qty || price) ? `   ${[qty, price].filter(Boolean).join("  •  ")}` : null,
-            ].filter(Boolean).join("\n");
-          }).join("\n\n")
-        : "No line items extracted.";
+    // ── Line items — clean mrkdwn rows, no code block ─────────────────────────
+    const lineItemsText = po.lineItems.length > 0
+      ? po.lineItems.slice(0, 20).map((li) => {
+          const num  = li.lineNumber != null ? `*${li.lineNumber}.*` : "•";
+          const desc = li.description ? `*${li.description}*` : "*(no description)*";
+          const pn   = li.partNumber         ? `PN: ${li.partNumber}`                                       : null;
+          const cpn  = li.customerPartNumber ? `Cust. PN: ${li.customerPartNumber}`                         : null;
+          const qty  = li.quantity  != null  ? `Qty: ${li.quantity}${li.unitOfMeasure ? ` ${li.unitOfMeasure}` : ""}` : null;
+          const up   = li.unitPrice  != null ? `${formatCurrency(li.unitPrice,  po.currency)} ea`           : null;
+          const tp   = li.totalPrice != null ? `${formatCurrency(li.totalPrice, po.currency)}`              : null;
+          const meta = [pn, cpn, qty, up, tp].filter(Boolean).join("  ·  ");
+          return `${num}  ${desc}${meta ? `\n      ${meta}` : ""}`;
+        }).join("\n\n") +
+        (po.lineItems.length > 20 ? `\n\n_… and ${po.lineItems.length - 20} more items_` : "")
+      : "_No line items extracted_";
 
     const dmFields = [
-      po.poNumber              ? field("PO Number",     po.poNumber)                              : null,
-      po.releaseNumber         ? field("Release No.",   po.releaseNumber)                         : null,
-      po.orderDate             ? field("Order Date",    po.orderDate)                             : null,
-      po.requestedDeliveryDate ? field("Delivery Date", po.requestedDeliveryDate)                 : null,
-      po.requiredByDate        ? field("Required By",   po.requiredByDate)                        : null,
-      po.total        != null  ? field("Total",         formatCurrency(po.total, po.currency))    : null,
-      po.paymentTerms          ? field("Payment Terms", po.paymentTerms)                          : null,
-      po.shipVia               ? field("Ship Via",      po.shipVia)                               : null,
-      po.fobTerms              ? field("FOB",           po.fobTerms)                              : null,
-      po.currency              ? field("Currency",      po.currency)                              : null,
-      po.isBlanketPo           ? field("Order Type",    "🔄 Blanket / Standing Order")            : null,
+      po.poNumber              ? field("PO Number",     po.poNumber)                           : null,
+      po.releaseNumber         ? field("Release No.",   po.releaseNumber)                      : null,
+      po.orderDate             ? field("Order Date",    po.orderDate)                          : null,
+      po.requestedDeliveryDate ? field("Delivery Date", po.requestedDeliveryDate)              : null,
+      po.requiredByDate        ? field("Required By",   po.requiredByDate)                     : null,
+      po.paymentTerms          ? field("Payment Terms", po.paymentTerms)                       : null,
+      po.shipVia               ? field("Ship Via",      po.shipVia)                            : null,
+      po.fobTerms              ? field("FOB",           po.fobTerms)                           : null,
+      po.currency              ? field("Currency",      po.currency)                           : null,
+      po.isBlanketPo           ? field("Order Type",    "🔄 Blanket / Standing Order")         : null,
+    ].filter(Boolean) as ReturnType<typeof field>[];
+
+    const subFields = [
+      po.subtotal     != null ? field("Subtotal",  formatCurrency(po.subtotal,     po.currency)) : null,
+      po.tax          != null ? field("Tax",        formatCurrency(po.tax,          po.currency)) : null,
+      po.shippingCost != null ? field("Shipping",   formatCurrency(po.shippingCost, po.currency)) : null,
     ].filter(Boolean) as ReturnType<typeof field>[];
 
     return [
-      { type: "header", text: { type: "plain_text", text: `📋 You claimed PO #${po.poNumber ?? "unknown"}`, emoji: true } },
+      // ── Header ──────────────────────────────────────────────────────────────
+      {
+        type: "header",
+        text: { type: "plain_text", text: `✅  PO Claimed: #${po.poNumber ?? "Order"}`, emoji: true },
+      },
+
+      // ── Confirmation intro ────────────────────────────────────────────────────
       {
         type: "section",
-        text: mrkdwn(`Here are the full details for the order you just claimed.\n*From:* ${tracked.email.sender}\n*Subject:* ${tracked.email.subject}`),
+        fields: [
+          field("From",    tracked.email.sender),
+          field("Subject", tracked.email.subject),
+        ],
       },
+
       { type: "divider" },
+
+      // ── PO metadata ──────────────────────────────────────────────────────────
       ...(dmFields.length > 0 ? [{ type: "section", fields: dmFields }] : []),
+
+      // ── Vendor ───────────────────────────────────────────────────────────────
       ...(po.vendor && (po.vendor.name || po.vendor.address || po.vendor.contact || po.vendor.email || po.vendor.phone)
         ? [{
             type: "section",
             text: mrkdwn(
               `*Vendor / Supplier*\n` +
               [po.vendor.name, po.vendor.address, po.vendor.contact, po.vendor.email, po.vendor.phone]
-                .filter(Boolean).join("\n")
+                .filter(Boolean).join("  ·  ")
             ),
           }]
         : []),
+
+      // ── Bill To ───────────────────────────────────────────────────────────────
       ...(po.buyer || po.billTo
         ? [{
             type: "section",
@@ -339,10 +389,12 @@ export class SlackNotificationService implements NotificationService {
                 po.buyer?.contact,
                 po.buyer?.email,
                 po.buyer?.phone,
-              ].filter(Boolean).join("\n")
+              ].filter(Boolean).join("  ·  ")
             ),
           }]
         : []),
+
+      // ── Ship To ───────────────────────────────────────────────────────────────
       ...(po.shipTo && (po.shipTo.company || po.shipTo.address || po.shipTo.poBox)
         ? [{
             type: "section",
@@ -352,16 +404,36 @@ export class SlackNotificationService implements NotificationService {
                 po.shipTo.company,
                 po.shipTo.poBox ? `PO Box: ${po.shipTo.poBox}` : null,
                 po.shipTo.address,
-              ].filter(Boolean).join("\n")
+              ].filter(Boolean).join("  ·  ")
             ),
           }]
         : []),
+
       { type: "divider" },
-      { type: "section", text: mrkdwn(`*Line Items*\n\`\`\`${lineItemsText}\`\`\``) },
-      ...(po.notes ? [{ type: "section", text: mrkdwn(`*Notes:* ${po.notes}`) }] : []),
+
+      // ── Line items ────────────────────────────────────────────────────────────
+      {
+        type: "section",
+        text: mrkdwn(
+          `*Line Items${po.lineItems.length > 0 ? `  (${po.lineItems.length})` : ""}*\n\n${lineItemsText}`
+        ),
+      },
+
+      // ── Sub-totals ────────────────────────────────────────────────────────────
+      ...(subFields.length > 0 ? [{ type: "section", fields: subFields }] : []),
+
+      // ── Grand total ───────────────────────────────────────────────────────────
+      ...(po.total != null
+        ? [{ type: "section", text: mrkdwn(`*Order Total*\n*${formatCurrency(po.total, po.currency)}*`) }]
+        : []),
+
+      // ── Notes ─────────────────────────────────────────────────────────────────
+      ...(po.notes ? [{ type: "section", text: mrkdwn(`*Notes*\n${po.notes}`) }] : []),
+
+      // ── Footer ────────────────────────────────────────────────────────────────
       {
         type: "context",
-        elements: [{ type: "mrkdwn", text: `_The original PDF is attached below • KAIRA_` }],
+        elements: [{ type: "mrkdwn", text: `_The original PDF is attached below  ·  KAIRA_` }],
       },
     ];
   }
