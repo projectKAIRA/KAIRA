@@ -77,6 +77,10 @@ class OAuthTokenCredential implements TokenCredential {
  *
  * Delta links are persisted to the DeltaLink table so polling survives
  * process restarts and can be shared across future horizontal replicas.
+ *
+ * First-sync guard: on the very first poll (no stored deltaLink) the initial
+ * delta URL includes a $filter=receivedDateTime ge '{monitoringStartAt}' so
+ * the customer's pre-plan inbox is never processed.
  */
 export class GraphService implements EmailFetcher {
   private client: Client;
@@ -84,12 +88,17 @@ export class GraphService implements EmailFetcher {
   private readonly folderName: string;
 
   /**
-   * @param kairaTenantId  Internal KAIRA tenant UUID — used as the DeltaLink FK.
-   * @param cfg            Per-tenant Graph configuration from TenantConfig.graph.
+   * @param kairaTenantId     Internal KAIRA tenant UUID — used as the DeltaLink FK.
+   * @param cfg               Per-tenant Graph configuration from TenantConfig.graph.
+   * @param monitoringStartAt Date from which emails should be processed. Used as
+   *                          the $filter cutoff on first sync so pre-plan emails
+   *                          are never touched. Defaults to epoch (no cutoff) for
+   *                          backwards-compat with callers that omit it.
    */
   constructor(
     private readonly kairaTenantId: string,
     cfg: TenantGraphConfig,
+    private readonly monitoringStartAt: Date = new Date(0),
   ) {
     this.userEmail  = cfg.userEmail;
     this.folderName = cfg.inboxFolder;
@@ -144,9 +153,15 @@ export class GraphService implements EmailFetcher {
   async fetchNewMessages(): Promise<EmailMessage[]> {
     const savedLink = await this.loadDeltaLink();
 
+    // On first sync (no saved link) apply a receivedDateTime filter so we only
+    // process emails received on or after the tenant's plan activation date.
+    const firstSyncFilter = `&$filter=receivedDateTime ge '${this.monitoringStartAt.toISOString()}'`;
+
     let url: string = savedLink
       ?? `/users/${this.userEmail}/mailFolders/${this.folderName}/messages/delta`
-        + `?$select=id,subject,body,sender,receivedDateTime,hasAttachments&$top=50`;
+        + `?$select=id,subject,body,sender,receivedDateTime,hasAttachments`
+        + firstSyncFilter
+        + `&$top=50`;
 
     const messages: EmailMessage[] = [];
 

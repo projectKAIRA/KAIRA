@@ -5,9 +5,6 @@ import { TenantImapConfig } from "../../types/tenant.js";
 import { EmailAttachment, EmailMessage } from "../../types/index.js";
 import { EmailFetcher } from "../email/EmailFetcher.js";
 
-// How many days back to scan on the very first poll (no stored UID yet).
-const FIRST_SYNC_DAYS = 7;
-
 /**
  * ImapService — generic IMAP email fetcher.
  *
@@ -23,6 +20,10 @@ const FIRST_SYNC_DAYS = 7;
  * Delta tracking: stores the highest seen IMAP UID in the DeltaLink table
  * (same table used by GraphService — the deltaLink column holds the UID string).
  * On each poll only messages with UID > lastSeenUid are fetched.
+ *
+ * First-sync guard: on the very first poll (no stored UID), only messages
+ * received on or after monitoringStartAt are fetched. This prevents processing
+ * a customer's entire historical inbox when they first connect their account.
  */
 export class ImapService implements EmailFetcher {
   private readonly folderName: string;
@@ -30,6 +31,9 @@ export class ImapService implements EmailFetcher {
   constructor(
     private readonly kairaTenantId: string,
     private readonly cfg: TenantImapConfig,
+    /** Date after which emails should be processed. Used as the SINCE cutoff on
+     *  first sync (no stored UID) so pre-plan emails are never touched. */
+    private readonly monitoringStartAt: Date,
   ) {
     this.folderName = cfg.inboxFolder;
   }
@@ -126,10 +130,9 @@ export class ImapService implements EmailFetcher {
 
   private async searchNewUids(client: ImapFlow, lastUid: number): Promise<number[]> {
     if (lastUid === 0) {
-      // First sync — limit to the last N days to avoid processing a full inbox.
-      const since = new Date();
-      since.setDate(since.getDate() - FIRST_SYNC_DAYS);
-      const results = await client.search({ since }, { uid: true });
+      // First sync — only fetch messages from plan activation date onward so
+      // pre-plan emails in the customer's inbox are never processed.
+      const results = await client.search({ since: this.monitoringStartAt }, { uid: true });
       return (results ?? []) as number[];
     }
 

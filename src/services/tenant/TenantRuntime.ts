@@ -89,9 +89,9 @@ function buildFetcher(config: TenantConfig): EmailFetcher {
         `[TenantRuntime] Tenant "${config.name}" has providerType "imap" but IMAP credentials are missing.`,
       );
     }
-    return new ImapService(config.id, config.imap);
+    return new ImapService(config.id, config.imap, config.createdAt);
   }
-  return new GraphService(config.id, config.graph);
+  return new GraphService(config.id, config.graph, config.createdAt);
 }
 
 function buildNotifier(config: TenantConfig, tracker: POTracker): NotificationService {
