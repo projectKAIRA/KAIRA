@@ -93,6 +93,9 @@ export class SlackInteractionService {
     // Update the original channel message to replace the button with a claimed banner
     await this.updateChannelMessage(tracked, channelId, messageTs);
 
+    // Post a brief "✅ Claimed" summary to #kaira-claimed (if configured)
+    void this.notifier.postClaimedSummary(tracked);
+
     // Open a DM and send full PO details + PDF
     await this.sendClaimDM(tracked, slackUserId);
   }

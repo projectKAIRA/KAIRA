@@ -62,12 +62,16 @@ model Tenant {
   notificationProvider NotificationProvider @default(SLACK)
 
   // ── Slack ──────────────────────────────────────────────────────────────────
-  slackBotToken      String?
-  slackSigningSecret String?
-  slackWebhookRfq    String?
-  slackWebhookInquiry String?
-  slackPoChannelId   String?
-  slackBotName       String  @default("KAIRA")
+  slackBotToken         String?
+  slackSigningSecret    String?
+  slackWebhookRfq       String?
+  slackWebhookInquiry   String?
+  slackPoChannelId      String?
+  /// Channel ID for posting "✅ Claimed" summaries (e.g. #kaira-claimed).
+  slackClaimedChannelId String?
+  /// Slack workspace / team ID — used to route /orders slash commands to the right tenant.
+  slackTeamId           String?
+  slackBotName          String  @default("KAIRA")
 
   // ── Microsoft Teams ────────────────────────────────────────────────────────
   teamsWebhookUrl    String?

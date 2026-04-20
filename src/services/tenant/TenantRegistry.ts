@@ -181,12 +181,14 @@ export class TenantRegistry {
         notificationProvider: toDbProvider(input.notification?.provider ?? "slack"),
 
         // Slack
-        slackBotToken:      input.slack?.botToken      ?? null,
-        slackSigningSecret: input.slack?.signingSecret ?? null,
-        slackWebhookRfq:    input.slack?.webhookRfq    ?? null,
-        slackWebhookInquiry: input.slack?.webhookInquiry ?? null,
-        slackPoChannelId:   input.slack?.poChannelId   ?? null,
-        slackBotName:       input.slack?.botName       ?? "KAIRA",
+        slackBotToken:         input.slack?.botToken         ?? null,
+        slackSigningSecret:    input.slack?.signingSecret    ?? null,
+        slackWebhookRfq:       input.slack?.webhookRfq       ?? null,
+        slackWebhookInquiry:   input.slack?.webhookInquiry   ?? null,
+        slackPoChannelId:      input.slack?.poChannelId      ?? null,
+        slackClaimedChannelId: input.slack?.claimedChannelId ?? null,
+        slackTeamId:           input.slack?.teamId           ?? null,
+        slackBotName:          input.slack?.botName          ?? "KAIRA",
 
         // Teams
         teamsWebhookUrl: input.teams?.webhookUrl ?? null,
@@ -242,12 +244,14 @@ export class TenantRegistry {
         }),
 
         // Slack
-        ...(input.slack?.botToken      !== undefined && { slackBotToken: input.slack.botToken }),
-        ...(input.slack?.signingSecret !== undefined && { slackSigningSecret: input.slack.signingSecret }),
-        ...(input.slack?.webhookRfq    !== undefined && { slackWebhookRfq: input.slack.webhookRfq }),
-        ...(input.slack?.webhookInquiry !== undefined && { slackWebhookInquiry: input.slack.webhookInquiry }),
-        ...(input.slack?.poChannelId   !== undefined && { slackPoChannelId: input.slack.poChannelId }),
-        ...(input.slack?.botName       !== undefined && { slackBotName: input.slack.botName }),
+        ...(input.slack?.botToken         !== undefined && { slackBotToken: input.slack.botToken }),
+        ...(input.slack?.signingSecret    !== undefined && { slackSigningSecret: input.slack.signingSecret }),
+        ...(input.slack?.webhookRfq       !== undefined && { slackWebhookRfq: input.slack.webhookRfq }),
+        ...(input.slack?.webhookInquiry   !== undefined && { slackWebhookInquiry: input.slack.webhookInquiry }),
+        ...(input.slack?.poChannelId      !== undefined && { slackPoChannelId: input.slack.poChannelId }),
+        ...(input.slack?.claimedChannelId !== undefined && { slackClaimedChannelId: input.slack.claimedChannelId }),
+        ...(input.slack?.teamId           !== undefined && { slackTeamId: input.slack.teamId }),
+        ...(input.slack?.botName          !== undefined && { slackBotName: input.slack.botName }),
 
         // Teams
         ...(input.teams?.webhookUrl !== undefined && { teamsWebhookUrl: input.teams.webhookUrl }),
@@ -278,6 +282,15 @@ export class TenantRegistry {
   async delete(id: string): Promise<void> {
     const row = await this.db.tenant.delete({ where: { id } });
     console.log(`[TenantRegistry] Deleted tenant "${row.name}" (${id})`);
+  }
+
+  /** Find an active tenant by their Slack workspace (team) ID.
+   *  Used to route /orders slash commands to the correct tenant. */
+  async findBySlackTeamId(teamId: string): Promise<TenantConfig | null> {
+    const row = await this.db.tenant.findFirst({
+      where: { slackTeamId: teamId, isActive: true },
+    });
+    return row ? toConfig(row) : null;
   }
 }
 
@@ -337,12 +350,14 @@ function toConfig(row: TenantRow): TenantConfig {
     },
 
     slack: {
-      botToken:      row.slackBotToken,
-      signingSecret: row.slackSigningSecret,
-      webhookRfq:    row.slackWebhookRfq,
-      webhookInquiry: row.slackWebhookInquiry,
-      poChannelId:   row.slackPoChannelId,
-      botName:       row.slackBotName,
+      botToken:         row.slackBotToken,
+      signingSecret:    row.slackSigningSecret,
+      webhookRfq:       row.slackWebhookRfq,
+      webhookInquiry:   row.slackWebhookInquiry,
+      poChannelId:      row.slackPoChannelId,
+      claimedChannelId: row.slackClaimedChannelId ?? null,
+      teamId:           row.slackTeamId           ?? null,
+      botName:          row.slackBotName,
     },
 
     teams: {

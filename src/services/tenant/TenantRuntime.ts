@@ -110,9 +110,10 @@ function buildNotifier(config: TenantConfig, tracker: POTracker): NotificationSe
       return new SlackNotificationService(
         {
           botToken:       s.botToken,
-          poChannel:      s.poChannelId    ?? "",
-          webhookRfq:     s.webhookRfq     ?? "",
-          webhookInquiry: s.webhookInquiry ?? "",
+          poChannel:      s.poChannelId      ?? "",
+          claimedChannel: s.claimedChannelId ?? "",
+          webhookRfq:     s.webhookRfq       ?? "",
+          webhookInquiry: s.webhookInquiry   ?? "",
           botName:        s.botName,
         },
         tracker,

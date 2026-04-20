@@ -12,6 +12,7 @@ import { createSlackRouter } from "./routes/slack.js";
 import { createDashboardRouter } from "./routes/dashboard.js";
 import { createAccountRouter } from "./routes/account.js";
 import { createTeamsRouter } from "./routes/teams.js";
+import { createSlackCommandsRouter } from "./routes/slackCommands.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -155,6 +156,12 @@ export function createApp(scheduler: TenantScheduler): express.Application {
       void scheduler.runNow(rt.tenantId);
     }
   });
+
+  // ─── Slack Slash Commands ─────────────────────────────────────────────────
+  // POST /slack/commands — handles /orders (and future commands).
+  // express.raw() is applied inside the router for signature verification.
+
+  app.use("/slack/commands", createSlackCommandsRouter(scheduler));
 
   // ─── Slack Interactions ───────────────────────────────────────────────────
   // Uses express.raw() so the raw body bytes are available for HMAC-SHA256

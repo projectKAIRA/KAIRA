@@ -95,9 +95,10 @@ export function createSlackRouter(scheduler: TenantScheduler): Router {
       slack: {
         botToken:       slack.access_token,
         signingSecret:  config.oauth.slack.signingSecret || null,
-        webhookRfq:     slack.incoming_webhook?.url    ?? null,
-        webhookInquiry: slack.incoming_webhook?.url    ?? null,
+        webhookRfq:     slack.incoming_webhook?.url       ?? null,
+        webhookInquiry: slack.incoming_webhook?.url       ?? null,
         poChannelId:    slack.incoming_webhook?.channel_id ?? null,
+        teamId:         slack.team?.id                    ?? null,
         botName:        "KAIRA",
       },
     });

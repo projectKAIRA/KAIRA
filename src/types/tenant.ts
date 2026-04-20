@@ -88,8 +88,12 @@ export interface TenantSlackConfig {
   webhookRfq: string | null;
   /** Incoming Webhook URL for #general-inquiry */
   webhookInquiry: string | null;
-  /** Channel ID for posting POs via Web API */
+  /** Channel ID for posting new unclaimed POs (e.g. #kaira-unclaimed) */
   poChannelId: string | null;
+  /** Channel ID for posting "✅ Claimed" summaries (e.g. #kaira-claimed) */
+  claimedChannelId: string | null;
+  /** Slack workspace / team ID — used to route slash commands to this tenant */
+  teamId: string | null;
   /** Display name for the bot */
   botName: string;
 }

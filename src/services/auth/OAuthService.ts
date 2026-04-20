@@ -51,6 +51,7 @@ export interface OnboardingSession {
       webhookRfq: string | null;
       webhookInquiry: string | null;
       poChannelId: string | null;
+      teamId: string | null;
       botName: string;
     };
     teams?: { webhookUrl: string };

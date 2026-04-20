@@ -14,7 +14,11 @@ export const CLAIM_ACTION_ID = "claim_po";
 
 interface SlackConfig {
   botToken: string;
+  /** ID of the channel where new (unclaimed) POs are posted — e.g. #kaira-unclaimed */
   poChannel: string;
+  /** ID of the channel where claim summaries are posted — e.g. #kaira-claimed.
+   *  Optional: if empty, no claim summary is posted to a second channel. */
+  claimedChannel: string;
   webhookRfq: string;
   webhookInquiry: string;
   botName: string;
@@ -486,6 +490,166 @@ export class SlackNotificationService implements NotificationService {
   // ─── Expose the Web client for SlackInteractionService ────────────────────
   getWebClient(): WebClient {
     return this.web;
+  }
+
+  // ─── Post a "✅ Claimed" summary to #kaira-claimed ────────────────────────
+
+  /** Post a brief claim summary to the claimed channel (if configured). */
+  async postClaimedSummary(tracked: TrackedPO): Promise<void> {
+    if (!this.cfg.claimedChannel) return;
+
+    const po = tracked.purchaseOrder;
+    const claimedAt = tracked.claimedAt
+      ? new Date(tracked.claimedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+      : new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+
+    const fields = [
+      po.poNumber   ? field("PO Number", po.poNumber)                                : null,
+      po.total != null ? field("Total",  formatCurrency(po.total, po.currency))      : null,
+      field("From",       tracked.email.sender),
+      field("Claimed By", tracked.claimedByName ?? tracked.claimedBy ?? "Unknown"),
+      field("Claimed At", claimedAt),
+    ].filter(Boolean) as ReturnType<typeof field>[];
+
+    const blocks = [
+      { type: "header", text: { type: "plain_text", text: "✅ Purchase Order Claimed", emoji: true } },
+      ...(fields.length > 0 ? [{ type: "section", fields }] : []),
+      {
+        type: "context",
+        elements: [{ type: "mrkdwn", text: `_PO tracking ID: ${tracked.id} • KAIRA_` }],
+      },
+    ];
+
+    try {
+      await this.web.chat.postMessage({
+        channel:    this.cfg.claimedChannel,
+        username:   this.cfg.botName,
+        icon_emoji: ":white_check_mark:",
+        blocks:     blocks as any,
+        text:       `PO claimed by ${tracked.claimedByName ?? "someone"}`,
+      });
+    } catch (err) {
+      console.error("[SlackNotificationService] Failed to post claimed summary:", err);
+    }
+  }
+
+  // ─── Daily digest of unclaimed orders ────────────────────────────────────
+
+  /** Post the 9am daily digest of unclaimed orders to the unclaimed channel. */
+  async postDailyDigest(orders: TrackedPO[]): Promise<void> {
+    if (!this.cfg.poChannel) return;
+
+    const count = orders.length;
+    const header = count === 0
+      ? "✅ No unclaimed orders — you're all caught up!"
+      : `📋 Daily Digest — ${count} unclaimed order${count === 1 ? "" : "s"}`;
+
+    const orderLines = orders.slice(0, 20).map((o) => {
+      const po       = o.purchaseOrder;
+      const poNum    = po.poNumber ? `*PO #${po.poNumber}*` : "*No PO Number*";
+      const total    = po.total != null ? ` — ${formatCurrency(po.total, po.currency)}` : "";
+      const received = o.receivedAt
+        ? ` • Received ${new Date(o.receivedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+        : "";
+      return `• ${poNum} from ${o.email.sender}${total}${received}`;
+    });
+
+    if (count > 20) orderLines.push(`_…and ${count - 20} more_`);
+
+    const blocks: unknown[] = [
+      { type: "header", text: { type: "plain_text", text: header, emoji: true } },
+    ];
+
+    if (count > 0) {
+      blocks.push({
+        type: "section",
+        text: mrkdwn(orderLines.join("\n")),
+      });
+      blocks.push({
+        type: "context",
+        elements: [{ type: "mrkdwn", text: `_Type \`/orders\` to see the full list with details • KAIRA_` }],
+      });
+    }
+
+    try {
+      await this.web.chat.postMessage({
+        channel:    this.cfg.poChannel,
+        username:   this.cfg.botName,
+        icon_emoji: ":calendar:",
+        blocks:     blocks as any,
+        text:       header,
+      });
+    } catch (err) {
+      console.error("[SlackNotificationService] Failed to post daily digest:", err);
+    }
+  }
+
+  // ─── /orders slash command ephemeral response ─────────────────────────────
+
+  /** Build the Block Kit blocks for the /orders ephemeral response. */
+  buildOrdersEphemeral(orders: TrackedPO[]): unknown[] {
+    if (orders.length === 0) {
+      return [
+        { type: "header", text: { type: "plain_text", text: "📋 Unclaimed Orders", emoji: true } },
+        { type: "section", text: mrkdwn("✅ *No unclaimed orders right now.* You're all caught up!") },
+      ];
+    }
+
+    const orderBlocks = orders.slice(0, 15).flatMap((o) => {
+      const po       = o.purchaseOrder;
+      const poNum    = po.poNumber ? `PO #${po.poNumber}` : "No PO Number";
+      const total    = po.total != null ? `  *${formatCurrency(po.total, po.currency)}*` : "";
+      const received = o.receivedAt
+        ? new Date(o.receivedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        : "Unknown date";
+
+      const detailFields = [
+        field("From",     o.email.sender),
+        field("Received", received),
+        ...(po.poNumber           ? [field("PO Number",    po.poNumber)]                           : []),
+        ...(po.total     != null  ? [field("Total",        formatCurrency(po.total, po.currency))]  : []),
+        ...(po.paymentTerms       ? [field("Payment Terms", po.paymentTerms)]                        : []),
+        ...(po.orderDate          ? [field("Order Date",    po.orderDate)]                           : []),
+      ].slice(0, 6) as ReturnType<typeof field>[];
+
+      return [
+        { type: "divider" },
+        {
+          type: "section",
+          text: mrkdwn(`*${poNum}*${total}\n_${o.email.subject}_`),
+          ...(detailFields.length > 0 && { fields: detailFields }),
+        },
+        {
+          type: "actions",
+          block_id: `po_actions_${o.id}`,
+          elements: [
+            {
+              type:      "button",
+              text:      { type: "plain_text", text: "Claim Order", emoji: true },
+              style:     "primary",
+              action_id: CLAIM_ACTION_ID,
+              value:     o.id,
+              confirm: {
+                title:   { type: "plain_text", text: "Claim this order?" },
+                text:    { type: "mrkdwn", text: "You'll receive a DM with the full PO details and the original PDF." },
+                confirm: { type: "plain_text", text: "Yes, claim it" },
+                deny:    { type: "plain_text", text: "Cancel" },
+              },
+            },
+          ],
+        },
+      ];
+    });
+
+    const overflow = orders.length > 15
+      ? [{ type: "context", elements: [{ type: "mrkdwn", text: `_…and ${orders.length - 15} more unclaimed orders not shown_` }] }]
+      : [];
+
+    return [
+      { type: "header", text: { type: "plain_text", text: `📋 Unclaimed Orders (${orders.length})`, emoji: true } },
+      ...orderBlocks,
+      ...overflow,
+    ];
   }
 }
 

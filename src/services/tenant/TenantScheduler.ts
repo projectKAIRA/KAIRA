@@ -1,9 +1,11 @@
+import cron from "node-cron";
 import { getPrismaClient } from "../../lib/prisma.js";
 import { TenantRegistry } from "./TenantRegistry.js";
 import { TenantRuntime } from "./TenantRuntime.js";
 import { TenantConfig } from "../../types/tenant.js";
 import { ProcessingResult } from "../../types/index.js";
 import { TrialGuard } from "./TrialGuard.js";
+import { SlackNotificationService } from "../notifications/SlackNotificationService.js";
 
 // ─── Per-tenant state ─────────────────────────────────────────────────────────
 
@@ -39,6 +41,7 @@ export interface TenantSchedulerStatus {
 export class TenantScheduler {
   private readonly entries  = new Map<string, TenantEntry>();
   private readonly registry = new TenantRegistry();
+  private digestJob: cron.ScheduledTask | null = null;
 
   constructor(
     private readonly claudeApiKey: string,
@@ -65,6 +68,38 @@ export class TenantScheduler {
     }
 
     console.log(`[TenantScheduler] Started ${tenants.length} tenant(s).`);
+    this.startDailyDigest();
+  }
+
+  /**
+   * Schedule the 9am UTC daily digest for all active Slack tenants.
+   * Runs once per day; safe to call only from start().
+   */
+  private startDailyDigest(): void {
+    // "0 9 * * *" = every day at 09:00 UTC
+    this.digestJob = cron.schedule("0 9 * * *", () => {
+      void this.runDailyDigest();
+    }, { timezone: "UTC" });
+
+    console.log("[TenantScheduler] Daily digest scheduled at 09:00 UTC.");
+  }
+
+  private async runDailyDigest(): Promise<void> {
+    console.log("[TenantScheduler] Running daily digest for all Slack tenants…");
+    for (const [, entry] of this.entries) {
+      const { notifier, tracker } = entry.runtime;
+      if (!(notifier instanceof SlackNotificationService)) continue;
+      try {
+        const orders = await tracker.getUnclaimed();
+        await notifier.postDailyDigest(orders);
+        console.log(
+          `[TenantScheduler] Daily digest posted for "${entry.runtime.config.name}" — ` +
+          `${orders.length} unclaimed order(s).`,
+        );
+      } catch (err) {
+        console.error(`[TenantScheduler] Daily digest failed for "${entry.runtime.config.name}":`, err);
+      }
+    }
   }
 
   /**
@@ -142,6 +177,8 @@ export class TenantScheduler {
     for (const [tenantId] of this.entries) {
       this.removeTenant(tenantId);
     }
+    this.digestJob?.stop();
+    this.digestJob = null;
     console.log("[TenantScheduler] All tenants stopped.");
   }
 

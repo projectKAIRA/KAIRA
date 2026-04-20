@@ -16,6 +16,7 @@ import { TenantScheduler } from "../services/tenant/TenantScheduler.js";
 import { createBillingPortalSession, getPlans } from "../services/billing/StripeService.js";
 import { config } from "../config/index.js";
 import { PLAN_DOC_LIMITS, PlanTier } from "../types/tenant.js";
+import { TrackedPO } from "../types/index.js";
 
 const registry = new TenantRegistry();
 
@@ -72,6 +73,9 @@ export function createDashboardRouter(scheduler: TenantScheduler): Router {
 
     const billingPortalUrl = `/dashboard/billing-portal?t=${encodeURIComponent(tenantId)}`;
 
+    const runtime = scheduler.getRuntime(tenantId);
+    const orders  = runtime ? await runtime.tracker.getAll() : [];
+
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderDashboard({
       tenant,
@@ -85,6 +89,7 @@ export function createDashboardRouter(scheduler: TenantScheduler): Router {
       billingPortalUrl,
       flashSuccess,
       flashError,
+      orders,
     }));
   });
 
@@ -194,6 +199,7 @@ interface DashboardData {
   billingPortalUrl: string;
   flashSuccess?:    string;
   flashError?:      string;
+  orders:           TrackedPO[];
 }
 
 function renderDashboard(d: DashboardData): string {
@@ -418,6 +424,53 @@ function renderDashboard(d: DashboardData): string {
 
     /* ── TEAMS WEBHOOK FORM ── */
     .teams-form { margin-top: 0.85rem; }
+
+    /* ── ORDERS TABLE ── */
+    .orders-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; }
+    .filter-group { display: flex; gap: 0.4rem; }
+    .filter-btn {
+      padding: 0.3rem 0.85rem; border-radius: 100px; border: 1px solid var(--border-soft);
+      font-size: 0.78rem; font-weight: 500; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; background: transparent; color: var(--ink-muted);
+      transition: all 0.15s;
+    }
+    .filter-btn:hover { border-color: var(--purple); color: var(--purple); }
+    .filter-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .orders-count { font-size: 0.78rem; color: var(--ink-muted); }
+
+    .orders-table-wrap { overflow-x: auto; }
+    table.orders {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    table.orders th {
+      text-align: left; padding: 0.55rem 0.75rem;
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em;
+      text-transform: uppercase; color: var(--ink-muted);
+      border-bottom: 1px solid var(--border-soft);
+      white-space: nowrap;
+    }
+    table.orders td {
+      padding: 0.7rem 0.75rem;
+      border-bottom: 1px solid var(--border-soft);
+      color: var(--ink);
+      vertical-align: middle;
+    }
+    table.orders tr:last-child td { border-bottom: none; }
+    table.orders tr:hover td { background: var(--purple-ghost); }
+    .orders-empty { text-align: center; padding: 2.5rem 1rem; color: var(--ink-muted); font-size: 0.88rem; }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      padding: 0.18rem 0.6rem; border-radius: 100px;
+      font-size: 0.7rem; font-weight: 600;
+    }
+    .pill-unclaimed { background: rgba(245,158,11,0.1); color: var(--amber); }
+    .pill-claimed   { background: rgba(16,185,129,0.1); color: var(--green); }
+    .po-number { font-weight: 600; color: var(--ink); }
+    .sender-cell { font-size: 0.78rem; color: var(--ink-soft); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .total-cell { font-weight: 500; white-space: nowrap; }
+    .date-cell  { color: var(--ink-muted); font-size: 0.78rem; white-space: nowrap; }
+    .claimed-by { font-size: 0.82rem; color: var(--ink-soft); }
   </style>
 </head>
 <body>
@@ -565,10 +618,123 @@ function renderDashboard(d: DashboardData): string {
       </div><!-- /notifications card -->
 
     </div><!-- /grid -->
+
+    <!-- ── Orders Table ─────────────────────────────────────────────────── -->
+    <div class="card" style="margin-top:1.25rem;">
+      <div class="orders-header">
+        <div class="card-title" style="margin-bottom:0;">Purchase Orders</div>
+        <div style="display:flex;align-items:center;gap:0.9rem;flex-wrap:wrap;">
+          <span class="orders-count" id="orders-count"></span>
+          <div class="filter-group">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="unclaimed">Unclaimed</button>
+            <button class="filter-btn" data-filter="claimed">Claimed</button>
+          </div>
+        </div>
+      </div>
+      ${renderOrdersTable(d.orders)}
+    </div>
+
   </div>
 
 </body>
+<script>
+(function () {
+  var rows    = Array.from(document.querySelectorAll('tr[data-status]'));
+  var btns    = Array.from(document.querySelectorAll('.filter-btn'));
+  var countEl = document.getElementById('orders-count');
+
+  function setCount(visible) {
+    if (countEl) countEl.textContent = visible + ' order' + (visible === 1 ? '' : 's');
+  }
+
+  function applyFilter(f) {
+    var visible = 0;
+    rows.forEach(function (r) {
+      var show = f === 'all' || r.dataset.status === f;
+      r.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    setCount(visible);
+    btns.forEach(function (b) {
+      b.classList.toggle('active', b.dataset.filter === f);
+    });
+  }
+
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () { applyFilter(b.dataset.filter); });
+  });
+
+  applyFilter('all');
+})();
+</script>
 </html>`;
+}
+
+function renderOrdersTable(orders: TrackedPO[]): string {
+  if (orders.length === 0) {
+    return `<div class="orders-table-wrap">
+      <div class="orders-empty">No purchase orders yet. They'll appear here as KAIRA processes your inbox.</div>
+    </div>`;
+  }
+
+  // Sort: unclaimed first, then by receivedAt descending
+  const sorted = [...orders].sort((a, b) => {
+    if (a.status !== b.status) return a.status === "unclaimed" ? -1 : 1;
+    return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
+  });
+
+  const rows = sorted.map((po) => {
+    const poNum    = escHtml(po.purchaseOrder.poNumber ?? "—");
+    const sender   = escHtml(po.email.sender ?? "—");
+    const total    = po.purchaseOrder.total != null
+      ? `${po.purchaseOrder.currency ?? ""}${Number(po.purchaseOrder.total).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : "—";
+    const received = fmtDate(po.receivedAt);
+    const pill     = po.status === "unclaimed"
+      ? `<span class="status-pill pill-unclaimed">● Unclaimed</span>`
+      : `<span class="status-pill pill-claimed">✓ Claimed</span>`;
+    const claimedBy = po.status === "claimed"
+      ? `<span class="claimed-by">${escHtml(po.claimedByName ?? po.claimedBy ?? "—")}</span>`
+      : `<span style="color:var(--ink-muted);font-size:0.78rem;">—</span>`;
+
+    return `<tr data-status="${po.status}">
+      <td><span class="po-number">${poNum}</span></td>
+      <td><span class="sender-cell" title="${sender}">${sender}</span></td>
+      <td><span class="total-cell">${escHtml(total)}</span></td>
+      <td><span class="date-cell">${received}</span></td>
+      <td>${pill}</td>
+      <td>${claimedBy}</td>
+    </tr>`;
+  }).join("\n");
+
+  return `<div class="orders-table-wrap">
+    <table class="orders">
+      <thead>
+        <tr>
+          <th>PO Number</th>
+          <th>Sender</th>
+          <th>Total</th>
+          <th>Received</th>
+          <th>Status</th>
+          <th>Claimed By</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function fmtDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("en-US", {
+      month: "short", day: "numeric", year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 function buildUsageBlock(t: NonNullable<Awaited<ReturnType<TenantRegistry["findById"]>>>): string {
