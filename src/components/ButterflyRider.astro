@@ -1,0 +1,171 @@
+---
+// Site-wide 3D butterfly that swirls around the viewport as you scroll.
+// Fixed full-viewport canvas, pointer-events-none, sits above content but below the nav.
+// Hides itself on reduced motion or WebGL failure.
+---
+
+<div id="bf-rider" class="pointer-events-none fixed inset-0 z-30" aria-hidden="true">
+  <canvas id="bf-canvas" class="absolute inset-0 h-full w-full"></canvas>
+</div>
+
+<script>
+  async function initButterflyRider() {
+    const wrap = document.getElementById('bf-rider');
+    const canvas = document.getElementById('bf-canvas') as HTMLCanvasElement | null;
+    if (!wrap || !canvas || canvas.dataset.init) return;
+    canvas.dataset.init = '1'; // guard BEFORE any await — also called from astro:page-load
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      wrap.style.display = 'none';
+      return;
+    }
+
+    let THREE;
+    try {
+      THREE = await import('three');
+    } catch {
+      wrap.style.display = 'none';
+      return;
+    }
+
+    let renderer: any;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    } catch {
+      wrap.style.display = 'none';
+      return;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 30);
+    camera.position.z = 6;
+
+    const VIOLET = new THREE.Color('#8b5cf6');
+    const VIOLET_LIGHT = new THREE.Color('#c4b5fd');
+
+    // ---- Butterfly (tube line-art from the brand SVG) ----
+    const S = 0.006;
+    const P = (x: number, y: number) => new THREE.Vector3((x - 50) * S, (55 - y) * S, 0);
+    const wingSegs: [number[], number[]][] = [
+      [
+        [50, 55, 60, 40, 85, 30, 90, 15],
+        [90, 15, 92, 8, 75, 6, 50, 55],
+      ],
+      [
+        [50, 55, 62, 65, 88, 72, 92, 88],
+        [92, 88, 94, 95, 74, 92, 50, 55],
+      ],
+    ];
+
+    const butterfly = new THREE.Group();
+
+    function buildWingSide(sign: number) {
+      const side = new THREE.Group();
+      for (const [segA, segB] of wingSegs) {
+        for (const seg of [segA, segB]) {
+          const curve = new THREE.CubicBezierCurve3(
+            P(seg[0], seg[1]),
+            P(seg[2], seg[3]),
+            P(seg[4], seg[5]),
+            P(seg[6], seg[7])
+          );
+          const mat = new THREE.MeshBasicMaterial({ color: VIOLET_LIGHT, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+          side.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 32, 0.008, 6, false), mat));
+        }
+      }
+      side.scale.x = sign;
+      return side;
+    }
+    const rightWing = buildWingSide(1);
+    const leftWing = buildWingSide(-1);
+    butterfly.add(rightWing, leftWing);
+
+    const bodyMat = new THREE.MeshBasicMaterial({ color: VIOLET, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+    butterfly.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(P(50, 50), P(50, 78)), 2, 0.01, 6, false), bodyMat));
+
+    // Soft glow behind it
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.width = glowCanvas.height = 128;
+    const gctx = glowCanvas.getContext('2d')!;
+    const grad = gctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(196,181,253,0.75)');
+    grad.addColorStop(0.5, 'rgba(139,92,246,0.22)');
+    grad.addColorStop(1, 'rgba(139,92,246,0)');
+    gctx.fillStyle = grad;
+    gctx.fillRect(0, 0, 128, 128);
+    const glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(glowCanvas), transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    glow.scale.setScalar(0.85);
+    butterfly.add(glow);
+
+    butterfly.rotation.x = -0.45;
+    butterfly.scale.setScalar(0.8);
+    scene.add(butterfly);
+
+    // ---- Sizing (viewport-fixed canvas) ----
+    let visH = 5.0, visW = 5.0;
+    function resize() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      visH = 2 * camera.position.z * Math.tan((camera.fov * Math.PI) / 360);
+      visW = visH * camera.aspect;
+      butterfly.scale.setScalar(Math.min(1, w / 900) * 0.55 + 0.35);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // ---- Scroll progress over the whole document, eased per-frame ----
+    let targetP = 0;
+    function onScroll() {
+      const doc = document.documentElement;
+      const range = doc.scrollHeight - window.innerHeight;
+      targetP = range > 0 ? window.scrollY / range : 0;
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    let sp = targetP;
+    let lastT = 0;
+    const prev = new THREE.Vector3();
+
+    function tick(t: number) {
+      requestAnimationFrame(tick);
+      const dt = Math.min((t - lastT) / 1000, 0.05) || 0.016;
+      lastT = t;
+      const ts = t / 1000;
+
+      // ease scroll progress — this is what makes the swirl feel liquid
+      sp += (targetP - sp) * Math.min(1, dt * 5);
+
+      // Swirl path: scroll drives the loop phase, time adds idle wander
+      const ang = sp * Math.PI * 5;
+      const xN = Math.sin(ang + ts * 0.22) * 0.62 + Math.cos(ts * 0.47) * 0.07;
+      const yN = Math.cos(ang * 0.8 + ts * 0.13) * 0.46 + Math.sin(ts * 0.61) * 0.05;
+      const z = Math.sin(ang * 0.5 + ts * 0.1) * 1.1;
+
+      prev.copy(butterfly.position);
+      butterfly.position.set((xN * visW) / 2 * 0.85, (yN * visH) / 2 * 0.8, z);
+
+      // bank into turns, flutter faster when moving fast
+      const vx = (butterfly.position.x - prev.x) / Math.max(dt, 0.001);
+      const speed = butterfly.position.distanceTo(prev) / Math.max(dt, 0.001);
+      butterfly.rotation.z = Math.max(-0.55, Math.min(0.55, -vx * 0.18)) + Math.sin(ts * 1.1) * 0.05;
+      butterfly.rotation.y = -0.3 + Math.sin(ang) * 0.35;
+
+      const flap = Math.sin(ts * (6.5 + Math.min(speed, 4) * 2.5)) * 0.6;
+      rightWing.rotation.y = flap;
+      leftWing.rotation.y = -flap;
+
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  initButterflyRider();
+  document.addEventListener('astro:page-load', initButterflyRider);
+</script>

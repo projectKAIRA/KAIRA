@@ -3,6 +3,7 @@ import { ClientRouter } from 'astro:transitions';
 import '../styles/global.css';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+import ButterflyRider from '../components/ButterflyRider.astro';
 
 interface Props {
   title: string;
@@ -51,7 +52,7 @@ const orgSchema = {
   <body class="min-h-dvh flex flex-col">
     <a
       href="#main"
-      class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-purple focus:px-4 focus:py-2 focus:text-[#05070c]"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-violet focus:px-4 focus:py-2 focus:text-white"
     >
       Skip to content
     </a>
@@ -60,6 +61,7 @@ const orgSchema = {
       <slot />
     </main>
     <Footer />
+    <ButterflyRider />
 
     <script>
       // Scroll-reveal: dependency-free IntersectionObserver.

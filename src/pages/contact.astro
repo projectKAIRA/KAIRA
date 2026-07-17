@@ -59,7 +59,7 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
               serviceOptions.map((s) => (
                 <label class="cursor-pointer">
                   <input type="checkbox" name="services" value={s} class="peer sr-only" />
-                  <span class="inline-block rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-medium text-ink-soft transition-colors duration-150 peer-checked:border-purple peer-checked:bg-purple peer-checked:text-[#05070c] peer-focus-visible:outline-2 peer-focus-visible:outline-purple">
+                  <span class="inline-block rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-medium text-ink-soft transition-colors duration-150 peer-checked:border-purple peer-checked:bg-violet peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-purple">
                     {s}
                   </span>
                 </label>
@@ -92,7 +92,7 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
       <button
         type="submit"
         id="submit-btn"
-        class="mt-6 w-full rounded-full bg-purple px-8 py-3.5 text-base font-semibold text-[#05070c] shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+        class="mt-6 w-full rounded-full bg-violet px-8 py-3.5 text-base font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >
         Send My Quote Request
       </button>

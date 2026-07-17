@@ -8,28 +8,32 @@ const projects = [
     type: 'Restaurant',
     body: 'A warm, photo-forward site for a coastal bistro concept — online menu, reservations, and a mobile experience built for hungry customers searching on the go.',
     tags: ['Web Design', 'Local SEO', 'Mobile-First'],
-    gradient: 'from-purple-pale via-white/[0.03] to-purple-ghost',
+    mock: 'restaurant',
+    accent: '#c4b5fd',
   },
   {
     name: 'Summit Physical Therapy',
     type: 'Health & Wellness',
     body: 'A clean, trustworthy presence for a PT clinic concept — service pages structured for local search, easy appointment requests, and accessible design throughout.',
     tags: ['Web Design', 'SEO Structure', 'Accessibility'],
-    gradient: 'from-purple-ghost via-purple-pale to-white/[0.03]',
+    mock: 'clinic',
+    accent: '#5eeaf6',
   },
   {
     name: 'Brightside Cleaning Co.',
     type: 'Home Services',
     body: 'A conversion-focused site for a cleaning service concept — instant quote form above the fold, service-area pages, and trust signals that win the booking.',
     tags: ['Web Design', 'Lead Generation', 'Speed'],
-    gradient: 'from-white/[0.03] via-purple-ghost to-purple-pale',
+    mock: 'cleaning',
+    accent: '#fbbf24',
   },
   {
     name: 'Oak & Iron Barbershop',
     type: 'Personal Care',
     body: 'A bold, modern look for a barbershop concept — online booking integration, service menu, and a gallery layout that shows off the craft.',
     tags: ['Web Design', 'Branding', 'Booking'],
-    gradient: 'from-purple-pale via-purple-ghost to-white/[0.03]',
+    mock: 'barber',
+    accent: '#ff2d78',
   },
 ];
 ---
@@ -40,6 +44,7 @@ const projects = [
 >
   <section class="mesh-bg">
     <div class="mx-auto max-w-6xl px-5 pb-16 pt-16 text-center md:pt-24">
+      <p class="reveal hud-label mb-4">PORTFOLIO <span class="text-white/25">//</span> 4 CONCEPTS</p>
       <h1 class="reveal text-4xl font-bold tracking-tight text-ink md:text-5xl">Our Work</h1>
       <p class="reveal reveal-delay-1 mx-auto mt-4 max-w-xl text-lg text-ink-soft">
         Concept projects that show how we think about design, speed, and getting local businesses
@@ -57,17 +62,80 @@ const projects = [
       {
         projects.map((p, i) => (
           <article class={`reveal reveal-delay-${i % 2} glass overflow-hidden rounded-2xl transition-transform duration-300 ease-(--ease-enter) hover:-translate-y-1.5`}>
-            <div class={`relative bg-gradient-to-br ${p.gradient} p-10`} aria-hidden="true">
-              <div class="mx-auto flex max-w-xs flex-col gap-2.5">
-                <div class="h-2.5 w-16 rounded-full bg-purple/35" />
-                <div class="h-5 w-4/5 rounded-full bg-ink/15" />
-                <div class="h-5 w-3/5 rounded-full bg-ink/10" />
-                <div class="mt-1.5 h-8 w-24 rounded-full bg-purple/60" />
-              </div>
-              <span class="absolute right-4 top-4 rounded-full border border-purple/30 bg-[#05070c]/80 px-3 py-1 text-[11px] font-semibold tracking-wide text-purple backdrop-blur">
+            <!-- Mini site mockup -->
+            <div class="relative border-b border-white/[0.06] bg-[#0c0c10] p-6 sm:p-8" aria-hidden="true">
+              <span class="absolute right-4 top-4 z-[1] rounded-full border border-purple/30 bg-[#05070c]/80 px-3 py-1 text-[11px] font-semibold tracking-wide text-purple backdrop-blur">
                 CONCEPT PROJECT
               </span>
+
+              <div class="mx-auto max-w-sm overflow-hidden rounded-xl border border-white/10 bg-[#101018] shadow-2xl">
+                <!-- browser chrome -->
+                <div class="flex items-center gap-1.5 border-b border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                  <span class="h-2 w-2 rounded-full bg-white/15" />
+                  <span class="h-2 w-2 rounded-full bg-white/15" />
+                  <span class="h-2 w-2 rounded-full bg-white/15" />
+                  <span class="ml-2 h-3.5 flex-1 rounded-full bg-white/[0.05] px-2 text-[7px] leading-[14px] text-white/30">
+                    {p.name.toLowerCase().replace(/[^a-z]/g, '')}.com
+                  </span>
+                </div>
+
+                <div class="p-4">
+                  {p.mock === 'restaurant' && (
+                    <div>
+                      <p class="text-[8px] tracking-[0.2em] uppercase" style={`color:${p.accent}`}>Waterfront dining</p>
+                      <p class="mt-1 text-[13px] font-bold leading-tight text-white">Coastal plates, golden-hour views.</p>
+                      <div class="mt-3 space-y-1.5">
+                        <div class="flex justify-between text-[8px] text-white/60"><span>Seared dayboat scallops</span><span style={`color:${p.accent}`}>$24</span></div>
+                        <div class="flex justify-between text-[8px] text-white/60"><span>Charred octopus & vine tomato</span><span style={`color:${p.accent}`}>$19</span></div>
+                        <div class="flex justify-between text-[8px] text-white/60"><span>Harbor burger, smoked aioli</span><span style={`color:${p.accent}`}>$16</span></div>
+                      </div>
+                      <div class="mt-3 inline-block rounded-full px-3 py-1 text-[8px] font-bold text-[#101018]" style={`background:${p.accent}`}>Reserve a table</div>
+                    </div>
+                  )}
+                  {p.mock === 'clinic' && (
+                    <div>
+                      <p class="text-[8px] tracking-[0.2em] uppercase" style={`color:${p.accent}`}>Physical therapy</p>
+                      <p class="mt-1 text-[13px] font-bold leading-tight text-white">Move better. Live better.</p>
+                      <div class="mt-3 flex gap-1.5">
+                        <span class="rounded-full border border-white/15 px-2 py-0.5 text-[7px] text-white/60">Sports rehab</span>
+                        <span class="rounded-full border border-white/15 px-2 py-0.5 text-[7px] text-white/60">Post-op</span>
+                        <span class="rounded-full border border-white/15 px-2 py-0.5 text-[7px] text-white/60">Chronic pain</span>
+                      </div>
+                      <div class="mt-3 rounded-lg border border-white/10 bg-white/[0.04] p-2">
+                        <p class="text-[7px] text-white/40">NEXT AVAILABLE</p>
+                        <p class="text-[9px] font-semibold text-white">Tomorrow, 9:40 AM — Dr. Reyes</p>
+                      </div>
+                      <div class="mt-2.5 inline-block rounded-full px-3 py-1 text-[8px] font-bold text-[#101018]" style={`background:${p.accent}`}>Book an appointment</div>
+                    </div>
+                  )}
+                  {p.mock === 'cleaning' && (
+                    <div>
+                      <p class="text-[8px] tracking-[0.2em] uppercase" style={`color:${p.accent}`}>Home cleaning</p>
+                      <p class="mt-1 text-[13px] font-bold leading-tight text-white">A spotless home by Friday.</p>
+                      <div class="mt-3 space-y-1.5">
+                        <div class="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[8px] text-white/35">Your ZIP code</div>
+                        <div class="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[8px] text-white/35">Home size — 3 bed / 2 bath</div>
+                      </div>
+                      <div class="mt-2.5 inline-block rounded-full px-3 py-1 text-[8px] font-bold text-[#101018]" style={`background:${p.accent}`}>Get an instant quote</div>
+                      <p class="mt-2 text-[7px] text-white/35">★★★★★ 4.9 — 210+ local homes cleaned</p>
+                    </div>
+                  )}
+                  {p.mock === 'barber' && (
+                    <div>
+                      <p class="text-[8px] tracking-[0.2em] uppercase" style={`color:${p.accent}`}>Est. 2026</p>
+                      <p class="mt-1 text-[13px] font-bold leading-tight text-white">Classic cuts. Modern craft.</p>
+                      <div class="mt-3 space-y-1.5">
+                        <div class="flex justify-between text-[8px] text-white/60"><span>Skin fade + hot towel</span><span style={`color:${p.accent}`}>$38</span></div>
+                        <div class="flex justify-between text-[8px] text-white/60"><span>Beard sculpt & line-up</span><span style={`color:${p.accent}`}>$22</span></div>
+                        <div class="flex justify-between text-[8px] text-white/60"><span>The full works</span><span style={`color:${p.accent}`}>$55</span></div>
+                      </div>
+                      <div class="mt-3 inline-block rounded-full px-3 py-1 text-[8px] font-bold text-[#101018]" style={`background:${p.accent}`}>Book a chair</div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+
             <div class="p-7">
               <p class="text-xs font-semibold tracking-widest text-purple uppercase">{p.type}</p>
               <h2 class="mt-1.5 text-xl font-bold text-ink">{p.name}</h2>
@@ -87,7 +155,7 @@ const projects = [
       <h2 class="text-2xl font-bold text-ink">Want your business to be our next project?</h2>
       <a
         href="/contact"
-        class="mt-6 inline-block rounded-full bg-purple px-8 py-3 text-base font-semibold text-[#05070c] shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98]"
+        class="mt-6 inline-block rounded-full bg-violet px-8 py-3 text-base font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98]"
       >
         Start Your Project
       </a>
