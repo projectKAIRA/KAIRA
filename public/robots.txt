@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://projectkaira.com/sitemap-index.xml
+Sitemap: https://trykaira.ai/sitemap-index.xml
