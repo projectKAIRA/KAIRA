@@ -34,4 +34,5 @@ npm run build      # static build to ./dist
 Without keys set, the form renders with Cloudflare's always-pass Turnstile **test** site key,
 and submissions will fail at the email step — set all variables before launch.
 
-Also update the production domain in `astro.config.mjs` (`SITE_URL`) and `public/robots.txt`.
+The production domain (`trykaira.ai`) is set in `astro.config.mjs` (`SITE_URL`) and `public/robots.txt`.
+See `DEPLOYMENT.md` for the Cloudflare Pages + DNS setup and `SECURITY.md` for credential hygiene.
