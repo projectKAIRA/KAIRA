@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand palette — white & purple */
+  --color-ink: #0d0d14;
+  --color-ink-soft: #3d3a52;
+  --color-ink-muted: #6f6c85;
+  --color-purple: #7c3aed;
+  --color-purple-bright: #8b5cf6;
+  --color-purple-mid: #a78bfa;
+  --color-purple-light: #c4b5fd;
+  --color-purple-pale: #ede9fe;
+  --color-purple-ghost: #f5f3ff;
+  --color-surface: #fbfaff;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --ease-press: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --shadow-glass: 0 1px 2px rgba(13, 13, 20, 0.04), 0 8px 24px -8px rgba(124, 58, 237, 0.12), 0 24px 48px -16px rgba(124, 58, 237, 0.10);
+  --shadow-glass-lg: 0 2px 4px rgba(13, 13, 20, 0.05), 0 16px 40px -12px rgba(124, 58, 237, 0.22), 0 32px 64px -20px rgba(124, 58, 237, 0.14);
+  --shadow-cta: 0 4px 14px -2px rgba(124, 58, 237, 0.45), 0 12px 32px -8px rgba(124, 58, 237, 0.30);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Glass panel material (light-theme glassmorphism) ---- */
+.glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.65) 100%);
+  border: 1px solid rgba(124, 58, 237, 0.14);
+  box-shadow: var(--shadow-glass), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+/* ---- Hero mesh background: layered radial gradients, pure CSS ---- */
+.mesh-bg {
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 10%, rgba(196, 181, 253, 0.45) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 45% at 85% 20%, rgba(167, 139, 250, 0.35) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 55% at 50% 100%, rgba(237, 233, 254, 0.9) 0%, transparent 70%),
+    linear-gradient(180deg, #ffffff 0%, #fbfaff 100%);
+}
+
+/* Slow ambient drift on decorative blobs — GPU-cheap transform/opacity only */
+@keyframes drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -18px, 0) scale(1.04); }
+}
+.animate-drift { animation: drift 9s ease-in-out infinite; }
+.animate-drift-slow { animation: drift 13s ease-in-out infinite reverse; }
+
+/* ---- Scroll-reveal (driven by a tiny IntersectionObserver) ---- */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s var(--ease-enter), transform 0.7s var(--ease-enter);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Stagger helpers */
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+
+/* ---- Accessibility: honor reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .animate-drift, .animate-drift-slow { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Visible focus for keyboard users */
+:focus-visible {
+  outline: 2px solid var(--color-purple);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

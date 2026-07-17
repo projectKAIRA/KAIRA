@@ -1,0 +1,91 @@
+---
+import Base from '../layouts/Base.astro';
+
+const services = [
+  {
+    title: 'Web Design & Development',
+    tagline: 'A website you’re proud to send customers to.',
+    points: [
+      'Custom design tailored to your brand — no cookie-cutter templates',
+      'Mobile-first and responsive on every screen size',
+      'Fast load times that keep visitors from bouncing',
+      'Clear calls-to-action that turn visitors into inquiries',
+      'Contact forms, maps, menus, galleries — whatever your business needs',
+    ],
+  },
+  {
+    title: 'SEO Fundamentals',
+    tagline: 'Built to be found by the customers searching for you.',
+    points: [
+      'Technical SEO: clean structure, fast pages, proper metadata',
+      'Local search setup so nearby customers find you first',
+      'Google Business Profile guidance',
+      'Keyword-aware page copy and headings',
+      'Analytics set up so you can see what’s working',
+    ],
+  },
+  {
+    title: 'Ongoing Maintenance',
+    tagline: 'Your site stays secure, fresh, and up to date — hands-off.',
+    points: [
+      'Software updates, security monitoring, and backups',
+      'Content updates — new hours, menus, photos, promotions',
+      'Uptime monitoring and fast fixes if anything breaks',
+      'Monthly summary of your site’s health and traffic',
+      'Priority support when you need a change made',
+    ],
+  },
+];
+---
+
+<Base
+  title="Services — Web Design, SEO & Maintenance | KAIRA"
+  description="Professional web design, SEO fundamentals, and ongoing website maintenance for local businesses. Websites starting at $1,000."
+>
+  <section class="mesh-bg">
+    <div class="mx-auto max-w-6xl px-5 pb-16 pt-16 text-center md:pt-24">
+      <h1 class="reveal text-4xl font-bold tracking-tight text-ink md:text-5xl">Services</h1>
+      <p class="reveal reveal-delay-1 mx-auto mt-4 max-w-xl text-lg text-ink-soft">
+        Everything a local business needs to look professional online and get found — nothing you
+        don’t.
+      </p>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-6xl space-y-8 px-5 py-16 md:py-20">
+    {
+      services.map((s, i) => (
+        <article class={`reveal glass rounded-2xl p-8 md:p-10 ${i % 2 === 1 ? 'md:ml-12' : 'md:mr-12'}`}>
+          <h2 class="text-2xl font-bold text-ink">{s.title}</h2>
+          <p class="mt-1 font-medium text-purple">{s.tagline}</p>
+          <ul class="mt-6 grid gap-3 md:grid-cols-2">
+            {s.points.map((p) => (
+              <li class="flex items-start gap-3 text-sm leading-relaxed text-ink-soft">
+                <svg class="mt-0.5 shrink-0 text-purple" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                {p}
+              </li>
+            ))}
+          </ul>
+        </article>
+      ))
+    }
+  </section>
+
+  <section class="mx-auto max-w-3xl px-5 pb-20 text-center md:pb-28">
+    <div class="reveal glass rounded-2xl p-10">
+      <h2 class="text-2xl font-bold text-ink">Not sure what you need?</h2>
+      <p class="mt-3 text-ink-muted">
+        Tell us about your business and we’ll recommend the right starting point — no jargon, no
+        pressure.
+      </p>
+      <a
+        href="/contact"
+        class="mt-6 inline-block rounded-full bg-purple px-8 py-3 text-base font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98]"
+      >
+        Get a Free Quote
+      </a>
+    </div>
+  </section>
+</Base>

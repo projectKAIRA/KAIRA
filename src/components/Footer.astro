@@ -1,0 +1,47 @@
+---
+const year = new Date().getFullYear();
+---
+
+<footer class="border-t border-purple/10 bg-white">
+  <div class="mx-auto max-w-6xl px-5 py-12">
+    <div class="flex flex-col gap-10 md:flex-row md:justify-between">
+      <div class="max-w-sm">
+        <p class="text-lg font-bold text-ink">KAIRA<span class="text-purple">.</span></p>
+        <p class="mt-2 text-sm leading-relaxed text-ink-muted">
+          Modern websites, SEO fundamentals, and ongoing maintenance for local businesses ready to
+          stand out online.
+        </p>
+      </div>
+
+      <nav aria-label="Footer" class="grid grid-cols-2 gap-8 text-sm sm:grid-cols-3">
+        <div>
+          <p class="font-semibold text-ink">Company</p>
+          <ul class="mt-3 space-y-2">
+            <li><a href="/about" class="text-ink-muted hover:text-purple">About</a></li>
+            <li><a href="/portfolio" class="text-ink-muted hover:text-purple">Work</a></li>
+            <li><a href="/contact" class="text-ink-muted hover:text-purple">Contact</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="font-semibold text-ink">Services</p>
+          <ul class="mt-3 space-y-2">
+            <li><a href="/services" class="text-ink-muted hover:text-purple">Web Design</a></li>
+            <li><a href="/services" class="text-ink-muted hover:text-purple">SEO</a></li>
+            <li><a href="/services" class="text-ink-muted hover:text-purple">Maintenance</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="font-semibold text-ink">Legal</p>
+          <ul class="mt-3 space-y-2">
+            <li><a href="/privacy" class="text-ink-muted hover:text-purple">Privacy</a></li>
+            <li><a href="/terms" class="text-ink-muted hover:text-purple">Terms</a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+
+    <p class="mt-10 border-t border-purple/10 pt-6 text-xs text-ink-muted">
+      &copy; {year} KAIRA. All rights reserved.
+    </p>
+  </div>
+</footer>
