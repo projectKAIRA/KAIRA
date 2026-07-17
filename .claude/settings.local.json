@@ -56,7 +56,8 @@
       "Bash(npm run *)",
       "Bash(git add *)",
       "Bash(git commit -q -m 'Add Astro + Tailwind agency marketing site *)",
-      "Bash(git commit -q -m 'Redesign in Monday dark aesthetic: cyan-on-black, 3D hero orb, butterfly mark, view transitions *)"
+      "Bash(git commit -q -m 'Redesign in Monday dark aesthetic: cyan-on-black, 3D hero orb, butterfly mark, view transitions *)",
+      "Bash(git commit -q -m 'Monday-grade HUD detail + purple orb + scroll-driven 3D butterfly flight *)"
     ]
   }
 }

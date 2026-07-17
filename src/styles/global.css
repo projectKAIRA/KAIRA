@@ -17,6 +17,12 @@
   --color-surface: #09090b;
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-data: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* Deep-space blues + the KAIRA purple orb family */
+  --color-violet: #8b5cf6;
+  --color-violet-mid: #a78bfa;
+  --color-violet-light: #c4b5fd;
 
   --ease-press: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
@@ -38,6 +44,18 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/* Top-center glow + edge vignette, straight from the Monday playbook */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 52% 44% at 50% 30%, rgba(139, 92, 246, 0.06) 0%, rgba(0, 229, 255, 0.02) 45%, transparent 72%),
+    radial-gradient(ellipse 120% 100% at 50% 0%, transparent 60%, rgba(0, 0, 0, 0.5) 100%);
 }
 
 /* Fractal-noise film grain, straight from the Monday playbook */
@@ -68,6 +86,54 @@ body::after {
     radial-gradient(ellipse 45% 40% at 15% 35%, rgba(0, 229, 255, 0.06) 0%, transparent 60%),
     radial-gradient(ellipse 40% 38% at 88% 55%, rgba(255, 45, 120, 0.05) 0%, transparent 60%),
     linear-gradient(180deg, #0b0b0d 0%, #09090b 100%);
+}
+
+/* ---- HUD chrome (Monday-style system UI) ---- */
+.hud-label {
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-purple);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
+  animation: breathe 3s ease-in-out infinite;
+}
+.status-dot--violet {
+  background: var(--color-violet);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.8);
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.stat-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 /* Slow ambient drift on decorative glows — GPU-cheap transform/opacity only */
