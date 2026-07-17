@@ -29,27 +29,27 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
         <div>
           <label for="name" class="block text-sm font-semibold text-ink">Your name <span aria-hidden="true" class="text-purple">*</span></label>
           <input type="text" id="name" name="name" required autocomplete="name"
-            class="mt-2 w-full rounded-xl border border-purple/20 bg-white/80 px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple" placeholder="Jane Smith" />
+            class="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple" placeholder="Jane Smith" />
         </div>
         <div>
           <label for="business" class="block text-sm font-semibold text-ink">Business name <span aria-hidden="true" class="text-purple">*</span></label>
           <input type="text" id="business" name="business" required autocomplete="organization"
-            class="mt-2 w-full rounded-xl border border-purple/20 bg-white/80 px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple" placeholder="Smith's Bakery" />
+            class="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple" placeholder="Smith's Bakery" />
         </div>
         <div>
           <label for="email" class="block text-sm font-semibold text-ink">Email <span aria-hidden="true" class="text-purple">*</span></label>
           <input type="email" id="email" name="email" required autocomplete="email"
-            class="mt-2 w-full rounded-xl border border-purple/20 bg-white/80 px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple" placeholder="jane@smithsbakery.com" />
+            class="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple" placeholder="jane@smithsbakery.com" />
         </div>
         <div>
           <label for="phone" class="block text-sm font-semibold text-ink">Phone</label>
           <input type="tel" id="phone" name="phone" autocomplete="tel"
-            class="mt-2 w-full rounded-xl border border-purple/20 bg-white/80 px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple" placeholder="(555) 123-4567" />
+            class="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple" placeholder="(555) 123-4567" />
         </div>
         <div class="sm:col-span-2">
           <label for="website" class="block text-sm font-semibold text-ink">Current website <span class="font-normal text-ink-muted">(if you have one)</span></label>
           <input type="url" id="website" name="website" autocomplete="url" inputmode="url"
-            class="mt-2 w-full rounded-xl border border-purple/20 bg-white/80 px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple" placeholder="https://www.example.com" />
+            class="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple" placeholder="https://www.example.com" />
         </div>
 
         <fieldset class="sm:col-span-2">
@@ -59,7 +59,7 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
               serviceOptions.map((s) => (
                 <label class="cursor-pointer">
                   <input type="checkbox" name="services" value={s} class="peer sr-only" />
-                  <span class="inline-block rounded-full border border-purple/25 bg-white/70 px-4 py-2 text-sm font-medium text-ink-soft transition-colors duration-150 peer-checked:border-purple peer-checked:bg-purple peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-purple">
+                  <span class="inline-block rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-medium text-ink-soft transition-colors duration-150 peer-checked:border-purple peer-checked:bg-purple peer-checked:text-[#05070c] peer-focus-visible:outline-2 peer-focus-visible:outline-purple">
                     {s}
                   </span>
                 </label>
@@ -71,7 +71,7 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
         <div class="sm:col-span-2">
           <label for="budget" class="block text-sm font-semibold text-ink">Estimated budget</label>
           <select id="budget" name="budget"
-            class="mt-2 w-full rounded-xl border border-purple/20 bg-white/80 px-4 py-3 text-sm text-ink focus:border-purple">
+            class="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-ink focus:border-purple">
             <option value="">Select a range…</option>
             {budgetOptions.map((b) => <option value={b}>{b}</option>)}
           </select>
@@ -80,19 +80,19 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
         <div class="sm:col-span-2">
           <label for="details" class="block text-sm font-semibold text-ink">Tell us about your project <span aria-hidden="true" class="text-purple">*</span></label>
           <textarea id="details" name="details" required rows="5"
-            class="mt-2 w-full rounded-xl border border-purple/20 bg-white/80 px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple"
+            class="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-ink placeholder:text-ink-muted/60 focus:border-purple"
             placeholder="What does your business do? What are you hoping a new website will accomplish?"></textarea>
         </div>
       </div>
 
       <div class="mt-6">
-        <div class="cf-turnstile" data-sitekey={TURNSTILE_SITE_KEY} data-theme="light"></div>
+        <div class="cf-turnstile" data-sitekey={TURNSTILE_SITE_KEY} data-theme="dark"></div>
       </div>
 
       <button
         type="submit"
         id="submit-btn"
-        class="mt-6 w-full rounded-full bg-purple px-8 py-3.5 text-base font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+        class="mt-6 w-full rounded-full bg-purple px-8 py-3.5 text-base font-semibold text-[#05070c] shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >
         Send My Quote Request
       </button>
@@ -101,17 +101,20 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
     </form>
   </section>
 
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer is:inline></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer is:inline data-astro-rerun></script>
 
   <script>
+    function initQuoteForm() {
     const form = document.getElementById('quote-form') as HTMLFormElement;
     const btn = document.getElementById('submit-btn') as HTMLButtonElement;
     const status = document.getElementById('form-status') as HTMLParagraphElement;
+    if (!form || form.dataset.init) return;
+    form.dataset.init = '1';
 
     function showStatus(msg: string, ok: boolean) {
       status.textContent = msg;
-      status.classList.remove('hidden', 'text-red-600', 'text-purple');
-      status.classList.add(ok ? 'text-purple' : 'text-red-600');
+      status.classList.remove('hidden', 'text-red-400', 'text-purple');
+      status.classList.add(ok ? 'text-purple' : 'text-red-400');
     }
 
     form?.addEventListener('submit', async (e) => {
@@ -170,5 +173,8 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
         btn.textContent = 'Send My Quote Request';
       }
     });
+    }
+    initQuoteForm();
+    document.addEventListener('astro:page-load', initQuoteForm);
   </script>
 </Base>

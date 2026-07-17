@@ -1,65 +1,88 @@
 @import "tailwindcss";
 
 @theme {
-  /* Brand palette — white & purple */
-  --color-ink: #0d0d14;
-  --color-ink-soft: #3d3a52;
-  --color-ink-muted: #6f6c85;
-  --color-purple: #7c3aed;
-  --color-purple-bright: #8b5cf6;
-  --color-purple-mid: #a78bfa;
-  --color-purple-light: #c4b5fd;
-  --color-purple-pale: #ede9fe;
-  --color-purple-ghost: #f5f3ff;
-  --color-surface: #fbfaff;
+  /* Monday-inspired dark palette: near-black canvas, electric cyan accent, magenta highlight.
+     Token names kept from the original light theme so page markup stays stable:
+     "ink" = text ladder (light on dark), "purple" = accent (now cyan). */
+  --color-ink: #f2f4f8;
+  --color-ink-soft: #b9bec9;
+  --color-ink-muted: #7e8494;
+  --color-purple: #00e5ff;
+  --color-purple-bright: #00f5ff;
+  --color-purple-mid: #5eeaf6;
+  --color-purple-light: #a5f3fc;
+  --color-purple-pale: rgba(0, 229, 255, 0.10);
+  --color-purple-ghost: rgba(0, 229, 255, 0.05);
+  --color-magenta: #ff2d78;
+  --color-surface: #09090b;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
 
   --ease-press: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --shadow-glass: 0 1px 2px rgba(13, 13, 20, 0.04), 0 8px 24px -8px rgba(124, 58, 237, 0.12), 0 24px 48px -16px rgba(124, 58, 237, 0.10);
-  --shadow-glass-lg: 0 2px 4px rgba(13, 13, 20, 0.05), 0 16px 40px -12px rgba(124, 58, 237, 0.22), 0 32px 64px -20px rgba(124, 58, 237, 0.14);
-  --shadow-cta: 0 4px 14px -2px rgba(124, 58, 237, 0.45), 0 12px 32px -8px rgba(124, 58, 237, 0.30);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 1px rgba(0, 0, 0, 0.30), 0 8px 24px -8px rgba(0, 0, 0, 0.50), 0 24px 48px -16px rgba(0, 0, 0, 0.40);
+  --shadow-glass-lg: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 2px 2px rgba(0, 0, 0, 0.35), 0 16px 40px -12px rgba(0, 0, 0, 0.60), 0 32px 64px -20px rgba(0, 229, 255, 0.10);
+  --shadow-cta: 0 0 0 1px rgba(0, 229, 255, 0.25), 0 4px 14px -2px rgba(0, 229, 255, 0.40), 0 12px 32px -8px rgba(0, 229, 255, 0.25);
 }
 
 html {
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
   background-color: var(--color-surface);
+  background-image: linear-gradient(180deg, #0b0b0d 0%, #09090b 30%, #080809 100%);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* ---- Glass panel material (light-theme glassmorphism) ---- */
+/* Fractal-noise film grain, straight from the Monday playbook */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)'/%3E%3C/svg%3E") repeat;
+  opacity: 0.02;
+  mix-blend-mode: overlay;
+}
+
+/* ---- Glass panel material (dark glassmorphism) ---- */
 .glass {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.65) 100%);
-  border: 1px solid rgba(124, 58, 237, 0.14);
-  box-shadow: var(--shadow-glass), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.025) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-glass);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
 }
 
-/* ---- Hero mesh background: layered radial gradients, pure CSS ---- */
+/* ---- Hero backdrop: cyan aurora on near-black ---- */
 .mesh-bg {
   background:
-    radial-gradient(ellipse 60% 50% at 20% 10%, rgba(196, 181, 253, 0.45) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 45% at 85% 20%, rgba(167, 139, 250, 0.35) 0%, transparent 65%),
-    radial-gradient(ellipse 70% 55% at 50% 100%, rgba(237, 233, 254, 0.9) 0%, transparent 70%),
-    linear-gradient(180deg, #ffffff 0%, #fbfaff 100%);
+    radial-gradient(ellipse 55% 45% at 50% 12%, rgba(0, 229, 255, 0.10) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 40% at 15% 35%, rgba(0, 229, 255, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 38% at 88% 55%, rgba(255, 45, 120, 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, #0b0b0d 0%, #09090b 100%);
 }
 
-/* Slow ambient drift on decorative blobs — GPU-cheap transform/opacity only */
+/* Slow ambient drift on decorative glows — GPU-cheap transform/opacity only */
 @keyframes drift {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
   50% { transform: translate3d(0, -18px, 0) scale(1.04); }
 }
 .animate-drift { animation: drift 9s ease-in-out infinite; }
 .animate-drift-slow { animation: drift 13s ease-in-out infinite reverse; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float { animation: float 6s ease-in-out infinite; }
 
 /* ---- Scroll-reveal (driven by a tiny IntersectionObserver) ---- */
 .reveal {
@@ -71,7 +94,6 @@ body {
   opacity: 1;
   transform: translateY(0);
 }
-/* Stagger helpers */
 .reveal-delay-1 { transition-delay: 0.1s; }
 .reveal-delay-2 { transition-delay: 0.2s; }
 .reveal-delay-3 { transition-delay: 0.3s; }
@@ -80,7 +102,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .reveal { opacity: 1; transform: none; transition: none; }
-  .animate-drift, .animate-drift-slow { animation: none; }
+  .animate-drift, .animate-drift-slow, .animate-float { animation: none; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;

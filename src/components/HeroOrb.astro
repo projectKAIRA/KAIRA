@@ -1,0 +1,166 @@
+---
+// Three.js hero orb — fresnel-glow core, wireframe icosahedron, gyro rings, particle field.
+// Loads client-side only; hides itself on reduced-motion or WebGL failure.
+---
+
+<div id="orb-wrap" class="pointer-events-none relative mx-auto h-[300px] w-[300px] sm:h-[380px] sm:w-[380px]" aria-hidden="true">
+  <canvas id="orb-canvas" class="absolute inset-0 h-full w-full"></canvas>
+</div>
+
+<script>
+  async function initOrb() {
+    const wrap = document.getElementById('orb-wrap');
+    const canvas = document.getElementById('orb-canvas') as HTMLCanvasElement | null;
+    if (!wrap || !canvas || canvas.dataset.init) return;
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      wrap.style.display = 'none';
+      return;
+    }
+
+    let THREE;
+    try {
+      THREE = await import('three');
+    } catch {
+      wrap.style.display = 'none';
+      return;
+    }
+    canvas.dataset.init = '1';
+
+    let renderer: any;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    } catch {
+      wrap.style.display = 'none';
+      return;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 50);
+    camera.position.z = 6.2;
+
+    const CYAN = new THREE.Color(0.0, 0.9, 1.0);
+    const MAGENTA = new THREE.Color(1.0, 0.18, 0.47);
+
+    // --- Fresnel-glow core ---
+    const coreMat = new THREE.ShaderMaterial({
+      transparent: true,
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: `
+        uniform float uTime;
+        varying vec3 vNormal, vView;
+        void main() {
+          vec3 p = position + normal * (sin(uTime * 1.4 + position.y * 4.0) * 0.03);
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          vNormal = normalMatrix * normal;
+          vView = -mv.xyz;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        varying vec3 vNormal, vView;
+        void main() {
+          float fr = pow(1.0 - abs(dot(normalize(vView), normalize(vNormal))), 2.0);
+          vec3 deep = vec3(0.01, 0.10, 0.16);
+          vec3 cyan = vec3(0.0, 0.90, 1.0);
+          gl_FragColor = vec4(mix(deep, cyan, fr), 0.55 + fr * 0.45);
+        }`,
+    });
+    const core = new THREE.Mesh(new THREE.SphereGeometry(1.15, 48, 48), coreMat);
+    scene.add(core);
+
+    // --- Wireframe icosahedron shell ---
+    const shell = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(1.7, 1),
+      new THREE.MeshBasicMaterial({ color: CYAN, wireframe: true, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending })
+    );
+    scene.add(shell);
+
+    // --- Gyro rings ---
+    const rings: any[] = [];
+    const tilts = [
+      [Math.PI / 2.2, 0],
+      [Math.PI / 3, Math.PI / 3.5],
+      [Math.PI / 1.8, -Math.PI / 4],
+    ];
+    tilts.forEach(([x, z], i) => {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(2.1 + i * 0.28, 0.008, 8, 96),
+        new THREE.MeshBasicMaterial({
+          color: i === 2 ? MAGENTA : CYAN,
+          transparent: true,
+          opacity: i === 2 ? 0.25 : 0.35,
+          blending: THREE.AdditiveBlending,
+        })
+      );
+      ring.rotation.set(x, 0, z);
+      rings.push(ring);
+      scene.add(ring);
+    });
+
+    // --- Particle field ---
+    const N = 500;
+    const pos = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      const r = 2.4 + (i % 97) / 97 * 1.4;
+      const theta = (i * 2.399963) % (Math.PI * 2); // golden-angle spread
+      const phi = Math.acos(1 - 2 * ((i + 0.5) / N));
+      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      pos[i * 3 + 2] = r * Math.cos(phi);
+    }
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const particles = new THREE.Points(
+      pGeo,
+      new THREE.PointsMaterial({ color: CYAN, size: 0.018, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending })
+    );
+    scene.add(particles);
+
+    // --- Sizing ---
+    function resize() {
+      const s = Math.min(wrap!.clientWidth, wrap!.clientHeight);
+      renderer.setSize(s, s, false);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- Mouse parallax ---
+    let mx = 0, my = 0, cmx = 0, cmy = 0;
+    window.addEventListener('pointermove', (e) => {
+      mx = (e.clientX / window.innerWidth - 0.5) * 2;
+      my = (e.clientY / window.innerHeight - 0.5) * 2;
+    }, { passive: true });
+
+    // --- Render loop (paused when offscreen) ---
+    let visible = true;
+    new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0 }).observe(wrap);
+
+    let lastT = 0;
+    renderer.setAnimationLoop((t: number) => {
+      if (!visible) return;
+      const dt = Math.min((t - lastT) / 1000, 0.05) || 0.016;
+      lastT = t;
+
+      coreMat.uniforms.uTime.value = t / 1000;
+      core.rotation.y += dt * 0.1;
+      shell.rotation.y += dt * 0.12;
+      shell.rotation.x += dt * 0.04;
+      rings[0].rotation.y += dt * 0.5;
+      rings[1].rotation.y -= dt * 0.35;
+      rings[2].rotation.y += dt * 0.22;
+      particles.rotation.y += dt * 0.05;
+
+      cmx += (mx - cmx) * 0.04;
+      cmy += (my - cmy) * 0.04;
+      camera.position.x = cmx * 0.7 + Math.sin(t * 0.00012) * 0.15;
+      camera.position.y = -cmy * 0.5;
+      camera.lookAt(0, 0, 0);
+
+      renderer.render(scene, camera);
+    });
+  }
+
+  initOrb();
+  document.addEventListener('astro:page-load', initOrb);
+</script>

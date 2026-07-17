@@ -1,5 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
+import Butterfly from '../components/Butterfly.astro';
+import HeroOrb from '../components/HeroOrb.astro';
 
 const pillars = [
   {
@@ -33,31 +35,39 @@ const steps = [
 >
   <!-- ============ HERO ============ -->
   <section class="mesh-bg relative overflow-hidden">
-    <!-- decorative blobs (pure CSS, GPU-cheap) -->
+    <!-- ambient cyan glows -->
     <div aria-hidden="true" class="pointer-events-none absolute inset-0">
-      <div class="animate-drift absolute -top-24 left-[8%] h-72 w-72 rounded-full bg-purple-light/40 blur-3xl"></div>
-      <div class="animate-drift-slow absolute top-1/3 right-[5%] h-80 w-80 rounded-full bg-purple-mid/25 blur-3xl"></div>
+      <div class="animate-drift absolute -top-24 left-[8%] h-72 w-72 rounded-full bg-purple/10 blur-3xl"></div>
+      <div class="animate-drift-slow absolute top-1/3 right-[5%] h-80 w-80 rounded-full bg-magenta/8 blur-3xl"></div>
     </div>
 
-    <div class="relative mx-auto max-w-6xl px-5 pb-24 pt-20 text-center md:pb-32 md:pt-28">
-      <p class="reveal mx-auto inline-block rounded-full border border-purple/20 bg-white/70 px-4 py-1.5 text-xs font-semibold tracking-wide text-purple backdrop-blur">
+    <div class="relative mx-auto max-w-6xl px-5 pb-24 pt-14 text-center md:pb-28 md:pt-16">
+      <!-- 3D orb with the butterfly mark floating at its center -->
+      <div class="relative mx-auto -mb-6 flex items-center justify-center">
+        <HeroOrb />
+        <div class="animate-float absolute inset-0 flex items-center justify-center">
+          <Butterfly class="h-20 w-20 drop-shadow-[0_0_24px_rgba(0,229,255,0.5)] sm:h-24 sm:w-24" />
+        </div>
+      </div>
+
+      <p class="reveal mx-auto inline-block rounded-full border border-purple/25 bg-white/[0.04] px-4 py-1.5 text-xs font-semibold tracking-widest text-purple backdrop-blur">
         WEBSITES STARTING AT $1,000
       </p>
 
       <h1 class="reveal reveal-delay-1 mx-auto mt-6 max-w-3xl text-4xl font-bold leading-tight tracking-tight text-ink sm:text-5xl md:text-6xl">
-        Your business deserves a website that
-        <span class="bg-gradient-to-r from-purple to-purple-mid bg-clip-text text-transparent">works as hard as you do</span>
+        The web presence your business
+        <span class="bg-gradient-to-r from-purple-bright via-purple-mid to-magenta bg-clip-text text-transparent">was meant to have.</span>
       </h1>
 
       <p class="reveal reveal-delay-2 mx-auto mt-6 max-w-xl text-lg leading-relaxed text-ink-soft">
-        KAIRA helps local businesses build a modern online presence — professional design, SEO
-        fundamentals, and maintenance handled for you.
+        Professional design. Search-ready from day one. Maintained forever.
+        KAIRA builds the online presence local businesses deserve.
       </p>
 
       <div class="reveal reveal-delay-3 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
         <a
           href="/contact"
-          class="w-full rounded-full bg-purple px-8 py-3.5 text-base font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98] sm:w-auto"
+          class="w-full rounded-full bg-purple px-8 py-3.5 text-base font-semibold text-[#05070c] shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98] sm:w-auto"
         >
           Get a Free Quote
         </a>
@@ -72,14 +82,14 @@ const steps = [
       <!-- floating glass preview card -->
       <div class="reveal reveal-delay-3 relative mx-auto mt-16 max-w-3xl">
         <div class="glass rounded-2xl p-2 shadow-(--shadow-glass-lg)">
-          <div class="rounded-xl bg-gradient-to-br from-purple-ghost via-white to-purple-pale p-8 md:p-12">
+          <div class="rounded-xl bg-gradient-to-br from-white/[0.06] via-white/[0.02] to-purple-ghost p-8 md:p-12">
             <div class="mx-auto flex max-w-md flex-col gap-3" aria-hidden="true">
-              <div class="h-3 w-24 rounded-full bg-purple/30"></div>
-              <div class="h-6 w-4/5 rounded-full bg-ink/15"></div>
-              <div class="h-6 w-3/5 rounded-full bg-ink/10"></div>
+              <div class="h-3 w-24 rounded-full bg-purple/40"></div>
+              <div class="h-6 w-4/5 rounded-full bg-white/15"></div>
+              <div class="h-6 w-3/5 rounded-full bg-white/10"></div>
               <div class="mt-2 flex gap-3">
                 <div class="h-9 w-28 rounded-full bg-purple/70"></div>
-                <div class="h-9 w-28 rounded-full border border-purple/25 bg-white/60"></div>
+                <div class="h-9 w-28 rounded-full border border-white/15 bg-white/[0.05]"></div>
               </div>
             </div>
             <p class="mt-8 text-sm font-medium text-ink-muted">
@@ -122,24 +132,24 @@ const steps = [
   </section>
 
   <!-- ============ HOW IT WORKS ============ -->
-  <section class="relative overflow-hidden bg-ink py-20 md:py-28" aria-labelledby="process-heading">
+  <section class="relative overflow-hidden border-y border-white/[0.06] bg-[#060607] py-20 md:py-28" aria-labelledby="process-heading">
     <div aria-hidden="true" class="pointer-events-none absolute inset-0">
-      <div class="absolute -top-32 left-1/4 h-96 w-96 rounded-full bg-purple/20 blur-3xl"></div>
-      <div class="absolute bottom-0 right-[10%] h-72 w-72 rounded-full bg-purple-mid/15 blur-3xl"></div>
+      <div class="absolute -top-32 left-1/4 h-96 w-96 rounded-full bg-purple/[0.07] blur-3xl"></div>
+      <div class="absolute bottom-0 right-[10%] h-72 w-72 rounded-full bg-magenta/[0.06] blur-3xl"></div>
     </div>
 
     <div class="relative mx-auto max-w-6xl px-5">
       <h2 id="process-heading" class="reveal text-center text-3xl font-bold tracking-tight text-white md:text-4xl">
-        From first call to launch — <span class="text-purple-light">in weeks, not months</span>
+        From first call to launch — <span class="text-purple">in weeks, not months</span>
       </h2>
 
       <ol class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {
           steps.map((s, i) => (
-            <li class={`reveal reveal-delay-${Math.min(i, 3)} rounded-2xl border border-white/10 bg-white/5 p-7 backdrop-blur`}>
-              <span class="text-sm font-bold tracking-widest text-purple-light">{s.n}</span>
+            <li class={`reveal reveal-delay-${Math.min(i, 3)} rounded-2xl border border-white/10 bg-white/[0.04] p-7 backdrop-blur`}>
+              <span class="text-sm font-bold tracking-widest text-purple">{s.n}</span>
               <h3 class="mt-3 text-lg font-semibold text-white">{s.title}</h3>
-              <p class="mt-2 text-sm leading-relaxed text-white/60">{s.body}</p>
+              <p class="mt-2 text-sm leading-relaxed text-white/55">{s.body}</p>
             </li>
           ))
         }
@@ -150,6 +160,7 @@ const steps = [
   <!-- ============ CTA ============ -->
   <section class="mesh-bg" aria-labelledby="cta-heading">
     <div class="mx-auto max-w-3xl px-5 py-20 text-center md:py-28">
+      <Butterfly class="reveal mx-auto mb-8 h-14 w-14 opacity-70" />
       <h2 id="cta-heading" class="reveal text-3xl font-bold tracking-tight text-ink md:text-4xl">
         Ready to look as good online as you are in person?
       </h2>
@@ -158,7 +169,7 @@ const steps = [
       </p>
       <a
         href="/contact"
-        class="reveal reveal-delay-2 mt-8 inline-block rounded-full bg-purple px-8 py-3.5 text-base font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98]"
+        class="reveal reveal-delay-2 mt-8 inline-block rounded-full bg-purple px-8 py-3.5 text-base font-semibold text-[#05070c] shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98]"
       >
         Get Your Free Quote
       </a>

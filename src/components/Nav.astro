@@ -1,4 +1,6 @@
 ---
+import Butterfly from './Butterfly.astro';
+
 const links = [
   { href: '/services', label: 'Services' },
   { href: '/portfolio', label: 'Work' },
@@ -9,11 +11,12 @@ const current = Astro.url.pathname;
 ---
 
 <header
-  class="sticky top-0 z-40 border-b border-purple/10 bg-white/70 backdrop-blur-xl backdrop-saturate-150"
+  class="sticky top-0 z-40 border-b border-white/[0.07] bg-[#0a0a0c]/65 backdrop-blur-xl backdrop-saturate-150"
 >
-  <nav aria-label="Main" class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-    <a href="/" class="text-xl font-bold tracking-tight text-ink">
-      KAIRA<span class="text-purple">.</span>
+  <nav aria-label="Main" class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
+    <a href="/" class="flex items-center gap-2.5">
+      <Butterfly class="h-9 w-9" />
+      <span class="text-lg font-bold tracking-[0.2em] text-ink uppercase">Kaira</span>
     </a>
 
     <ul class="hidden items-center gap-8 md:flex">
@@ -38,7 +41,7 @@ const current = Astro.url.pathname;
     <div class="flex items-center gap-3">
       <a
         href="/contact"
-        class="hidden rounded-full bg-purple px-5 py-2 text-sm font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98] md:inline-block"
+        class="hidden rounded-full bg-purple px-5 py-2 text-sm font-semibold text-[#05070c] shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98] md:inline-block"
       >
         Get a Quote
       </a>
@@ -59,7 +62,7 @@ const current = Astro.url.pathname;
     </div>
   </nav>
 
-  <div id="mobile-menu" class="hidden border-t border-purple/10 bg-white/95 px-5 pb-5 pt-3 md:hidden">
+  <div id="mobile-menu" class="hidden border-t border-white/[0.07] bg-[#0a0a0c]/95 px-5 pb-5 pt-3 backdrop-blur-xl md:hidden">
     <ul class="flex flex-col gap-1">
       {
         links.map((l) => (
@@ -71,7 +74,7 @@ const current = Astro.url.pathname;
         ))
       }
       <li class="mt-2">
-        <a href="/contact" class="block rounded-full bg-purple px-5 py-2.5 text-center text-base font-semibold text-white">
+        <a href="/contact" class="block rounded-full bg-purple px-5 py-2.5 text-center text-base font-semibold text-[#05070c]">
           Get a Quote
         </a>
       </li>
@@ -80,13 +83,19 @@ const current = Astro.url.pathname;
 </header>
 
 <script>
-  const btn = document.getElementById('nav-toggle');
-  const menu = document.getElementById('mobile-menu');
-  btn?.addEventListener('click', () => {
-    const open = menu?.classList.toggle('hidden') === false;
-    btn.setAttribute('aria-expanded', String(open));
-    btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-    btn.querySelector('.menu-open')?.classList.toggle('hidden', open);
-    btn.querySelector('.menu-close')?.classList.toggle('hidden', !open);
-  });
+  function initNav() {
+    const btn = document.getElementById('nav-toggle');
+    const menu = document.getElementById('mobile-menu');
+    if (!btn || btn.dataset.init) return;
+    btn.dataset.init = '1';
+    btn.addEventListener('click', () => {
+      const open = menu?.classList.toggle('hidden') === false;
+      btn.setAttribute('aria-expanded', String(open));
+      btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      btn.querySelector('.menu-open')?.classList.toggle('hidden', open);
+      btn.querySelector('.menu-close')?.classList.toggle('hidden', !open);
+    });
+  }
+  initNav();
+  document.addEventListener('astro:page-load', initNav);
 </script>

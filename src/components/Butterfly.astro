@@ -1,0 +1,16 @@
+---
+// Original KAIRA butterfly mark (from the archived landing page), recolored to the cyan palette.
+interface Props {
+  class?: string;
+}
+const { class: className = 'h-9 w-9' } = Astro.props;
+---
+
+<svg class={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <path d="M50 55 C40 40, 15 30, 10 15 C8 8, 18 5, 25 12 C32 19, 42 38, 50 55Z" stroke="#00e5ff" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M50 55 C60 40, 85 30, 90 15 C92 8, 82 5, 75 12 C68 19, 58 38, 50 55Z" stroke="#00e5ff" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M50 55 C38 65, 12 72, 8 88 C6 95, 18 97, 26 88 C34 79, 44 65, 50 55Z" stroke="#5eeaf6" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M50 55 C62 65, 88 72, 92 88 C94 95, 82 97, 74 88 C66 79, 56 65, 50 55Z" stroke="#5eeaf6" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <circle cx="50" cy="55" r="3" fill="#00f5ff" opacity="0.7"/>
+  <line x1="50" y1="58" x2="50" y2="78" stroke="#00f5ff" stroke-width="1.5" opacity="0.45" stroke-linecap="round"/>
+</svg>
