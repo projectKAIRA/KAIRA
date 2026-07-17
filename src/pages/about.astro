@@ -27,7 +27,10 @@ const values = [
 >
   <section class="mesh-bg">
     <div class="mx-auto max-w-3xl px-5 pb-16 pt-16 text-center md:pt-24">
-      <h1 class="reveal text-4xl font-bold tracking-tight text-ink md:text-5xl">About KAIRA</h1>
+      <p class="reveal hud-label mb-4">ABOUT <span class="text-white/25">//</span> THE STUDIO</p>
+      <h1 class="reveal-words text-4xl font-bold tracking-tight text-ink md:text-6xl">
+        Big-league websites, <span class="grad-text">main-street prices.</span>
+      </h1>
       <p class="reveal reveal-delay-1 mt-6 text-lg leading-relaxed text-ink-soft">
         Most local businesses know they need a better website — but agencies feel expensive,
         confusing, and slow. KAIRA exists to fix that.
@@ -57,17 +60,33 @@ const values = [
   </section>
 
   <section class="mx-auto max-w-6xl px-5 py-12 md:py-16" aria-labelledby="values-heading">
-    <h2 id="values-heading" class="reveal text-center text-3xl font-bold tracking-tight text-ink">
-      What we believe
+    <h2 id="values-heading" class="reveal-words text-center text-3xl font-bold tracking-tight text-ink md:text-4xl">
+      What <span class="grad-text">we believe</span>
     </h2>
     <div class="mt-10 grid gap-6 sm:grid-cols-2">
       {
-        values.map((v, i) => (
-          <div class={`reveal reveal-delay-${i % 2} glass rounded-2xl p-7`}>
-            <h3 class="text-lg font-semibold text-purple">{v.title}</h3>
-            <p class="mt-2 text-sm leading-relaxed text-ink-muted">{v.body}</p>
-          </div>
-        ))
+        values.map((v, i) => {
+          const accents = [
+            ['#2dd4bf', '#38bdf8'],
+            ['#38bdf8', '#a78bfa'],
+            ['#a78bfa', '#c4b5fd'],
+            ['#c4b5fd', '#ff2d78'],
+          ][i % 4];
+          return (
+            <div
+              class={`grad-border reveal reveal-delay-${i % 2} rounded-2xl p-7`}
+              style={`--tile-a: ${accents[0]}; --tile-b: ${accents[1]};`}
+            >
+              <h3
+                class="text-lg font-semibold"
+                style={`background: linear-gradient(115deg, ${accents[0]}, ${accents[1]}); -webkit-background-clip: text; background-clip: text; color: transparent;`}
+              >
+                {v.title}
+              </h3>
+              <p class="mt-2 text-sm leading-relaxed text-ink-muted">{v.body}</p>
+            </div>
+          );
+        })
       }
     </div>
 

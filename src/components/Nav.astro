@@ -28,8 +28,8 @@ const current = Astro.url.pathname;
               href={l.href}
               aria-current={current === l.href || current === l.href + '/' ? 'page' : undefined}
               class:list={[
-                'text-sm font-medium transition-colors duration-150',
-                current.startsWith(l.href) ? 'text-purple' : 'text-ink-soft hover:text-purple',
+                'nav-link text-sm font-medium transition-colors duration-150',
+                current.startsWith(l.href) ? 'text-ink' : 'text-ink-soft hover:text-ink',
               ]}
             >
               {l.label}
@@ -82,6 +82,33 @@ const current = Astro.url.pathname;
     </ul>
   </div>
 </header>
+
+<style>
+  /* Spectrum underline that sweeps in on hover / stays on the active page */
+  .nav-link {
+    position: relative;
+  }
+  .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -5px;
+    height: 1.5px;
+    border-radius: 1px;
+    background: linear-gradient(90deg, #2dd4bf, #38bdf8, #a78bfa, #ff2d78);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.25s var(--ease-enter);
+  }
+  .nav-link:hover::after,
+  .nav-link[aria-current="page"]::after {
+    transform: scaleX(1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nav-link::after { transition: none; }
+  }
+</style>
 
 <script>
   function initNav() {

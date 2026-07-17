@@ -1,0 +1,61 @@
+---
+// Cinematic media slot. If `src` is provided, renders a lazy autoplaying loop
+// (muted + playsinline, Apple-style ambient video). Without `src`, shows a
+// code-animated spectrum aurora so the slot looks finished before footage exists.
+interface Props {
+  src?: string; // e.g. /media/showcase.mp4 (drop files in public/media/)
+  poster?: string;
+  label?: string; // small HUD caption over the corner
+  class?: string;
+  ratio?: string; // css aspect-ratio, default 16/9
+}
+const { src, poster, label, class: className = '', ratio = '16 / 9' } = Astro.props;
+---
+
+<div
+  class={`glass relative overflow-hidden rounded-3xl ${className}`}
+  style={`aspect-ratio: ${ratio};`}
+>
+  {
+    src ? (
+      <video
+        class="absolute inset-0 h-full w-full object-cover"
+        src={src}
+        poster={poster}
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="none"
+      />
+    ) : (
+      <div aria-hidden="true" class="video-fallback absolute inset-0" />
+    )
+  }
+  {label && (
+    <span class="hud-label absolute left-4 top-4 z-[1] rounded-full border border-white/10 bg-black/40 px-3 py-1 backdrop-blur">
+      {label}
+    </span>
+  )}
+</div>
+
+<style>
+  /* Animated spectrum aurora — GPU-cheap, background-position only */
+  .video-fallback {
+    background:
+      radial-gradient(60% 80% at 20% 80%, rgba(45, 212, 191, 0.24) 0%, transparent 60%),
+      radial-gradient(55% 70% at 80% 20%, rgba(139, 92, 246, 0.28) 0%, transparent 60%),
+      radial-gradient(50% 60% at 70% 90%, rgba(255, 45, 120, 0.16) 0%, transparent 55%),
+      radial-gradient(45% 65% at 30% 15%, rgba(56, 189, 248, 0.20) 0%, transparent 60%),
+      #0a0a0e;
+    background-size: 180% 180%;
+    animation: aurora 16s ease-in-out infinite alternate;
+  }
+  @keyframes aurora {
+    0% { background-position: 0% 0%, 100% 100%, 50% 0%, 0% 100%, 0 0; }
+    100% { background-position: 100% 100%, 0% 0%, 20% 100%, 100% 0%, 0 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .video-fallback { animation: none; }
+  }
+</style>

@@ -16,8 +16,12 @@
   --color-magenta: #ff2d78;
   --color-surface: #09090b;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-data: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* Spectrum accents — the vivid teal→blue→violet→magenta family (Apple M5-lineup energy) */
+  --color-spark-teal: #2dd4bf;
+  --color-spark-blue: #38bdf8;
 
   /* Deep-space blues + the KAIRA purple orb family */
   --color-violet: #8b5cf6;
@@ -164,10 +168,85 @@ body::after {
 .reveal-delay-2 { transition-delay: 0.2s; }
 .reveal-delay-3 { transition-delay: 0.3s; }
 
+/* ---- Spectrum gradient utilities (Apple M5-lineup energy) ---- */
+.grad-text {
+  background: linear-gradient(100deg, var(--color-spark-teal) 0%, var(--color-spark-blue) 32%, var(--color-violet-mid) 64%, var(--color-magenta) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Gradient hairline border on a dark tile (Apple chip-tile edge glow) */
+.grad-border {
+  position: relative;
+  background: #0c0c11;
+  border-radius: inherit;
+}
+.grad-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--tile-a, var(--color-spark-teal)), var(--tile-b, var(--color-violet-mid)) 55%, transparent 80%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+/* ---- Apple-style word-by-word heading reveal ----
+   Markup: add .reveal-words to a heading; the scroll engine wraps each word in
+   a span with --wi (word index) and adds .is-visible when it enters the viewport. */
+.reveal-words .w {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.6em);
+  filter: blur(6px);
+  transition:
+    opacity 0.65s var(--ease-enter),
+    transform 0.65s var(--ease-enter),
+    filter 0.65s var(--ease-enter);
+  transition-delay: calc(var(--wi) * 70ms);
+  will-change: opacity, transform, filter;
+}
+.reveal-words.is-visible .w {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+/* ---- Scroll-scrubbed elements ----
+   The engine drives --p (0→1 = section scroll progress) on .scrub containers.
+   Children read it for opacity/transform/gradient scrubs. */
+.scrub { --p: 0; }
+.scrub-fade {
+  opacity: calc(var(--p) * 1.25 - 0.1);
+  transform: translateY(calc((1 - min(var(--p) * 1.4, 1)) * 40px));
+}
+
+/* ---- Pinned scroll scene (pure CSS sticky; JS only drives --p) ----
+   Wrapper is N× viewport tall; the stage stays stuck for the ride. */
+.scroll-scene { position: relative; }
+.scroll-scene__stage {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ---- Accessibility: honor reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .reveal { opacity: 1; transform: none; transition: none; }
+  .reveal-words .w { opacity: 1; transform: none; filter: none; transition: none; }
+  .scrub { --p: 1; }
+  .scrub-fade { opacity: 1; transform: none; }
   .animate-drift, .animate-drift-slow, .animate-float { animation: none; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

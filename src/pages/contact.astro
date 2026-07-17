@@ -13,8 +13,8 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
 >
   <section class="mesh-bg">
     <div class="mx-auto max-w-2xl px-5 pb-12 pt-16 text-center md:pt-24">
-      <h1 class="reveal text-4xl font-bold tracking-tight text-ink md:text-5xl">
-        Get your free quote
+      <h1 class="reveal-words text-4xl font-bold tracking-tight text-ink md:text-6xl">
+        Get your <span class="grad-text">free quote.</span>
       </h1>
       <p class="reveal reveal-delay-1 mt-4 text-lg text-ink-soft">
         Tell us a bit about your business. We’ll reply within one business day — no pressure, no
@@ -59,7 +59,7 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
               serviceOptions.map((s) => (
                 <label class="cursor-pointer">
                   <input type="checkbox" name="services" value={s} class="peer sr-only" />
-                  <span class="inline-block rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-medium text-ink-soft transition-colors duration-150 peer-checked:border-purple peer-checked:bg-violet peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-purple">
+                  <span class="inline-block rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-medium text-ink-soft transition-colors duration-150 peer-checked:border-transparent peer-checked:bg-[linear-gradient(115deg,#38bdf8,#8b5cf6,#ff2d78)] peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-purple">
                     {s}
                   </span>
                 </label>

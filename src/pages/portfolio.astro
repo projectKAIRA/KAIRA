@@ -45,7 +45,9 @@ const projects = [
   <section class="mesh-bg">
     <div class="mx-auto max-w-6xl px-5 pb-16 pt-16 text-center md:pt-24">
       <p class="reveal hud-label mb-4">PORTFOLIO <span class="text-white/25">//</span> 4 CONCEPTS</p>
-      <h1 class="reveal text-4xl font-bold tracking-tight text-ink md:text-5xl">Our Work</h1>
+      <h1 class="reveal-words text-4xl font-bold tracking-tight text-ink md:text-6xl">
+        Work that <span class="grad-text">works the room.</span>
+      </h1>
       <p class="reveal reveal-delay-1 mx-auto mt-4 max-w-xl text-lg text-ink-soft">
         Concept projects that show how we think about design, speed, and getting local businesses
         found.
@@ -68,7 +70,17 @@ const projects = [
                 CONCEPT PROJECT
               </span>
 
-              <div class="mx-auto max-w-sm overflow-hidden rounded-xl border border-white/10 bg-[#101018] shadow-2xl">
+              <div
+                class="animate-float relative mx-auto max-w-sm overflow-hidden rounded-xl border border-white/10 bg-[#101018] shadow-2xl"
+                style={`animation-delay: ${i * -1.6}s;`}
+              >
+                <!-- screen sheen: slow light sweep so the mockup reads as live -->
+                <div
+                  aria-hidden="true"
+                  class="sheen pointer-events-none absolute inset-0 z-[1]"
+                  style={`animation-delay: ${i * -2.3}s;`}
+                >
+                </div>
                 <!-- browser chrome -->
                 <div class="flex items-center gap-1.5 border-b border-white/[0.06] bg-white/[0.03] px-3 py-2">
                   <span class="h-2 w-2 rounded-full bg-white/15" />
@@ -152,7 +164,9 @@ const projects = [
     </div>
 
     <div class="reveal mt-16 text-center">
-      <h2 class="text-2xl font-bold text-ink">Want your business to be our next project?</h2>
+      <h2 class="reveal-words text-2xl font-bold text-ink md:text-3xl">
+        Want your business to be <span class="grad-text">our next project?</span>
+      </h2>
       <a
         href="/contact"
         class="mt-6 inline-block rounded-full bg-violet px-8 py-3 text-base font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98]"
@@ -162,3 +176,25 @@ const projects = [
     </div>
   </section>
 </Base>
+
+<style>
+  /* Slow light sweep across each mockup screen — sells "live product" */
+  .sheen {
+    background: linear-gradient(
+      115deg,
+      transparent 42%,
+      rgba(255, 255, 255, 0.05) 48%,
+      rgba(196, 181, 253, 0.09) 51%,
+      transparent 58%
+    );
+    background-size: 260% 260%;
+    animation: sheen 8s ease-in-out infinite;
+  }
+  @keyframes sheen {
+    0% { background-position: 130% 0; }
+    55%, 100% { background-position: -60% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sheen { animation: none; background: none; }
+  }
+</style>
