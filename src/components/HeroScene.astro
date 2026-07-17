@@ -189,6 +189,8 @@
       const unitPx = h / visH; // px per world unit at z=0
       const targetPx = Math.min(w * 0.48, 340);
       orb.scale.setScalar(targetPx / (2.1 * unitPx));
+      // Publish orb screen geometry so the site-wide ButterflyRider can orbit it.
+      (window as any).__kairaOrb = { section, pxFromTop: ORB_PX_FROM_TOP, diameterPx: targetPx };
     }
     resize();
     // ResizeObserver, not window.resize — the section grows after fonts/content load
