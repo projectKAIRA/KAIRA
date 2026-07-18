@@ -1,17 +1,43 @@
 ---
-// Original KAIRA butterfly mark (from the archived landing page),
-// colored to match the 3D flying butterfly (violet family).
+// The KAIRA butterfly mark — spectrum wings (teal→blue up top, violet→magenta
+// below), matching branding/kaira-mark.svg and the 3D flying butterfly.
 interface Props {
   class?: string;
 }
 const { class: className = 'h-9 w-9' } = Astro.props;
 ---
 
-<svg class={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-  <path d="M50 55 C40 40, 15 30, 10 15 C8 8, 18 5, 25 12 C32 19, 42 38, 50 55Z" stroke="#a78bfa" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <path d="M50 55 C60 40, 85 30, 90 15 C92 8, 82 5, 75 12 C68 19, 58 38, 50 55Z" stroke="#a78bfa" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <path d="M50 55 C38 65, 12 72, 8 88 C6 95, 18 97, 26 88 C34 79, 44 65, 50 55Z" stroke="#c4b5fd" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-  <path d="M50 55 C62 65, 88 72, 92 88 C94 95, 82 97, 74 88 C66 79, 56 65, 50 55Z" stroke="#c4b5fd" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-  <circle cx="50" cy="55" r="3" fill="#8b5cf6" opacity="0.8"/>
-  <line x1="50" y1="58" x2="50" y2="78" stroke="#8b5cf6" stroke-width="1.5" opacity="0.5" stroke-linecap="round"/>
+<svg class={className} viewBox="0 0 520 520" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="kbf-ul" x1="1" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="kbf-ur" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="kbf-ll" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#c4b5fd"/>
+    </linearGradient>
+    <linearGradient id="kbf-lr" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ff2d78"/>
+    </linearGradient>
+    <linearGradient id="kbf-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c4b5fd"/><stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 254 244 C 210 178, 128 138, 96 170 C 66 200, 116 262, 176 268 C 210 271, 240 262, 254 244 Z"
+          fill="url(#kbf-ul)" fill-opacity="0.14" stroke="url(#kbf-ul)" stroke-width="18"/>
+    <path d="M 266 244 C 310 178, 392 138, 424 170 C 454 200, 404 262, 344 268 C 310 271, 280 262, 266 244 Z"
+          fill="url(#kbf-ur)" fill-opacity="0.14" stroke="url(#kbf-ur)" stroke-width="18"/>
+    <path d="M 252 282 C 216 320, 178 386, 204 412 C 228 436, 268 388, 262 330 C 260 310, 258 294, 252 282 Z"
+          fill="url(#kbf-ll)" fill-opacity="0.14" stroke="url(#kbf-ll)" stroke-width="18"/>
+    <path d="M 268 282 C 304 320, 342 386, 316 412 C 292 436, 252 388, 258 330 C 260 310, 262 294, 268 282 Z"
+          fill="url(#kbf-lr)" fill-opacity="0.14" stroke="url(#kbf-lr)" stroke-width="18"/>
+    <path d="M 252 208 C 240 178, 216 158, 196 150" stroke="url(#kbf-body)" stroke-width="13"/>
+    <path d="M 268 208 C 280 178, 304 158, 324 150" stroke="url(#kbf-body)" stroke-width="13"/>
+    <circle cx="193" cy="148" r="12" fill="#c4b5fd"/>
+    <circle cx="327" cy="148" r="12" fill="#c4b5fd"/>
+    <path d="M 260 212 C 270 246, 270 330, 260 366 C 250 330, 250 246, 260 212 Z" fill="url(#kbf-body)"/>
+  </g>
 </svg>

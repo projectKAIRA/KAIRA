@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="520" viewBox="0 0 1600 520">
+  <defs>
+    <!-- Spectrum wing gradients — teal → blue → violet → magenta, the brand family -->
+    <linearGradient id="wingUL" x1="1" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="wingUR" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="wingLL" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#c4b5fd"/>
+    </linearGradient>
+    <linearGradient id="wingLR" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#ff2d78"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c4b5fd"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <!-- Soft violet halo behind the mark -->
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity="0.55"/>
+      <stop offset="0.55" stop-color="#8b5cf6" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- ===== Dark canvas (the brand lives on near-black) ===== -->
+  <rect width="1600" height="520" rx="48" fill="#09090b"/>
+  <rect width="1600" height="520" rx="48" fill="url(#halo)" opacity="0.25"/>
+
+  <!-- ===== Butterfly mark (centered at 260,260) ===== -->
+  <circle cx="260" cy="260" r="235" fill="url(#halo)"/>
+
+  <g filter="url(#glow)">
+    <!-- Upper-left wing -->
+    <path d="M 254 244
+             C 210 178, 128 138, 96 170
+             C 66 200, 116 262, 176 268
+             C 210 271, 240 262, 254 244 Z"
+          fill="url(#wingUL)" fill-opacity="0.16"
+          stroke="url(#wingUL)" stroke-width="10" stroke-linejoin="round"/>
+    <!-- Upper-right wing -->
+    <path d="M 266 244
+             C 310 178, 392 138, 424 170
+             C 454 200, 404 262, 344 268
+             C 310 271, 280 262, 266 244 Z"
+          fill="url(#wingUR)" fill-opacity="0.16"
+          stroke="url(#wingUR)" stroke-width="10" stroke-linejoin="round"/>
+    <!-- Lower-left wing -->
+    <path d="M 252 282
+             C 216 320, 178 386, 204 412
+             C 228 436, 268 388, 262 330
+             C 260 310, 258 294, 252 282 Z"
+          fill="url(#wingLL)" fill-opacity="0.16"
+          stroke="url(#wingLL)" stroke-width="10" stroke-linejoin="round"/>
+    <!-- Lower-right wing -->
+    <path d="M 268 282
+             C 304 320, 342 386, 316 412
+             C 292 436, 252 388, 258 330
+             C 260 310, 262 294, 268 282 Z"
+          fill="url(#wingLR)" fill-opacity="0.16"
+          stroke="url(#wingLR)" stroke-width="10" stroke-linejoin="round"/>
+    <!-- Antennae -->
+    <path d="M 252 208 C 240 178, 216 158, 196 150" fill="none"
+          stroke="url(#body)" stroke-width="7" stroke-linecap="round"/>
+    <path d="M 268 208 C 280 178, 304 158, 324 150" fill="none"
+          stroke="url(#body)" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="193" cy="148" r="8" fill="#c4b5fd"/>
+    <circle cx="327" cy="148" r="8" fill="#c4b5fd"/>
+    <!-- Body -->
+    <path d="M 260 212 C 270 246, 270 330, 260 366 C 250 330, 250 246, 260 212 Z"
+          fill="url(#body)"/>
+  </g>
+
+  <!-- ===== Wordmark ===== -->
+  <text x="560" y="288" font-family="'Inter Variable', Inter, -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif"
+        font-size="132" font-weight="750" letter-spacing="16" fill="#f2f4f8">TRYKAIRA</text>
+  <text x="566" y="356" font-family="ui-monospace, 'SF Mono', Menlo, monospace"
+        font-size="33" letter-spacing="24" fill="#7e8494">WEB DESIGN STUDIO</text>
+</svg>

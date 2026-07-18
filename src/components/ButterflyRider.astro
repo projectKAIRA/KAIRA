@@ -43,51 +43,72 @@
 
     const VIOLET = new THREE.Color('#8b5cf6');
     const VIOLET_LIGHT = new THREE.Color('#c4b5fd');
+    const SPARK_TEAL = new THREE.Color('#2dd4bf');
+    const SPARK_BLUE = new THREE.Color('#38bdf8');
+    const MAGENTA = new THREE.Color('#ff2d78');
 
-    // ---- Butterfly (tube line-art from the brand SVG) ----
-    const S = 0.006;
-    const P = (x: number, y: number) => new THREE.Vector3((x - 50) * S, (55 - y) * S, 0);
-    const wingSegs: [number[], number[]][] = [
-      [
-        [50, 55, 60, 40, 85, 30, 90, 15],
-        [90, 15, 92, 8, 75, 6, 50, 55],
-      ],
-      [
-        [50, 55, 62, 65, 88, 72, 92, 88],
-        [92, 88, 94, 95, 74, 92, 50, 55],
-      ],
+    // ---- Butterfly (tube line-art from branding/kaira-mark.svg) ----
+    // Coordinates are the mark's 520-space divided by 5.2 (body center ~50,50).
+    const S = 0.0062;
+    const P = (x: number, y: number) => new THREE.Vector3((x - 50) * S, (50 - y) * S, 0);
+
+    // Right-side wing loops as cubic segments [x0,y0, c1x,c1y, c2x,c2y, x1,y1];
+    // the left side is the mirrored group. Upper = big teardrop out+up,
+    // lower = slim teardrop down — the mark's silhouette.
+    const upperLoop = [
+      [51.2, 46.9, 59.6, 34.2, 75.4, 26.5, 81.5, 32.7],
+      [81.5, 32.7, 87.3, 38.5, 77.7, 50.4, 66.2, 51.5],
+      [66.2, 51.5, 59.6, 52.1, 53.8, 50.4, 51.2, 46.9],
+    ];
+    const lowerLoop = [
+      [51.5, 54.2, 58.5, 61.5, 65.8, 74.2, 60.8, 79.2],
+      [60.8, 79.2, 56.2, 83.8, 48.5, 74.6, 49.6, 63.5],
+      [49.6, 63.5, 50.0, 59.6, 50.4, 56.5, 51.5, 54.2],
     ];
 
     const butterfly = new THREE.Group();
     const bfMats: any[] = []; // every butterfly material — for the behind-the-orb fade
 
-    function buildWingSide(sign: number) {
-      const side = new THREE.Group();
-      for (const [segA, segB] of wingSegs) {
-        for (const seg of [segA, segB]) {
-          const curve = new THREE.CubicBezierCurve3(
-            P(seg[0], seg[1]),
-            P(seg[2], seg[3]),
-            P(seg[4], seg[5]),
-            P(seg[6], seg[7])
-          );
-          const mat = new THREE.MeshBasicMaterial({ color: VIOLET_LIGHT, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
-          mat.userData.baseOpacity = mat.opacity;
-          bfMats.push(mat);
-          side.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 32, 0.008, 6, false), mat));
-        }
+    function tubeMat(color: any, opacity: number) {
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
+      mat.userData.baseOpacity = mat.opacity;
+      bfMats.push(mat);
+      return mat;
+    }
+
+    function addLoop(group: any, loop: number[][], color: any) {
+      for (const seg of loop) {
+        const curve = new THREE.CubicBezierCurve3(
+          P(seg[0], seg[1]),
+          P(seg[2], seg[3]),
+          P(seg[4], seg[5]),
+          P(seg[6], seg[7])
+        );
+        group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 32, 0.009, 6, false), tubeMat(color, 0.95)));
       }
+    }
+
+    // Spectrum wings, matching the mark: teal / blue up top, light-violet /
+    // magenta below. Mirroring flips geometry, so colors are set per side.
+    function buildWingSide(sign: number, upperColor: any, lowerColor: any) {
+      const side = new THREE.Group();
+      addLoop(side, upperLoop, upperColor);
+      addLoop(side, lowerLoop, lowerColor);
       side.scale.x = sign;
       return side;
     }
-    const rightWing = buildWingSide(1);
-    const leftWing = buildWingSide(-1);
+    const rightWing = buildWingSide(1, SPARK_BLUE, MAGENTA);
+    const leftWing = buildWingSide(-1, SPARK_TEAL, VIOLET_LIGHT);
     butterfly.add(rightWing, leftWing);
 
-    const bodyMat = new THREE.MeshBasicMaterial({ color: VIOLET, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
-    bodyMat.userData.baseOpacity = bodyMat.opacity;
-    bfMats.push(bodyMat);
-    butterfly.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(P(50, 50), P(50, 78)), 2, 0.01, 6, false), bodyMat));
+    // Body + antennae (violet family, like the mark)
+    const bodyMat = tubeMat(VIOLET, 0.9);
+    butterfly.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(P(50, 41), P(50, 70.4)), 2, 0.011, 6, false), bodyMat));
+    const antennaeMat = tubeMat(VIOLET_LIGHT, 0.85);
+    for (const sign of [1, -1]) {
+      const curve = new THREE.QuadraticBezierCurve3(P(50 + sign * 1.5, 40), P(50 + sign * 4.6, 32), P(50 + sign * 12.3, 28.8));
+      butterfly.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.006, 5, false), antennaeMat));
+    }
 
     // Soft glow behind it
     const glowCanvas = document.createElement('canvas');
