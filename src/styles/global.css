@@ -24,7 +24,9 @@
   --color-spark-blue: #38bdf8;
 
   /* Deep-space blues + the KAIRA purple orb family */
-  --color-violet: #8b5cf6;
+  /* #7c3aed keeps the electric-violet character while giving white CTA text
+     a WCAG AA contrast ratio comfortably above 4.5:1. */
+  --color-violet: #7c3aed;
   --color-violet-mid: #a78bfa;
   --color-violet-light: #c4b5fd;
 

@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 
-const TURNSTILE_SITE_KEY = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? '1x00000000000000000000AA'; // Cloudflare test key (always passes)
+const TURNSTILE_SITE_KEY = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'; // Cloudflare test key (always passes)
 
 const serviceOptions = ['New Website', 'Website Redesign', 'SEO', 'Ongoing Maintenance', 'Not Sure Yet'];
 const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not sure yet'];
@@ -24,7 +24,13 @@ const budgetOptions = ['$1,000 – $2,500', '$2,500 – $5,000', '$5,000+', 'Not
   </section>
 
   <section class="mx-auto max-w-2xl px-5 pb-20 md:pb-28">
-    <form id="quote-form" class="reveal glass rounded-2xl p-7 md:p-10" novalidate>
+    <form
+      id="quote-form"
+      action="/api/quote"
+      method="post"
+      class="reveal glass rounded-2xl p-7 md:p-10"
+      novalidate
+    >
       <div class="grid gap-6 sm:grid-cols-2">
         <div>
           <label for="name" class="block text-sm font-semibold text-ink">Your name <span aria-hidden="true" class="text-purple">*</span></label>

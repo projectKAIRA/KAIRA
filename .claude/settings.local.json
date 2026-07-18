@@ -59,7 +59,20 @@
       "Bash(git commit -q -m 'Redesign in Monday dark aesthetic: cyan-on-black, 3D hero orb, butterfly mark, view transitions *)",
       "Bash(git commit -q -m 'Monday-grade HUD detail + purple orb + scroll-driven 3D butterfly flight *)",
       "Bash(git commit -q -m 'Site-wide swirling butterfly, violet CTAs, real portfolio mockups *)",
-      "Bash(git commit -q -m 'Set production domain to trykaira.ai *)"
+      "Bash(git commit -q -m 'Set production domain to trykaira.ai *)",
+      "Bash(dig +short MX trykaira.ai)",
+      "Bash(nslookup -type=MX trykaira.ai)",
+      "Bash(dig +short TXT trykaira.ai)",
+      "Bash(dig +short TXT _dmarc.trykaira.ai)",
+      "Bash(dig +short A trykaira.ai)",
+      "Bash(dig +short CNAME selector1._domainkey.trykaira.ai)",
+      "Bash(dig +short CNAME selector2._domainkey.trykaira.ai)",
+      "Bash(dig +short CNAME autodiscover.trykaira.ai)",
+      "Bash(dig +short CNAME enterpriseregistration.trykaira.ai)",
+      "Bash(dig +short CNAME enterpriseenrollment.trykaira.ai)",
+      "Bash(git commit -q -m 'Document Cloudflare Pages deploy + trykaira.ai DNS migration *)",
+      "Bash(git commit -q -m 'Clean up env config, add SECURITY.md, harden gitignore *)",
+      "Bash(git commit *)"
     ]
   }
 }
