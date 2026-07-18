@@ -238,6 +238,113 @@ const { label, class: className = '', ratio = '16 / 9' } = Astro.props;
         scene.add(streak);
       }
 
+      // ---------- Interactivity: hover glow + click payoffs ----------
+      // The hologram is a toy: hovering an element makes it swell and glow,
+      // clicking bursts particles / spins the phone / sweeps the gradient.
+      const raycaster = new THREE.Raycaster();
+      const pointerNdc = new THREE.Vector2(-10, -10);
+      let hovered: any = null;
+
+      const interactables: any[] = [];
+      function tagInteractive(mesh: any, kind: string, payload: any = null) {
+        mesh.userData.interactive = { kind, payload };
+        interactables.push(mesh);
+      }
+      tagInteractive(hero, 'hero');
+      tagInteractive(cta, 'cta');
+      cards.forEach((card: any, i: number) => {
+        const body = card.children.find((ch: any) => ch.geometry?.parameters?.width === 1.14 && ch.material?.opacity === 0.88) ?? card.children[0];
+        tagInteractive(body, 'card', { card, color: [TEAL, BLUE, MAGENTA][i] });
+      });
+      tagInteractive(phone.children[0], 'phone');
+
+      // particle pool for bursts
+      const PARTICLES = 42;
+      const particles: any[] = [];
+      const particleTextures: Record<string, any> = {};
+      function particleSprite(color: string) {
+        if (!particleTextures[color]) {
+          const cv = document.createElement('canvas');
+          cv.width = cv.height = 32;
+          const ctx = cv.getContext('2d')!;
+          const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+          g.addColorStop(0, color);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, 32, 32);
+          particleTextures[color] = new THREE.CanvasTexture(cv);
+        }
+        return new THREE.Sprite(
+          new THREE.SpriteMaterial({ map: particleTextures[color], transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })
+        );
+      }
+      const SPECTRUM = ['rgba(45,212,191,1)', 'rgba(56,189,248,1)', 'rgba(139,92,246,1)', 'rgba(255,45,120,1)'];
+      for (let i = 0; i < PARTICLES; i++) {
+        const p = particleSprite(SPECTRUM[i % SPECTRUM.length]);
+        p.scale.setScalar(0.09);
+        p.userData.life = 0;
+        p.userData.vel = new THREE.Vector3();
+        particles.push(p);
+        scene.add(p);
+      }
+      let nextParticle = 0;
+      function burst(worldPos: any, count: number, spread: number) {
+        for (let i = 0; i < count; i++) {
+          const p = particles[nextParticle];
+          nextParticle = (nextParticle + 1) % PARTICLES;
+          p.position.copy(worldPos);
+          p.userData.vel.set(
+            (Math.random() - 0.5) * spread,
+            Math.random() * spread * 0.9 + 0.3,
+            (Math.random() - 0.5) * spread * 0.6
+          );
+          p.userData.life = 1;
+          p.material.opacity = 0.95;
+        }
+      }
+
+      let heroSweep = 0; // >0 = gradient fast-sweep timer
+      let phoneSpin = 0; // target extra rotations
+
+      function raycastHit() {
+        raycaster.setFromCamera(pointerNdc, camera);
+        const hits = raycaster.intersectObjects(interactables, false);
+        return hits.length ? hits[0] : null;
+      }
+
+      canvas.addEventListener('pointermove', (e) => {
+        const r = canvas.getBoundingClientRect();
+        pointerNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+        const hit = raycastHit();
+        hovered = hit?.object ?? null;
+        canvas.style.cursor = hovered ? 'pointer' : 'default';
+      }, { passive: true });
+      canvas.addEventListener('pointerleave', () => {
+        hovered = null;
+        pointerNdc.set(-10, -10);
+        canvas.style.cursor = 'default';
+      });
+
+      canvas.addEventListener('click', () => {
+        const hit = raycastHit();
+        if (!hit) return;
+        const { kind, payload } = hit.object.userData.interactive;
+        if (kind === 'card') {
+          payload.card.userData.pop = 1;
+          payload.card.userData.frenzy = 1.4; // equalizer goes wild
+          burst(hit.point, 14, 2.2);
+        } else if (kind === 'cta') {
+          burst(hit.point, 26, 3.2);
+          heroSweep = 1.2;
+        } else if (kind === 'hero') {
+          heroSweep = 1.4;
+          burst(hit.point, 10, 1.6);
+        } else if (kind === 'phone') {
+          phoneSpin += Math.PI * 2;
+          burst(hit.point, 10, 1.8);
+        }
+      });
+
       // ---------- Environment ----------
       const grid = new THREE.GridHelper(26, 30, new THREE.Color('#00e5ff'), new THREE.Color('#00e5ff'));
       (grid.material as any).transparent = true;
@@ -296,23 +403,55 @@ const { label, class: className = '', ratio = '16 / 9' } = Astro.props;
         cards.forEach((card, i) => {
           card.position.y = -0.92 + Math.sin(ts * (0.9 + i * 0.27) + i * 2.1) * 0.055;
           card.position.z = 0.3 + Math.sin(ts * 0.6 + i * 1.4) * 0.05;
-          // per-card equalizer
+          // click pop: quick swell that eases back
+          card.userData.pop = Math.max(0, (card.userData.pop ?? 0) - dt * 2.5);
+          const pop = card.userData.pop;
+          // hover swell: is this card's body the hovered mesh?
+          const isHovered = hovered && hovered.userData.interactive?.payload?.card === card;
+          card.userData.hoverScale = (card.userData.hoverScale ?? 1) +
+            (((isHovered ? 1.08 : 1) + Math.sin(pop * Math.PI) * 0.12) - (card.userData.hoverScale ?? 1)) * Math.min(1, dt * 10);
+          card.scale.setScalar(card.userData.hoverScale);
+          // per-card equalizer (frenzy after a click)
+          card.userData.frenzy = Math.max(0, (card.userData.frenzy ?? 0) - dt);
+          const frenzy = 1 + card.userData.frenzy * 4;
           card.userData.statBars.forEach((stat: any, s: number) => {
-            stat.scale.y = 0.35 + Math.abs(Math.sin(ts * (1.6 + s * 0.42) + i * 1.3 + s)) * 0.75;
+            stat.scale.y = 0.35 + Math.abs(Math.sin(ts * (1.6 + s * 0.42) * frenzy + i * 1.3 + s)) * (0.75 + card.userData.frenzy * 0.4);
           });
         });
 
-        // hero gradient shimmer (both panels share the texture)
-        heroTex.offset.x = (ts * 0.04) % 1;
+        // hover glow on any interactive element
+        interactables.forEach((mesh) => {
+          if (!mesh.material?.userData) mesh.material.userData = {};
+          if (mesh.material.userData.baseOpacity === undefined) mesh.material.userData.baseOpacity = mesh.material.opacity;
+          const target = mesh === hovered ? Math.min(1, mesh.material.userData.baseOpacity + 0.25) : mesh.material.userData.baseOpacity;
+          mesh.material.opacity += (target - mesh.material.opacity) * Math.min(1, dt * 12);
+        });
+
+        // hero gradient shimmer; clicking triggers a fast sweep
+        heroSweep = Math.max(0, heroSweep - dt);
+        heroTex.offset.x = (heroTex.offset.x + dt * (0.04 + heroSweep * 0.9)) % 1;
+
+        // phone spin (eases toward its accumulated target)
+        phone.userData.spinCur = (phone.userData.spinCur ?? 0) + (phoneSpin - (phone.userData.spinCur ?? 0)) * Math.min(1, dt * 4);
+
+        // particle bursts: drift, fall, fade
+        particles.forEach((p) => {
+          if (p.userData.life <= 0) return;
+          p.userData.life -= dt * 1.4;
+          p.userData.vel.y -= dt * 2.2; // gravity
+          p.userData.vel.multiplyScalar(1 - dt * 1.6); // drag
+          p.position.addScaledVector(p.userData.vel, dt);
+          p.material.opacity = Math.max(0, p.userData.life) * 0.95;
+        });
 
         // skeleton lines pulse like streaming content
         lines.forEach((line, i) => {
           line.material.opacity = 0.1 + Math.abs(Math.sin(ts * 1.2 - i * 0.9)) * 0.16;
         });
 
-        // phone bobs on its own rhythm
+        // phone bobs on its own rhythm (+ any click-spin still easing out)
         phone.position.y = -0.25 + Math.sin(ts * 0.55 + 1.7) * 0.09;
-        phone.rotation.y = 0.42 + Math.sin(ts * 0.3) * 0.05;
+        phone.rotation.y = 0.42 + Math.sin(ts * 0.3) * 0.05 + (phone.userData.spinCur ?? 0);
 
         // agent cursor works through the page: ease between waypoints, pause,
         // pulse on arrival — like someone is building the site live
