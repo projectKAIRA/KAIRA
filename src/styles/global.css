@@ -223,8 +223,10 @@ body::after {
    Children read it for opacity/transform/gradient scrubs. */
 .scrub { --p: 0; }
 .scrub-fade {
-  opacity: calc(var(--p) * 1.25 - 0.1);
-  transform: translateY(calc((1 - min(var(--p) * 1.4, 1)) * 40px));
+  /* Reach full opacity once ~1/3 through the viewport — NOT on exit. */
+  --t: min(calc(var(--p) * 2.8), 1);
+  opacity: calc(0.05 + var(--t) * 0.95);
+  transform: translateY(calc((1 - var(--t)) * 36px));
 }
 
 /* ---- Pinned scroll scene (pure CSS sticky; JS only drives --p) ----
