@@ -102,18 +102,22 @@ const { label, class: className = '', ratio = '16 / 9' } = Astro.props;
         site.add(dot);
       });
 
-      // spectrum hero block
+      // spectrum hero block — texture scrolls slowly so the gradient shimmers
+      const heroTex = spectrumTexture();
+      heroTex.wrapS = THREE.RepeatWrapping;
       const hero = new THREE.Mesh(
         new THREE.PlaneGeometry(3.9, 0.85),
-        new THREE.MeshBasicMaterial({ map: spectrumTexture(), transparent: true, opacity: 0.9 })
+        new THREE.MeshBasicMaterial({ map: heroTex, transparent: true, opacity: 0.9 })
       );
       hero.position.set(0, 0.72, 0.004);
       site.add(hero);
 
-      // text lines
+      // text lines — pulse sequentially like content streaming in
+      const lines: any[] = [];
       [[2.6, 0.15], [2.0, 0.02], [2.3, -0.11]].forEach(([w, y]) => {
         const line = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.055), addMat('#ffffff', 0.16));
         line.position.set(-(3.9 - w) / 2 + 0.65, y, 0.004);
+        lines.push(line);
         site.add(line);
       });
 
@@ -138,11 +142,101 @@ const { label, class: className = '', ratio = '16 / 9' } = Astro.props;
         bar.position.set(-0.14, 0.18, 0.002);
         const txt = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 0.04), addMat('#ffffff', 0.16));
         txt.position.set(-0.04, 0.02, 0.002);
+        // mini stat bars — a tiny equalizer per card so the panels feel live
+        const statBars: any[] = [];
+        for (let s = 0; s < 4; s++) {
+          const stat = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.2), addMat(c, 0.55));
+          stat.position.set(0.18 + s * 0.13, -0.18, 0.002);
+          statBars.push(stat);
+          card.add(stat);
+        }
+        card.userData.statBars = statBars;
         card.add(body, edge, bar, txt);
         card.position.set(-1.35 + i * 1.35, -0.92, 0.3);
         cards.push(card);
         site.add(card);
       });
+
+      // ---------- Floating phone (responsive companion, back-left) ----------
+      const phone = new THREE.Group();
+      {
+        const body = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.95, 1.9),
+          new THREE.MeshBasicMaterial({ color: 0x0d0d15, transparent: true, opacity: 0.8 })
+        );
+        const edge = new THREE.LineSegments(
+          new THREE.EdgesGeometry(new THREE.PlaneGeometry(0.95, 1.9)),
+          new THREE.LineBasicMaterial({ color: new THREE.Color(TEAL), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending })
+        );
+        const phoneHero = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.79, 0.42),
+          new THREE.MeshBasicMaterial({ map: heroTex, transparent: true, opacity: 0.85 })
+        );
+        phoneHero.position.set(0, 0.55, 0.002);
+        phone.add(body, edge, phoneHero);
+        [[0.6, 0.18], [0.5, 0.04], [0.55, -0.1], [0.42, -0.24]].forEach(([w, y]) => {
+          const line = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.045), addMat('#ffffff', 0.15));
+          line.position.set(-(0.79 - w) / 2 + 0.1, y, 0.002);
+          phone.add(line);
+        });
+        const phoneCta = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.12), addMat(VIOLET, 0.8));
+        phoneCta.position.set(0, -0.55, 0.002);
+        phone.add(phoneCta);
+        phone.position.set(-3.05, -0.25, -0.35);
+        phone.rotation.y = 0.42;
+        scene.add(phone);
+      }
+
+      // ---------- Agent cursor: a glowing dot "building" the page ----------
+      function glowSprite(color: string, opacity: number) {
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = 64;
+        const ctx = cv.getContext('2d')!;
+        const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        g.addColorStop(0, color);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 64, 64);
+        return new THREE.Sprite(
+          new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })
+        );
+      }
+      const cursor = glowSprite('rgba(196,235,255,0.95)', 0.9);
+      cursor.scale.setScalar(0.16);
+      site.add(cursor);
+      // waypoints in panel-local space: hero → lines → CTA → each card
+      const waypoints = [
+        [0.9, 0.72, 0.02], [-1.2, 0.55, 0.02], [-0.6, 0.02, 0.02], [-1.55, -0.34, 0.02],
+        [-1.35, -0.85, 0.33], [0.0, -0.95, 0.33], [1.35, -0.85, 0.33], [1.6, 0.9, 0.02],
+      ];
+      let wpIndex = 0, wpFrom = waypoints[0], wpTo = waypoints[1], wpT = 0;
+      cursor.position.set(wpFrom[0], wpFrom[1], wpFrom[2]);
+
+      // ---------- Drifting colored light orbs ----------
+      const orbs: any[] = [];
+      [['rgba(45,212,191,0.9)', -2.6, 1.2, -0.8], ['rgba(139,92,246,0.9)', 2.8, 1.5, -0.5],
+       ['rgba(255,45,120,0.85)', 3.0, -1.3, 0.2], ['rgba(56,189,248,0.9)', -3.2, -1.5, 0.4]].forEach(([col, ox, oy, oz], i) => {
+        const orb = glowSprite(col as string, 0.4);
+        orb.scale.setScalar(0.5 + (i % 2) * 0.25);
+        orb.position.set(ox as number, oy as number, oz as number);
+        orb.userData.base = [ox, oy, oz];
+        orbs.push(orb);
+        scene.add(orb);
+      });
+
+      // ---------- Light streaks racing along the grid ----------
+      const streaks: any[] = [];
+      for (let i = 0; i < 3; i++) {
+        const streak = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.05, 3.2),
+          addMat(i === 1 ? VIOLET : '#00e5ff', 0.4)
+        );
+        streak.rotation.x = -Math.PI / 2;
+        streak.position.set(-6 + i * 5.2, -2.08, -6);
+        streak.userData.speed = 2.2 + i * 0.9;
+        streaks.push(streak);
+        scene.add(streak);
+      }
 
       // ---------- Environment ----------
       const grid = new THREE.GridHelper(26, 30, new THREE.Color('#00e5ff'), new THREE.Color('#00e5ff'));
@@ -202,9 +296,63 @@ const { label, class: className = '', ratio = '16 / 9' } = Astro.props;
         cards.forEach((card, i) => {
           card.position.y = -0.92 + Math.sin(ts * (0.9 + i * 0.27) + i * 2.1) * 0.055;
           card.position.z = 0.3 + Math.sin(ts * 0.6 + i * 1.4) * 0.05;
+          // per-card equalizer
+          card.userData.statBars.forEach((stat: any, s: number) => {
+            stat.scale.y = 0.35 + Math.abs(Math.sin(ts * (1.6 + s * 0.42) + i * 1.3 + s)) * 0.75;
+          });
+        });
+
+        // hero gradient shimmer (both panels share the texture)
+        heroTex.offset.x = (ts * 0.04) % 1;
+
+        // skeleton lines pulse like streaming content
+        lines.forEach((line, i) => {
+          line.material.opacity = 0.1 + Math.abs(Math.sin(ts * 1.2 - i * 0.9)) * 0.16;
+        });
+
+        // phone bobs on its own rhythm
+        phone.position.y = -0.25 + Math.sin(ts * 0.55 + 1.7) * 0.09;
+        phone.rotation.y = 0.42 + Math.sin(ts * 0.3) * 0.05;
+
+        // agent cursor works through the page: ease between waypoints, pause,
+        // pulse on arrival — like someone is building the site live
+        wpT += dt * 0.55;
+        if (wpT >= 1.6) { // 1.0 travel + 0.6 dwell
+          wpT = 0;
+          wpIndex = (wpIndex + 1) % waypoints.length;
+          wpFrom = wpTo;
+          wpTo = waypoints[(wpIndex + 1) % waypoints.length];
+        }
+        const travel = Math.min(wpT, 1);
+        const eased = travel * travel * (3 - 2 * travel);
+        cursor.position.set(
+          wpFrom[0] + (wpTo[0] - wpFrom[0]) * eased,
+          wpFrom[1] + (wpTo[1] - wpFrom[1]) * eased,
+          wpFrom[2] + (wpTo[2] - wpFrom[2]) * eased
+        );
+        // click pulse just after arrival
+        const dwell = Math.max(0, wpT - 1);
+        cursor.scale.setScalar(0.16 + (dwell > 0 ? Math.sin(Math.min(dwell / 0.3, 1) * Math.PI) * 0.10 : 0));
+
+        // drifting colored orbs
+        orbs.forEach((orb, i) => {
+          const [bx, by, bz] = orb.userData.base;
+          orb.position.set(
+            bx + Math.sin(ts * 0.22 + i * 1.9) * 0.35,
+            by + Math.cos(ts * 0.18 + i * 1.1) * 0.28,
+            bz + Math.sin(ts * 0.15 + i) * 0.2
+          );
+          orb.material.opacity = 0.3 + Math.abs(Math.sin(ts * 0.5 + i * 2.2)) * 0.2;
+        });
+
+        // light streaks race toward the horizon and loop
+        streaks.forEach((streak) => {
+          streak.position.z += dt * streak.userData.speed;
+          if (streak.position.z > 4) streak.position.z = -9;
         });
 
         stars.rotation.y += dt * 0.01;
+        stars.material.opacity = 0.42 + Math.sin(ts * 1.1) * 0.12; // twinkle
         grid.position.z = (ts * 0.35) % 0.9; // slow crawl toward the camera
 
         renderer.render(scene, camera);
