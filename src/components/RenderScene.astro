@@ -1,0 +1,218 @@
+---
+// Coded 3D "live render": a holographic website floating in space — translucent
+// browser panel, spectrum-gradient hero block, glowing UI cards bobbing in front,
+// perspective grid floor, starfield. Camera sways slowly and follows the pointer.
+// Lazy Three.js init per canvas; pauses offscreen; static frame on reduced motion.
+interface Props {
+  label?: string;
+  class?: string;
+  ratio?: string; // css aspect-ratio, default 16/9
+}
+const { label, class: className = '', ratio = '16 / 9' } = Astro.props;
+---
+
+<div
+  class={`glass relative overflow-hidden rounded-3xl ${className}`}
+  style={`aspect-ratio: ${ratio};`}
+>
+  <canvas data-render-scene class="absolute inset-0 h-full w-full"></canvas>
+  {label && (
+    <span class="hud-label absolute left-4 top-4 z-[1] rounded-full border border-white/10 bg-black/40 px-3 py-1 backdrop-blur">
+      {label}
+    </span>
+  )}
+  <span class="hud-label absolute bottom-4 right-4 z-[1] text-white/35">WEBGL <span class="text-white/15">//</span> REALTIME</span>
+</div>
+
+<script>
+  async function initRenderScenes() {
+    const canvases = document.querySelectorAll<HTMLCanvasElement>('canvas[data-render-scene]:not([data-init])');
+    if (!canvases.length) return;
+    canvases.forEach((c) => (c.dataset.init = '1'));
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let THREE: any;
+    try {
+      THREE = await import('three');
+    } catch {
+      return; // glass panel still shows; scene is decorative
+    }
+
+    // shared pointer parallax
+    let mx = 0, my = 0;
+    window.addEventListener('pointermove', (e) => {
+      mx = (e.clientX / window.innerWidth - 0.5) * 2;
+      my = (e.clientY / window.innerHeight - 0.5) * 2;
+    }, { passive: true });
+
+    const TEAL = '#2dd4bf', BLUE = '#38bdf8', VIOLET = '#8b5cf6', VIOLET_LIGHT = '#c4b5fd', MAGENTA = '#ff2d78';
+
+    function spectrumTexture() {
+      const cv = document.createElement('canvas');
+      cv.width = 256; cv.height = 64;
+      const ctx = cv.getContext('2d')!;
+      const g = ctx.createLinearGradient(0, 0, 256, 64);
+      g.addColorStop(0, TEAL); g.addColorStop(0.35, BLUE); g.addColorStop(0.7, VIOLET); g.addColorStop(1, MAGENTA);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 256, 64);
+      return new THREE.CanvasTexture(cv);
+    }
+
+    canvases.forEach((canvas) => {
+      let renderer: any;
+      try {
+        renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      } catch {
+        return;
+      }
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 50);
+      camera.position.set(0, 0.15, 7.5);
+
+      const addMat = (color: string, opacity: number) =>
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
+
+      // ---------- Holographic browser ----------
+      const site = new THREE.Group();
+      scene.add(site);
+
+      // frame
+      const frame = new THREE.Mesh(
+        new THREE.PlaneGeometry(4.4, 2.9),
+        new THREE.MeshBasicMaterial({ color: 0x0d0d15, transparent: true, opacity: 0.72 })
+      );
+      site.add(frame);
+      const frameEdge = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.PlaneGeometry(4.4, 2.9)),
+        new THREE.LineBasicMaterial({ color: new THREE.Color(VIOLET_LIGHT), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending })
+      );
+      frameEdge.position.z = 0.001;
+      site.add(frameEdge);
+
+      // header bar + traffic dots
+      const header = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 0.26), addMat('#ffffff', 0.05));
+      header.position.set(0, 1.32, 0.002);
+      site.add(header);
+      [MAGENTA, BLUE, TEAL].forEach((c, i) => {
+        const dot = new THREE.Mesh(new THREE.CircleGeometry(0.035, 16), addMat(c, 0.9));
+        dot.position.set(-2.0 + i * 0.13, 1.32, 0.003);
+        site.add(dot);
+      });
+
+      // spectrum hero block
+      const hero = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.9, 0.85),
+        new THREE.MeshBasicMaterial({ map: spectrumTexture(), transparent: true, opacity: 0.9 })
+      );
+      hero.position.set(0, 0.72, 0.004);
+      site.add(hero);
+
+      // text lines
+      [[2.6, 0.15], [2.0, 0.02], [2.3, -0.11]].forEach(([w, y]) => {
+        const line = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.055), addMat('#ffffff', 0.16));
+        line.position.set(-(3.9 - w) / 2 + 0.65, y, 0.004);
+        site.add(line);
+      });
+
+      // CTA pill
+      const cta = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.17), addMat(VIOLET, 0.85));
+      cta.position.set(-1.55, -0.34, 0.005);
+      site.add(cta);
+
+      // floating UI cards (in front, each bobs on its own rhythm)
+      const cards: any[] = [];
+      [TEAL, BLUE, MAGENTA].forEach((c, i) => {
+        const card = new THREE.Group();
+        const body = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.14, 0.74),
+          new THREE.MeshBasicMaterial({ color: 0x11111a, transparent: true, opacity: 0.88 })
+        );
+        const edge = new THREE.LineSegments(
+          new THREE.EdgesGeometry(new THREE.PlaneGeometry(1.14, 0.74)),
+          new THREE.LineBasicMaterial({ color: new THREE.Color(c), transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending })
+        );
+        const bar = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.05), addMat(c, 0.75));
+        bar.position.set(-0.14, 0.18, 0.002);
+        const txt = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 0.04), addMat('#ffffff', 0.16));
+        txt.position.set(-0.04, 0.02, 0.002);
+        card.add(body, edge, bar, txt);
+        card.position.set(-1.35 + i * 1.35, -0.92, 0.3);
+        cards.push(card);
+        site.add(card);
+      });
+
+      // ---------- Environment ----------
+      const grid = new THREE.GridHelper(26, 30, new THREE.Color('#00e5ff'), new THREE.Color('#00e5ff'));
+      (grid.material as any).transparent = true;
+      (grid.material as any).opacity = 0.09;
+      grid.position.y = -2.1;
+      scene.add(grid);
+
+      const N = 260;
+      const pos = new Float32Array(N * 3);
+      for (let i = 0; i < N; i++) {
+        const a = Math.sin(i * 12.9898) * 43758.5453;
+        const b = Math.sin(i * 78.233) * 12543.2341;
+        const c = Math.sin(i * 39.425) * 26431.5327;
+        pos[i * 3] = ((a - Math.floor(a)) - 0.5) * 14;
+        pos[i * 3 + 1] = ((b - Math.floor(b)) - 0.5) * 7;
+        pos[i * 3 + 2] = ((c - Math.floor(c)) - 0.5) * 5 - 2;
+      }
+      const starGeo = new THREE.BufferGeometry();
+      starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const stars = new THREE.Points(
+        starGeo,
+        new THREE.PointsMaterial({ color: 0x9bb8c8, size: 0.02, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })
+      );
+      scene.add(stars);
+
+      // ---------- Sizing ----------
+      const wrap = canvas.parentElement!;
+      function resize() {
+        const w = wrap.clientWidth, h = wrap.clientHeight;
+        if (!w || !h) return;
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      resize();
+      new ResizeObserver(resize).observe(wrap);
+
+      let visible = true;
+      new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0 }).observe(wrap);
+
+      // ---------- Loop ----------
+      let cmx = 0, cmy = 0, lastT = 0;
+      function tick(t: number) {
+        if (!reduceMotion) requestAnimationFrame(tick);
+        if (!visible && !reduceMotion) return;
+        const dt = Math.min((t - lastT) / 1000, 0.05) || 0.016;
+        lastT = t;
+        const ts = t / 1000;
+
+        cmx += (mx - cmx) * 0.05;
+        cmy += (my - cmy) * 0.05;
+        site.rotation.y = Math.sin(ts * 0.28) * 0.16 + cmx * 0.12;
+        site.rotation.x = -0.04 + Math.sin(ts * 0.4) * 0.03 - cmy * 0.06;
+        site.position.y = Math.sin(ts * 0.7) * 0.06;
+
+        cards.forEach((card, i) => {
+          card.position.y = -0.92 + Math.sin(ts * (0.9 + i * 0.27) + i * 2.1) * 0.055;
+          card.position.z = 0.3 + Math.sin(ts * 0.6 + i * 1.4) * 0.05;
+        });
+
+        stars.rotation.y += dt * 0.01;
+        grid.position.z = (ts * 0.35) % 0.9; // slow crawl toward the camera
+
+        renderer.render(scene, camera);
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+
+  initRenderScenes();
+  document.addEventListener('astro:page-load', initRenderScenes);
+</script>
