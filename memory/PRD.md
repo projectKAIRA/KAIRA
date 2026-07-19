@@ -19,10 +19,14 @@
 - Inner pages reuse legacy structure but auto-adapt to the new light tokens
 
 ## Bug Fixes This Iteration
+- **[Latest]** Removed the fake "Loved by [company names]" tape (misleading — Kaira hasn't served them)
+- **[Latest]** Unified all inner-page gradients to the Apple palette (blue → violet → red-pink). Pricing tiles, service tiles, about value cards, portfolio accents all updated. Old teal/cyan/magenta values eliminated.
+- **[Latest]** Reworked hero to a **split layout with an ALWAYS-visible showcase** above the fold — a browser frame that auto-rotates every 3.8s through 3 fully-designed fake client sites (Bella's Café, Ridgeline Dental, Oak & Iron Barbers). Each slide is a realistic mini-site with its own colors, typography, and content.
+- **[Latest]** Cursor-follows-you gradient spotlight in the hero background
+- **[Latest]** Magnetic primary CTA — button gently leans toward the cursor when it gets close
 - **[Latest]** New geometric "K" logo replaces the butterfly across nav, footer, favicon
-- **[Latest]** Bento grid section added (speed gauge, map pin, care shield, device art, palette, timeline)
-- **[Latest]** Live count-up on stats (0 → target on scroll into view)
-- **[Latest]** Device stack: floating phone alongside the hero browser mockup
+- Bento grid section (speed gauge, map pin, care shield, device art, palette, timeline)
+- Live count-up on stats (0 → target on scroll into view)
 - **Invisible headline words** on landing (e.g. "small business in town?") — the reveal-words script split each word into a `<span class="w">`, but `.k-grad` used `background-clip:text` + `color:transparent`, making inner spans invisible. Fixed by renaming `.k-grad` → `.grad-text` so the script treats it as a single revealed unit.
 - Removed `body:has(.kaira-landing)` scoped overrides — no longer needed since global theme is now light.
 

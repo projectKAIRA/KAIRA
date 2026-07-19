@@ -62,87 +62,54 @@ const steps = [
          HERO
     ===================================================== -->
     <section class="k-hero" data-testid="hero-section">
-      <!-- soft airy backdrop -->
+      <!-- soft airy backdrop with a cursor-following spotlight -->
       <div class="k-hero-bg" aria-hidden="true">
         <div class="blob blob-a"></div>
         <div class="blob blob-b"></div>
         <div class="blob blob-c"></div>
         <div class="grid-mask"></div>
+        <div class="k-spotlight" id="k-spotlight"></div>
       </div>
 
-      <div class="k-container">
-        <p class="k-eyebrow reveal" data-testid="hero-eyebrow">
-          <span class="k-dot"></span> Now booking Spring '26 projects
-        </p>
+      <div class="k-container k-hero-grid">
+        <!-- LEFT: copy -->
+        <div class="k-hero-copy">
+          <p class="k-eyebrow reveal" data-testid="hero-eyebrow">
+            <span class="k-dot"></span> Now booking Spring '26 projects
+          </p>
 
-        <h1 class="k-h1 reveal-words" data-testid="hero-title">
-          Websites that make your business look
-          <span class="grad-text">inevitable.</span>
-        </h1>
+          <h1 class="k-h1 reveal-words" data-testid="hero-title">
+            Websites that make your business look
+            <span class="grad-text">inevitable.</span>
+          </h1>
 
-        <p class="k-lead reveal reveal-delay-2" data-testid="hero-lead">
-          Beautifully simple, ridiculously fast websites for local businesses.
-          Designed to impress. Engineered to be found. Cared for so it stays that way.
-        </p>
+          <p class="k-lead reveal reveal-delay-2" data-testid="hero-lead">
+            Beautifully simple, ridiculously fast websites for local businesses —
+            designed, built, and cared for by people who obsess over the details.
+          </p>
 
-        <div class="k-cta reveal reveal-delay-3">
-          <a href="/contact" class="k-btn k-btn-primary" data-testid="hero-cta-primary">
-            Get a free quote
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </a>
-          <a href="/portfolio" class="k-btn k-btn-ghost" data-testid="hero-cta-secondary">
-            See our work
-          </a>
+          <div class="k-cta reveal reveal-delay-3">
+            <a href="/contact" class="k-btn k-btn-primary k-magnetic" data-testid="hero-cta-primary">
+              <span class="k-mag-inner">
+                Get a free quote
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </span>
+            </a>
+            <a href="/portfolio" class="k-btn k-btn-ghost" data-testid="hero-cta-secondary">
+              See our work
+            </a>
+          </div>
+
+          <p class="k-note reveal reveal-delay-3" data-testid="hero-note">
+            From $1,000 · Care plans from $75/mo · Reply within 1 business day
+          </p>
         </div>
 
-        <p class="k-note reveal reveal-delay-3" data-testid="hero-note">
-          From $1,000 · Care plans from $75/mo · Reply within 1 business day
-        </p>
+        <!-- RIGHT: rotating device showcase (ALWAYS visible above the fold) -->
+        <div class="k-showcase reveal reveal-delay-2" data-testid="hero-showcase">
+          <div class="k-showcase-glow" aria-hidden="true"></div>
 
-        <!-- 3D hero stage: floating gradient orb + parallax browser card -->
-        <div class="k-stage reveal reveal-delay-3" data-testid="hero-stage">
-          <canvas id="k-hero-canvas" aria-hidden="true"></canvas>
-
-          <div class="k-window" data-tilt data-testid="hero-window">
-            <div class="k-window-bar" aria-hidden="true">
-              <span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span>
-              <div class="k-url">trykaira.ai</div>
-            </div>
-            <div class="k-window-body">
-              <div class="k-mock-nav">
-                <span class="k-mock-logo"></span>
-                <span class="k-mock-links"><i></i><i></i><i></i></span>
-                <span class="k-mock-cta"></span>
-              </div>
-              <div class="k-mock-hero">
-                <div class="k-mock-title"></div>
-                <div class="k-mock-title short"></div>
-                <div class="k-mock-para"></div>
-                <div class="k-mock-para w80"></div>
-                <div class="k-mock-btn"></div>
-              </div>
-              <div class="k-mock-grid">
-                <div class="k-mock-card"><div class="chip chip-a"></div></div>
-                <div class="k-mock-card"><div class="chip chip-b"></div></div>
-                <div class="k-mock-card"><div class="chip chip-c"></div></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Floating phone (device stack partner) -->
-          <div class="k-phone" aria-hidden="true" data-testid="hero-phone">
-            <div class="k-phone-notch"></div>
-            <div class="k-phone-body">
-              <div class="k-phone-hero"></div>
-              <div class="k-phone-title"></div>
-              <div class="k-phone-line"></div>
-              <div class="k-phone-line short"></div>
-              <div class="k-phone-btn"></div>
-              <div class="k-phone-card"><span class="chip chip-a"></span></div>
-            </div>
-          </div>
-
-          <!-- floating badges around the window -->
+          <!-- Floating badges (mid-air, glass) -->
           <div class="k-float k-float-a" aria-hidden="true" data-testid="float-lighthouse">
             <div class="score">98</div>
             <div class="score-label">Lighthouse<br/>Performance</div>
@@ -154,6 +121,102 @@ const steps = [
           <div class="k-float k-float-c" aria-hidden="true" data-testid="float-seo">
             <div class="pill-tag">SEO</div>
             <div><b>#1</b><span>on Google Maps</span></div>
+          </div>
+
+          <!-- Rotating browser frame with 3 detailed mock sites inside -->
+          <div class="k-frame" data-tilt data-testid="hero-frame">
+            <div class="k-window-bar" aria-hidden="true">
+              <span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span>
+              <div class="k-url" id="k-frame-url">bellascafe.com</div>
+            </div>
+            <div class="k-frame-body">
+              <!-- SLIDE 1: Café -->
+              <div class="k-slide is-active" data-slide-url="bellascafe.com" data-slide-accent="#c2410c">
+                <div class="cafe">
+                  <div class="cafe-nav">
+                    <span class="cafe-logo">bella's</span>
+                    <span class="cafe-links"><i>Menu</i><i>Story</i><i>Visit</i></span>
+                    <span class="cafe-cta">Reserve</span>
+                  </div>
+                  <div class="cafe-hero">
+                    <div class="cafe-hero-img"></div>
+                    <div class="cafe-hero-copy">
+                      <p class="cafe-eyebrow">Est. 2012 · Portland, OR</p>
+                      <h4 class="cafe-title">Slow mornings, <em>strong espresso.</em></h4>
+                      <p class="cafe-sub">House-roasted beans, warm sourdough, and a pastry case that never disappoints.</p>
+                      <div class="cafe-btns">
+                        <span class="cafe-btn primary">Order online</span>
+                        <span class="cafe-btn ghost">View menu →</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="cafe-menu">
+                    <div class="cafe-menu-item"><span>Cortado</span><span class="dots"></span><b>$4</b></div>
+                    <div class="cafe-menu-item"><span>Almond croissant</span><span class="dots"></span><b>$5</b></div>
+                    <div class="cafe-menu-item"><span>Avocado toast</span><span class="dots"></span><b>$12</b></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SLIDE 2: Dental -->
+              <div class="k-slide" data-slide-url="ridgelinedental.com" data-slide-accent="#0071e3">
+                <div class="dental">
+                  <div class="dental-nav">
+                    <span class="dental-logo"><span class="dl-dot"></span> Ridgeline</span>
+                    <span class="dental-links"><i>Services</i><i>Team</i><i>New patients</i></span>
+                    <span class="dental-cta">Book visit</span>
+                  </div>
+                  <div class="dental-hero">
+                    <h4 class="dental-title">Modern dentistry, <span>zero anxiety.</span></h4>
+                    <p class="dental-sub">Same-day crowns · Emergency care · Weekend hours</p>
+                    <div class="dental-card">
+                      <div class="dental-card-head">
+                        <span class="dc-badge">Next available</span>
+                        <span class="dc-time">Tomorrow · 9:40 AM</span>
+                      </div>
+                      <div class="dental-card-body">
+                        <span class="dc-pill">Sat 8:00</span>
+                        <span class="dc-pill">Sat 10:30</span>
+                        <span class="dc-pill active">Mon 9:40</span>
+                        <span class="dc-pill">Mon 2:15</span>
+                      </div>
+                      <div class="dental-book">Book instantly →</div>
+                    </div>
+                  </div>
+                  <div class="dental-stats">
+                    <div><b>4.9★</b><span>642 reviews</span></div>
+                    <div><b>12yr</b><span>in the neighborhood</span></div>
+                    <div><b>$0</b><span>emergency exams</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SLIDE 3: Barbershop -->
+              <div class="k-slide" data-slide-url="oakandiron.co" data-slide-accent="#ff375f">
+                <div class="barber">
+                  <div class="barber-nav">
+                    <span class="barber-logo">OAK &amp; IRON</span>
+                    <span class="barber-links"><i>Menu</i><i>Book</i><i>Shop</i></span>
+                    <span class="barber-cta">Book chair</span>
+                  </div>
+                  <div class="barber-hero">
+                    <h4 class="barber-title">Classic cuts. <em>Modern craft.</em></h4>
+                    <p class="barber-sub">Six chairs. Twenty-three years. One neighborhood.</p>
+                    <div class="barber-services">
+                      <div class="barber-item"><span>Skin fade + hot towel</span><b>$38</b></div>
+                      <div class="barber-item"><span>Beard sculpt &amp; line-up</span><b>$22</b></div>
+                      <div class="barber-item highlight"><span>The full works</span><b>$55</b></div>
+                    </div>
+                    <div class="barber-cta-big">Reserve a chair →</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Slide indicator dots -->
+            <div class="k-frame-dots" aria-hidden="true">
+              <span class="d is-active"></span><span class="d"></span><span class="d"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -608,23 +671,55 @@ const steps = [
   }
   .k-btn-ghost:hover { background: rgba(0,0,0,0.08); transform: translateY(-1px); }
 
-  /* -------------------- HERO -------------------- */
+  /* -------------------- HERO (split layout) -------------------- */
   .k-hero {
     position: relative;
-    text-align: center;
-    padding: 84px 0 60px;
+    padding: 60px 0 90px;
     overflow: hidden;
+    min-height: calc(100vh - 60px);
+    display: flex;
+    align-items: center;
   }
-  .k-hero-bg {
-    position: absolute; inset: 0;
-    pointer-events: none;
-    z-index: 0;
+  .k-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    align-items: center;
+    gap: 56px;
+    max-width: 1200px;
   }
+  .k-hero-copy { text-align: left; position: relative; z-index: 2; }
+  @media (max-width: 960px) {
+    .k-hero { padding-top: 40px; }
+    .k-hero-grid { grid-template-columns: 1fr; gap: 32px; }
+    .k-hero-copy { text-align: center; }
+  }
+
+  .k-h1 {
+    font-size: clamp(38px, 5.2vw, 76px);
+    line-height: 1.02;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin: 20px 0 0;
+    max-width: 15ch;
+    text-wrap: balance;
+  }
+  @media (max-width: 960px) { .k-h1 { margin-inline: auto; } }
+
+  .k-lead { margin: 22px 0 0; max-width: 520px; }
+  @media (max-width: 960px) { .k-lead { margin-inline: auto; } }
+
+  .k-cta { justify-content: flex-start; margin-top: 30px; }
+  @media (max-width: 960px) { .k-cta { justify-content: center; } }
+
+  .k-note { margin: 16px 0 0; text-align: left; max-width: 520px; }
+  @media (max-width: 960px) { .k-note { margin-inline: auto; text-align: center; } }
+
+  .k-hero-bg { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
   .k-hero-bg .grid-mask {
     position: absolute; inset: 0;
     background-image:
-      linear-gradient(rgba(0,0,0,0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,0,0,0.035) 1px, transparent 1px);
+      linear-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.035) 1px, transparent 1px);
     background-size: 44px 44px;
     mask-image: radial-gradient(ellipse 90% 60% at 50% 30%, #000 20%, transparent 75%);
     -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 30%, #000 20%, transparent 75%);
@@ -636,26 +731,229 @@ const steps = [
     opacity: 0.55;
     animation: drift 18s ease-in-out infinite;
   }
-  .blob-a {
-    width: 520px; height: 520px; left: -140px; top: -80px;
-    background: radial-gradient(circle at 30% 30%, #a5c8ff, transparent 60%);
-  }
-  .blob-b {
-    width: 460px; height: 460px; right: -100px; top: 40px;
-    background: radial-gradient(circle at 60% 40%, #ffc4d6, transparent 60%);
-    animation-delay: -6s;
-  }
-  .blob-c {
-    width: 500px; height: 500px; left: 40%; bottom: -160px;
-    background: radial-gradient(circle at 40% 60%, #d1c4ff, transparent 60%);
-    animation-delay: -12s;
-  }
-  @keyframes drift {
-    0%, 100% { transform: translate3d(0,0,0) scale(1); }
-    50%       { transform: translate3d(20px,-30px,0) scale(1.06); }
+  .blob-a { width: 520px; height: 520px; left: -140px; top: -80px; background: radial-gradient(circle at 30% 30%, #a5c8ff, transparent 60%); }
+  .blob-b { width: 460px; height: 460px; right: -100px; top: 40px; background: radial-gradient(circle at 60% 40%, #ffc4d6, transparent 60%); animation-delay: -6s; }
+  .blob-c { width: 500px; height: 500px; left: 40%; bottom: -160px; background: radial-gradient(circle at 40% 60%, #d1c4ff, transparent 60%); animation-delay: -12s; }
+  @keyframes drift { 0%,100% { transform: translate3d(0,0,0) scale(1);} 50% { transform: translate3d(20px,-30px,0) scale(1.06);} }
+
+  /* Cursor spotlight follows pointer via --mx/--my (0..100%) */
+  .k-spotlight {
+    position: absolute; inset: 0;
+    background: radial-gradient(400px 400px at var(--mx, 50%) var(--my, 30%),
+      rgba(0, 113, 227, 0.14), rgba(124, 58, 237, 0.06) 40%, transparent 65%);
+    transition: background 60ms linear;
+    pointer-events: none;
   }
 
-  .k-hero > .k-container { position: relative; z-index: 1; }
+  /* Rotating "loved by" tape (below CTAs) */
+  .k-tape {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 28px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.75);
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 999px;
+    max-width: 540px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px -6px rgba(15,23,42,0.08);
+  }
+  @media (max-width: 960px) { .k-tape { margin-inline: auto; } }
+  .k-tape-dot { width: 7px; height: 7px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 3px rgba(52,199,89,0.18); }
+  .k-tape-label { font-size: 12px; font-weight: 600; color: #86868b; letter-spacing: 0.02em; white-space: nowrap; }
+  .k-tape-track {
+    display: flex; gap: 22px;
+    animation: tape 22s linear infinite;
+    white-space: nowrap;
+  }
+  .k-tape-track span { font-size: 13px; font-weight: 600; color: #1d1d1f; }
+  @keyframes tape {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  /* -------------------- Magnetic primary CTA -------------------- */
+  .k-magnetic { --mx: 0px; --my: 0px; }
+  .k-magnetic .k-mag-inner {
+    display: inline-flex; align-items: center; gap: 8px;
+    transform: translate3d(var(--mx), var(--my), 0);
+    transition: transform 220ms cubic-bezier(0.16,1,0.3,1);
+  }
+
+  /* -------------------- SHOWCASE (rotating device) -------------------- */
+  .k-showcase {
+    position: relative;
+    aspect-ratio: 4 / 3.2;
+    perspective: 1600px;
+  }
+  .k-showcase-glow {
+    position: absolute; inset: -12%;
+    background: radial-gradient(60% 55% at 55% 55%, rgba(124, 58, 237, 0.22), rgba(0, 113, 227, 0.10) 45%, transparent 70%);
+    filter: blur(20px);
+    z-index: 0;
+    animation: glow-pulse 6s ease-in-out infinite;
+  }
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 0.75; transform: scale(1); }
+    50%       { opacity: 1;    transform: scale(1.06); }
+  }
+
+  .k-frame {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow:
+      0 40px 80px -30px rgba(15, 23, 42, 0.28),
+      0 20px 40px -20px rgba(15, 23, 42, 0.16),
+      0 0 0 1px rgba(0, 0, 0, 0.05);
+    transform-style: preserve-3d;
+    transform: rotateX(4deg) rotateY(-6deg);
+    transition: transform 220ms cubic-bezier(0.16,1,0.3,1);
+    overflow: hidden;
+    text-align: left;
+  }
+  .k-window-bar { display: flex; align-items: center; gap: 6px; padding: 12px 14px; background: #f5f5f7; border-bottom: 1px solid rgba(0,0,0,0.06); }
+  .k-window-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.d-r { background: #ff5f57; } .dot.d-y { background: #febc2e; } .dot.d-g { background: #28c840; }
+  .k-url { margin-left: 12px; font-size: 12px; padding: 4px 12px; border-radius: 999px; background: #fff; border: 1px solid rgba(0,0,0,0.06); color: #6e6e73; font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+
+  .k-frame-body {
+    position: relative;
+    height: 320px;
+    background: #ffffff;
+    overflow: hidden;
+  }
+  @media (max-width: 960px) { .k-frame-body { height: 300px; } }
+
+  .k-slide {
+    position: absolute; inset: 0;
+    padding: 18px 20px 20px;
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+    transition: opacity 700ms cubic-bezier(0.16,1,0.3,1), transform 700ms cubic-bezier(0.16,1,0.3,1);
+    display: flex; flex-direction: column;
+    pointer-events: none;
+  }
+  .k-slide.is-active { opacity: 1; transform: none; }
+
+  /* Slide indicator dots */
+  .k-frame-dots {
+    position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+    display: flex; gap: 6px; z-index: 5;
+  }
+  .k-frame-dots .d { width: 6px; height: 6px; border-radius: 999px; background: rgba(0,0,0,0.15); transition: all 300ms; }
+  .k-frame-dots .d.is-active { width: 22px; background: linear-gradient(90deg, #0071e3, #7c3aed); }
+
+  /* ---- Café slide ---- */
+  .cafe { color: #1d1d1f; font-size: 12px; }
+  .cafe-nav { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; }
+  .cafe-logo { font-family: Georgia, serif; font-size: 20px; font-weight: 700; color: #7c2d12; font-style: italic; }
+  .cafe-links { display: flex; gap: 12px; }
+  .cafe-links i { font-style: normal; font-size: 10px; color: #6e6e73; font-weight: 500; }
+  .cafe-cta { background: #7c2d12; color: #fff; padding: 4px 12px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.02em; }
+  .cafe-hero { display: grid; grid-template-columns: 100px 1fr; gap: 12px; margin-top: 4px; }
+  .cafe-hero-img {
+    aspect-ratio: 1; border-radius: 10px;
+    background:
+      radial-gradient(circle at 40% 30%, #fbbf24 0%, transparent 40%),
+      linear-gradient(160deg, #c2410c 0%, #7c2d12 55%, #451a03 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .cafe-eyebrow { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #c2410c; font-weight: 700; }
+  .cafe-title { font-family: Georgia, serif; font-size: 18px; font-weight: 700; line-height: 1.1; margin-top: 4px; letter-spacing: -0.01em; }
+  .cafe-title em { color: #c2410c; font-style: italic; }
+  .cafe-sub { font-size: 10px; color: #6e6e73; margin-top: 4px; line-height: 1.4; }
+  .cafe-btns { display: flex; gap: 6px; margin-top: 8px; }
+  .cafe-btn { font-size: 10px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+  .cafe-btn.primary { background: #1d1d1f; color: #fff; }
+  .cafe-btn.ghost { color: #7c2d12; }
+  .cafe-menu { margin-top: auto; padding-top: 10px; border-top: 1px dashed #e5e5ea; }
+  .cafe-menu-item { display: flex; align-items: baseline; gap: 6px; font-size: 11px; padding: 3px 0; }
+  .cafe-menu-item .dots { flex: 1; border-bottom: 1px dotted #d2d2d7; margin: 0 4px 3px; }
+  .cafe-menu-item b { color: #c2410c; font-weight: 700; }
+
+  /* ---- Dental slide ---- */
+  .dental { color: #0f172a; font-size: 12px; background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%); margin: -18px -20px -20px; padding: 18px 20px 20px; height: calc(100% + 38px); }
+  .dental-nav { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; }
+  .dental-logo { font-weight: 700; font-size: 14px; color: #0f172a; display: inline-flex; align-items: center; gap: 6px; }
+  .dl-dot { width: 8px; height: 8px; border-radius: 50%; background: #0071e3; box-shadow: 0 0 0 3px rgba(0,113,227,0.2); }
+  .dental-links { display: flex; gap: 12px; }
+  .dental-links i { font-style: normal; font-size: 10px; color: #475569; font-weight: 500; }
+  .dental-cta { background: #0071e3; color: #fff; padding: 4px 12px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+  .dental-title { font-size: 20px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; margin-top: 4px; }
+  .dental-title span { background: linear-gradient(90deg, #0071e3, #7c3aed); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .dental-sub { font-size: 10px; color: #475569; margin-top: 4px; }
+  .dental-card { margin-top: 10px; background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; padding: 10px 12px; box-shadow: 0 8px 20px -12px rgba(0,113,227,0.25); }
+  .dental-card-head { display: flex; justify-content: space-between; align-items: center; }
+  .dc-badge { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #dbeafe; color: #0071e3; letter-spacing: 0.04em; }
+  .dc-time { font-size: 11px; font-weight: 600; color: #0f172a; }
+  .dental-card-body { display: flex; gap: 6px; margin-top: 8px; }
+  .dc-pill { font-size: 10px; padding: 4px 8px; border-radius: 6px; border: 1px solid #dbeafe; color: #0071e3; font-weight: 600; }
+  .dc-pill.active { background: #0071e3; color: #fff; border-color: #0071e3; }
+  .dental-book { margin-top: 8px; text-align: center; font-size: 11px; font-weight: 700; color: #0071e3; padding: 6px; border-top: 1px solid #eff6ff; }
+  .dental-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .dental-stats div { text-align: center; }
+  .dental-stats b { display: block; font-size: 14px; font-weight: 700; color: #0071e3; }
+  .dental-stats span { font-size: 9px; color: #64748b; }
+
+  /* ---- Barbershop slide ---- */
+  .barber { color: #f2f4f8; font-size: 12px; background: linear-gradient(180deg, #0f0f13 0%, #1a1a1f 100%); margin: -18px -20px -20px; padding: 18px 20px 20px; height: calc(100% + 38px); }
+  .barber-nav { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; }
+  .barber-logo { font-family: "Georgia", serif; font-weight: 700; font-size: 13px; letter-spacing: 0.14em; color: #ff375f; }
+  .barber-links { display: flex; gap: 12px; }
+  .barber-links i { font-style: normal; font-size: 10px; color: rgba(255,255,255,0.5); font-weight: 500; }
+  .barber-cta { background: #ff375f; color: #fff; padding: 4px 12px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.02em; }
+  .barber-title { font-family: Georgia, serif; font-size: 22px; font-weight: 700; line-height: 1.05; margin-top: 6px; letter-spacing: -0.01em; color: #fff; }
+  .barber-title em { color: #ff375f; font-style: italic; }
+  .barber-sub { font-size: 10px; color: rgba(255,255,255,0.55); margin-top: 4px; letter-spacing: 0.02em; }
+  .barber-services { margin-top: 10px; padding: 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; background: rgba(255,255,255,0.03); }
+  .barber-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 11px; color: rgba(255,255,255,0.75); }
+  .barber-item b { color: #fff; font-weight: 700; }
+  .barber-item.highlight { color: #ff375f; }
+  .barber-item.highlight b { color: #ff375f; }
+  .barber-cta-big {
+    margin-top: 12px; text-align: center;
+    background: #ff375f; color: #fff; padding: 8px; border-radius: 8px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+    box-shadow: 0 10px 24px -8px rgba(255,55,95,0.5);
+  }
+
+  /* -------------------- Floating badges (repositioned around showcase) -------------------- */
+  .k-float {
+    position: absolute; z-index: 3;
+    background: rgba(255,255,255,0.9);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 16px;
+    padding: 10px 12px;
+    box-shadow: 0 20px 40px -20px rgba(15,23,42,0.25), 0 4px 12px -4px rgba(15,23,42,0.10);
+    display: flex; align-items: center; gap: 10px;
+    text-align: left;
+    animation: floaty 6s ease-in-out infinite;
+  }
+  .k-float b { display: block; font-size: 16px; font-weight: 700; color: #1d1d1f; letter-spacing: -0.02em; }
+  .k-float span { display: block; font-size: 10px; color: #6e6e73; margin-top: 1px; }
+  .k-float-a { top: -6%; left: -8%; animation-delay: -1s; }
+  .k-float-a .score { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(135deg, #34c759, #a7f3d0); color: #fff; font-weight: 700; font-size: 16px; box-shadow: 0 8px 18px -6px rgba(52,199,89,0.5); }
+  .k-float-a .score-label { font-size: 10px; line-height: 1.2; color: #1d1d1f; font-weight: 600; }
+  .k-float-b { top: 45%; right: -10%; animation-delay: -2.5s; color: #ff9500; }
+  .k-float-b b, .k-float-b span { color: initial; }
+  .k-float-b b { color: #1d1d1f; }
+  .k-float-c { bottom: -8%; left: 8%; animation-delay: -4s; }
+  .pill-tag { background: linear-gradient(135deg, #0071e3, #7c3aed); color: #fff; font-size: 9px; letter-spacing: 0.1em; font-weight: 700; padding: 4px 8px; border-radius: 6px; }
+  @keyframes floaty { 0%, 100% { transform: translateY(0) rotate(-0.4deg); } 50% { transform: translateY(-10px) rotate(0.4deg); } }
+
+  @media (max-width: 960px) {
+    .k-float-a { left: 0; }
+    .k-float-b { right: 0; }
+  }
+  @media (max-width: 620px) {
+    .k-float { display: none; }
+  }
+
+  /* -------------------- HERO end -------------------- */
 
   /* -------------------- 3D Stage -------------------- */
   .k-stage {
@@ -1312,11 +1610,10 @@ const steps = [
     tiltEls.forEach((el) => {
       el.setAttribute('data-tilt-init', '1');
       let baseRX = 0, baseRY = 0;
-      // Preserve the .k-window initial pose
-      if (el.classList.contains('k-window')) { baseRX = 6; baseRY = -4; }
+      if (el.classList.contains('k-frame')) { baseRX = 4; baseRY = -6; }
       const enter = () => el.style.willChange = 'transform';
       const leave = () => {
-        el.style.transform = el.classList.contains('k-window')
+        el.style.transform = el.classList.contains('k-frame')
           ? `rotateX(${baseRX}deg) rotateY(${baseRY}deg)`
           : '';
         el.style.willChange = 'auto';
@@ -1325,12 +1622,81 @@ const steps = [
         const r = el.getBoundingClientRect();
         const x = ((e.clientX - r.left) / r.width - 0.5);
         const y = ((e.clientY - r.top) / r.height - 0.5);
-        const strength = el.classList.contains('k-window') ? 10 : 6;
+        const strength = el.classList.contains('k-frame') ? 8 : 6;
         el.style.transform = `perspective(1200px) rotateX(${baseRX + (-y * strength).toFixed(2)}deg) rotateY(${baseRY + (x * strength).toFixed(2)}deg) translateZ(0)`;
       };
       el.addEventListener('mouseenter', enter);
       el.addEventListener('mousemove', move);
       el.addEventListener('mouseleave', leave);
+    });
+  }
+
+  // --- Hero showcase rotator (auto-cycle slides + URL + accent) ---
+  function initShowcase() {
+    const frame = document.querySelector<HTMLElement>('.k-frame');
+    if (!frame || frame.dataset.rotInit) return;
+    frame.dataset.rotInit = '1';
+    const slides = Array.from(frame.querySelectorAll<HTMLElement>('.k-slide'));
+    const dots   = Array.from(frame.querySelectorAll<HTMLElement>('.k-frame-dots .d'));
+    const urlEl  = document.getElementById('k-frame-url');
+    if (slides.length < 2) return;
+
+    let i = 0;
+    const advance = () => {
+      slides[i].classList.remove('is-active');
+      dots[i]?.classList.remove('is-active');
+      i = (i + 1) % slides.length;
+      slides[i].classList.add('is-active');
+      dots[i]?.classList.add('is-active');
+      if (urlEl) urlEl.textContent = slides[i].dataset.slideUrl || urlEl.textContent;
+    };
+    setInterval(advance, 3800);
+  }
+
+  // --- Cursor spotlight in the hero backdrop ---
+  function initSpotlight() {
+    const hero = document.querySelector<HTMLElement>('.k-hero');
+    const spot = document.getElementById('k-spotlight');
+    if (!hero || !spot || hero.dataset.spInit) return;
+    hero.dataset.spInit = '1';
+    hero.addEventListener('pointermove', (e) => {
+      const r = hero.getBoundingClientRect();
+      const mx = ((e.clientX - r.left) / r.width) * 100;
+      const my = ((e.clientY - r.top) / r.height) * 100;
+      spot.style.setProperty('--mx', mx + '%');
+      spot.style.setProperty('--my', my + '%');
+    }, { passive: true });
+  }
+
+  // --- Magnetic CTA (button leans toward cursor when near) ---
+  function initMagnetic() {
+    const els = document.querySelectorAll<HTMLElement>('.k-magnetic:not([data-mag-init])');
+    els.forEach((el) => {
+      el.setAttribute('data-mag-init', '1');
+      const inner = el.querySelector<HTMLElement>('.k-mag-inner') || el;
+      const RANGE = 90; // px around the button that "pulls" it
+      const STRENGTH = 0.35;
+      const onMove = (e: PointerEvent) => {
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top  + r.height / 2;
+        const dx = e.clientX - cx;
+        const dy = e.clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist > RANGE) {
+          inner.style.setProperty('--mx', '0px');
+          inner.style.setProperty('--my', '0px');
+          return;
+        }
+        inner.style.setProperty('--mx', (dx * STRENGTH).toFixed(2) + 'px');
+        inner.style.setProperty('--my', (dy * STRENGTH).toFixed(2) + 'px');
+      };
+      const reset = () => {
+        inner.style.setProperty('--mx', '0px');
+        inner.style.setProperty('--my', '0px');
+      };
+      window.addEventListener('pointermove', onMove, { passive: true });
+      el.addEventListener('pointerleave', reset);
     });
   }
 
@@ -1577,7 +1943,9 @@ const steps = [
     initTilt();
     initCountUp();
     initBentoActive();
-    initHeroGem();
+    initShowcase();
+    initSpotlight();
+    initMagnetic();
   }
   bootLanding();
   document.addEventListener('astro:page-load', bootLanding);
