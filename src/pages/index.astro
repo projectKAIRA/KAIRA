@@ -9,10 +9,10 @@ const marquee = [
 ];
 
 const stats = [
-  { n: '$1,000', l: 'Websites from' },
-  { n: '<1s',    l: 'Median load time' },
-  { n: '95+',    l: 'Lighthouse scores' },
-  { n: '24/7',   l: 'Care & monitoring' },
+  { n: '1000', prefix: '$', l: 'Websites from' },
+  { n: '0.4',  suffix: 's',  decimals: 1, l: 'Median load time' },
+  { n: '95',   suffix: '+',  l: 'Lighthouse scores' },
+  { n: '24',   suffix: '/7', l: 'Care & monitoring' },
 ];
 
 // Product-style service tiles (Apple.com family lineup)
@@ -129,6 +129,19 @@ const steps = [
             </div>
           </div>
 
+          <!-- Floating phone (device stack partner) -->
+          <div class="k-phone" aria-hidden="true" data-testid="hero-phone">
+            <div class="k-phone-notch"></div>
+            <div class="k-phone-body">
+              <div class="k-phone-hero"></div>
+              <div class="k-phone-title"></div>
+              <div class="k-phone-line"></div>
+              <div class="k-phone-line short"></div>
+              <div class="k-phone-btn"></div>
+              <div class="k-phone-card"><span class="chip chip-a"></span></div>
+            </div>
+          </div>
+
           <!-- floating badges around the window -->
           <div class="k-float k-float-a" aria-hidden="true" data-testid="float-lighthouse">
             <div class="score">98</div>
@@ -159,6 +172,109 @@ const steps = [
     </section>
 
     <!-- =====================================================
+         BENTO GRID — Apple-style variety tiles ("hook" visuals)
+    ===================================================== -->
+    <section class="k-bento" aria-label="What makes a Kaira site" data-testid="bento-section">
+      <div class="k-container">
+        <p class="k-kicker reveal">Under the hood</p>
+        <h2 class="k-h2 reveal-words">
+          Every site ships with <span class="grad-text">the whole package.</span>
+        </h2>
+
+        <div class="k-bento-grid">
+          <!-- Big tile: Speed / gauge -->
+          <div class="bt bt-speed reveal" data-testid="bento-speed">
+            <div class="bt-head">
+              <span class="bt-eyebrow">Speed</span>
+              <h3>Sub-second by default.</h3>
+              <p>Every page ships with image compression, code-splitting, and edge caching baked in.</p>
+            </div>
+            <div class="bt-gauge" aria-hidden="true">
+              <svg viewBox="0 0 200 120">
+                <defs>
+                  <linearGradient id="gauge-g" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#ff375f"/>
+                    <stop offset="0.5" stop-color="#ff9500"/>
+                    <stop offset="1" stop-color="#34c759"/>
+                  </linearGradient>
+                </defs>
+                <path d="M 20 100 A 80 80 0 0 1 180 100" stroke="#e5e5ea" stroke-width="14" fill="none" stroke-linecap="round"/>
+                <path class="gauge-fill" d="M 20 100 A 80 80 0 0 1 180 100" stroke="url(#gauge-g)" stroke-width="14" fill="none" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/>
+                <circle class="gauge-tick" cx="20" cy="100" r="10" fill="#fff" stroke="#ff375f" stroke-width="3"/>
+              </svg>
+              <div class="gauge-value"><b class="count" data-target="0.4" data-decimals="1" data-suffix="s">0.4s</b><span>First paint</span></div>
+            </div>
+          </div>
+
+          <!-- Local SEO -->
+          <div class="bt bt-map reveal reveal-delay-1" data-testid="bento-seo">
+            <span class="bt-eyebrow">Local SEO</span>
+            <h3>Show up on the map.</h3>
+            <div class="bt-map-art" aria-hidden="true">
+              <div class="map-grid"></div>
+              <div class="map-pin"><span></span></div>
+              <div class="map-pulse"></div>
+            </div>
+          </div>
+
+          <!-- Care shield -->
+          <div class="bt bt-care reveal reveal-delay-2" data-testid="bento-care">
+            <span class="bt-eyebrow">Care</span>
+            <h3>Sleeps, so you don't have to.</h3>
+            <div class="bt-shield" aria-hidden="true">
+              <svg viewBox="0 0 120 140" fill="none">
+                <defs>
+                  <linearGradient id="shield-g" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#0071e3"/>
+                    <stop offset="1" stop-color="#7c3aed"/>
+                  </linearGradient>
+                </defs>
+                <path d="M60 8 L108 28 V72 C108 100 87 122 60 132 C33 122 12 100 12 72 V28 Z"
+                  fill="url(#shield-g)" fill-opacity="0.12" stroke="url(#shield-g)" stroke-width="2"/>
+                <path class="check" d="M40 70 L55 85 L82 55" stroke="url(#shield-g)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/>
+              </svg>
+            </div>
+            <p class="bt-foot">Updates · Backups · Monitoring · Support</p>
+          </div>
+
+          <!-- Device / responsive -->
+          <div class="bt bt-devices reveal" data-testid="bento-devices">
+            <div class="bt-devices-art" aria-hidden="true">
+              <div class="dev-laptop"><div class="dev-screen"></div><div class="dev-hinge"></div></div>
+              <div class="dev-phone"></div>
+            </div>
+            <span class="bt-eyebrow">Every screen</span>
+            <h3>Looks sharp phone to widescreen.</h3>
+          </div>
+
+          <!-- Custom design / palette -->
+          <div class="bt bt-palette reveal reveal-delay-1" data-testid="bento-design">
+            <span class="bt-eyebrow">Custom design</span>
+            <h3>No cookie-cutter templates.</h3>
+            <div class="bt-swatches" aria-hidden="true">
+              <div class="sw" style="background:#0071e3"></div>
+              <div class="sw" style="background:#7c3aed"></div>
+              <div class="sw" style="background:#ff375f"></div>
+              <div class="sw" style="background:#34c759"></div>
+              <div class="sw" style="background:#ff9500"></div>
+              <div class="sw" style="background:#1d1d1f"></div>
+            </div>
+          </div>
+
+          <!-- Turnaround -->
+          <div class="bt bt-turn reveal reveal-delay-2" data-testid="bento-turnaround">
+            <span class="bt-eyebrow">Turnaround</span>
+            <h3><span class="count grad-text stat-num" data-target="14" data-suffix=" days">14 days</span></h3>
+            <p>Typical time from kickoff to a live, indexable site.</p>
+            <div class="bt-timeline" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
          BIG STATEMENT — Apple type moment
     ===================================================== -->
     <section class="k-statement" data-testid="statement-section">
@@ -181,7 +297,10 @@ const steps = [
         <div class="k-stats-grid">
           {stats.map((s, i) => (
             <div class={`k-stat reveal reveal-delay-${Math.min(i, 3)}`} data-testid={`stat-${i}`}>
-              <p class="n">{s.n}</p>
+              <p class="n">
+                {s.prefix && <span class="pfx">{s.prefix}</span>}
+                <span class="count" data-target={s.n} data-decimals={s.decimals ?? 0} data-suffix={s.suffix ?? ''}>0</span>
+              </p>
               <p class="l">{s.l}</p>
             </div>
           ))}
@@ -667,7 +786,291 @@ const steps = [
     50%       { transform: translateY(-10px) rotate(0.4deg); }
   }
 
-  /* -------------------- Marquee -------------------- */
+  /* -------------------- Floating phone (device stack partner) -------------------- */
+  .k-phone {
+    position: absolute;
+    z-index: 3;
+    right: 3%;
+    bottom: -6%;
+    width: 22%;
+    max-width: 190px;
+    aspect-ratio: 9 / 19;
+    background: #1d1d1f;
+    border-radius: 26px;
+    padding: 6px;
+    box-shadow:
+      0 30px 60px -20px rgba(15, 23, 42, 0.35),
+      0 12px 24px -12px rgba(15, 23, 42, 0.25),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    transform: rotate(4deg) translateZ(0);
+    animation: phone-float 6s ease-in-out infinite;
+  }
+  @keyframes phone-float {
+    0%, 100% { transform: rotate(4deg) translateY(0); }
+    50%       { transform: rotate(3deg) translateY(-10px); }
+  }
+  .k-phone-notch {
+    position: absolute;
+    top: 10px; left: 50%; transform: translateX(-50%);
+    width: 34%; height: 14px;
+    background: #1d1d1f;
+    border-radius: 0 0 10px 10px;
+    z-index: 2;
+  }
+  .k-phone-body {
+    background: #ffffff;
+    border-radius: 20px;
+    height: 100%;
+    padding: 22px 10px 10px;
+    display: flex; flex-direction: column; gap: 6px;
+    overflow: hidden;
+  }
+  .k-phone-hero {
+    height: 42%;
+    background: linear-gradient(135deg, #0071e3, #7c3aed, #ff375f);
+    border-radius: 12px;
+  }
+  .k-phone-title { height: 8px; width: 80%; background: #1d1d1f; border-radius: 3px; margin-top: 4px; }
+  .k-phone-line  { height: 4px; width: 90%; background: #e5e5ea; border-radius: 2px; }
+  .k-phone-line.short { width: 60%; }
+  .k-phone-btn   { height: 18px; width: 60%; background: #1d1d1f; border-radius: 999px; margin-top: 2px; }
+  .k-phone-card  {
+    height: 60px; background: #f5f5f7; border-radius: 8px;
+    padding: 8px; display: flex; align-items: flex-end; margin-top: auto;
+  }
+  .k-phone-card .chip { width: 22px; height: 22px; border-radius: 6px; }
+
+  @media (max-width: 720px) {
+    .k-phone { right: 2%; bottom: -10%; width: 28%; }
+  }
+
+  /* -------------------- BENTO GRID -------------------- */
+  .k-bento { padding: 40px 0 100px; text-align: center; }
+  .k-bento-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+    margin-top: 48px;
+    text-align: left;
+  }
+  .bt {
+    position: relative;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 24px;
+    padding: 26px;
+    box-shadow: 0 20px 40px -20px rgba(15, 23, 42, 0.10);
+    overflow: hidden;
+    transition: transform 260ms cubic-bezier(0.16,1,0.3,1), box-shadow 260ms ease;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+  }
+  .bt:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 30px 50px -20px rgba(15, 23, 42, 0.14);
+  }
+  .bt-eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #0071e3;
+    margin-bottom: 6px;
+  }
+  .bt h3 {
+    font-size: clamp(20px, 2vw, 26px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: #1d1d1f;
+    text-wrap: balance;
+  }
+  .bt p {
+    color: #6e6e73;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-top: 8px;
+  }
+  .bt-foot { margin-top: auto; font-size: 12px !important; color: #86868b !important; letter-spacing: 0.02em; }
+
+  /* Layout: 6-col grid; tiles occupy varied spans */
+  .bt-speed    { grid-column: span 4; }
+  .bt-map      { grid-column: span 2; }
+  .bt-care     { grid-column: span 2; }
+  .bt-devices  { grid-column: span 2; }
+  .bt-palette  { grid-column: span 2; }
+  .bt-turn     { grid-column: span 6; text-align: center; align-items: center; }
+  .bt-turn h3  { font-size: clamp(44px, 5vw, 68px); font-weight: 700; }
+  .bt-turn p   { max-width: 400px; }
+
+  @media (max-width: 900px) {
+    .k-bento-grid { grid-template-columns: repeat(2, 1fr); }
+    .bt-speed, .bt-map, .bt-care, .bt-devices, .bt-palette, .bt-turn { grid-column: span 2; }
+  }
+
+  /* -- Speed gauge -- */
+  .bt-speed { background: linear-gradient(160deg, #fff 0%, #f5f9ff 100%); }
+  .bt-head { max-width: 320px; }
+  .bt-gauge {
+    margin-top: auto;
+    position: relative;
+    padding-top: 16px;
+  }
+  .bt-gauge svg { width: 100%; max-width: 340px; display: block; }
+  .gauge-fill { transition: stroke-dashoffset 1400ms cubic-bezier(0.32,0.72,0,1); }
+  .bt.is-active .gauge-fill { stroke-dashoffset: 12; }
+  .gauge-value { display: flex; flex-direction: column; margin-top: 6px; }
+  .gauge-value b { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: #34c759; }
+  .gauge-value span { font-size: 12px; color: #6e6e73; }
+
+  /* -- Map tile -- */
+  .bt-map { background: linear-gradient(160deg, #f0f9f4 0%, #fff 100%); }
+  .bt-map-art {
+    position: relative;
+    margin-top: auto;
+    aspect-ratio: 1;
+    border-radius: 16px;
+    overflow: hidden;
+    background: linear-gradient(160deg, #d1fadf, #f0f9f4);
+  }
+  .map-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(52, 199, 89, 0.14) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(52, 199, 89, 0.14) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .map-pin {
+    position: absolute; left: 50%; top: 45%;
+    transform: translate(-50%, -100%);
+    width: 34px; height: 44px;
+  }
+  .map-pin::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, #34c759, #16a34a);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 8px 18px -4px rgba(22, 163, 74, 0.5);
+  }
+  .map-pin span {
+    position: absolute; left: 50%; top: 40%;
+    transform: translate(-50%, -50%);
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #fff;
+    z-index: 1;
+  }
+  .map-pulse {
+    position: absolute; left: 50%; top: 45%;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(52, 199, 89, 0.3);
+    transform: translate(-50%, -50%);
+    animation: mp 2.4s ease-out infinite;
+  }
+  @keyframes mp {
+    0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0.6; }
+    100% { transform: translate(-50%, -50%) scale(3);  opacity: 0; }
+  }
+
+  /* -- Care shield -- */
+  .bt-care { background: linear-gradient(160deg, #f5f0ff 0%, #fff 100%); align-items: center; }
+  .bt-care h3 { text-align: center; }
+  .bt-shield {
+    margin: 6px 0 10px;
+    width: 92px;
+  }
+  .bt-shield svg { width: 100%; }
+  .bt-shield .check { transition: stroke-dashoffset 900ms cubic-bezier(0.32,0.72,0,1) 300ms; }
+  .bt.is-active .check { stroke-dashoffset: 0; }
+
+  /* -- Devices -- */
+  .bt-devices { background: linear-gradient(160deg, #fff 0%, #f5f5f7 100%); align-items: center; text-align: center; }
+  .bt-devices h3 { text-align: center; }
+  .bt-devices-art {
+    position: relative;
+    width: 100%;
+    height: 130px;
+    margin-bottom: 12px;
+  }
+  .dev-laptop {
+    position: absolute; left: 50%; top: 20%;
+    transform: translateX(-50%);
+    width: 160px;
+  }
+  .dev-laptop .dev-screen {
+    height: 90px; border-radius: 8px 8px 2px 2px;
+    background: linear-gradient(135deg, #0071e3, #7c3aed);
+    border: 4px solid #1d1d1f;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15);
+  }
+  .dev-laptop .dev-hinge {
+    height: 6px;
+    background: #1d1d1f;
+    border-radius: 0 0 6px 6px;
+    margin: 0 -14px;
+  }
+  .dev-phone {
+    position: absolute; right: 12%; bottom: -6px;
+    width: 44px; height: 82px;
+    background: #1d1d1f;
+    border-radius: 10px;
+    padding: 4px;
+    box-shadow: 0 8px 20px -6px rgba(15,23,42,0.35);
+  }
+  .dev-phone::before {
+    content: "";
+    display: block;
+    width: 100%; height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(160deg, #ff375f, #7c3aed);
+  }
+
+  /* -- Palette swatches -- */
+  .bt-palette { background: linear-gradient(160deg, #fff 0%, #fff5f8 100%); }
+  .bt-swatches {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    margin-top: auto;
+  }
+  .sw {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px -4px rgba(15, 23, 42, 0.2);
+    animation: sw-pop 800ms cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .sw:nth-child(1) { animation-delay: 0.05s; }
+  .sw:nth-child(2) { animation-delay: 0.10s; }
+  .sw:nth-child(3) { animation-delay: 0.15s; }
+  .sw:nth-child(4) { animation-delay: 0.20s; }
+  .sw:nth-child(5) { animation-delay: 0.25s; }
+  .sw:nth-child(6) { animation-delay: 0.30s; }
+  @keyframes sw-pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* -- Turnaround -- */
+  .bt-turn { background: linear-gradient(120deg, #eff5ff 0%, #f5eeff 50%, #ffeef2 100%); }
+  .bt-timeline {
+    display: flex; gap: 10px; margin-top: 20px;
+    justify-content: center; width: 100%;
+  }
+  .bt-timeline span {
+    height: 6px;
+    flex: 1; max-width: 90px;
+    background: linear-gradient(90deg, #0071e3, #7c3aed, #ff375f);
+    border-radius: 3px;
+    opacity: 0.2;
+    animation: tl-fill 1600ms ease-out both;
+  }
+  .bt-timeline span:nth-child(1) { animation-delay: 0.05s; }
+  .bt-timeline span:nth-child(2) { animation-delay: 0.25s; }
+  .bt-timeline span:nth-child(3) { animation-delay: 0.45s; }
+  .bt-timeline span:nth-child(4) { animation-delay: 0.65s; }
+  @keyframes tl-fill { from { opacity: 0.2; } to { opacity: 1; } }
+
+  .k-stat .pfx { font-size: 0.55em; color: inherit; margin-right: 2px; opacity: 0.9; }
+
+  /* -------------------- BENTO GRID end -------------------- */
   .k-marquee {
     padding: 50px 0 30px;
     text-align: center;
@@ -931,7 +1334,73 @@ const steps = [
     });
   }
 
-  // --- Three.js: floating iridescent gem behind the hero window ---
+  // --- Count-up on scroll into view ---
+  function initCountUp() {
+    const els = document.querySelectorAll<HTMLElement>('.count:not([data-cu-init])');
+    if (!els.length) return;
+    els.forEach((el) => {
+      el.setAttribute('data-cu-init', '1');
+      const target = parseFloat(el.dataset.target || '0');
+      const decimals = parseInt(el.dataset.decimals || '0', 10);
+      const suffix = el.dataset.suffix || '';
+      const formatNum = (v: number) => {
+        const fixed = v.toFixed(decimals);
+        // Add thousands separators for whole-number stats like 1,000
+        return decimals === 0 && target >= 1000
+          ? Math.round(v).toLocaleString('en-US')
+          : fixed;
+      };
+      // Start hidden as 0 with same suffix so layout doesn't jump
+      el.textContent = formatNum(0) + suffix;
+      const io = new IntersectionObserver(
+        (entries, obs) => {
+          for (const e of entries) {
+            if (!e.isIntersecting) continue;
+            obs.disconnect();
+            const start = performance.now();
+            const dur = 1400;
+            const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+            const step = (now: number) => {
+              const t = Math.min(1, (now - start) / dur);
+              const v = target * ease(t);
+              el.textContent = formatNum(v) + suffix;
+              if (t < 1) requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+          }
+        },
+        { threshold: 0.35 }
+      );
+      io.observe(el);
+    });
+  }
+
+  // --- Bento tile "is-active" state to trigger gauge fill + shield check ---
+  function initBentoActive() {
+    const tiles = document.querySelectorAll<HTMLElement>('.bt:not([data-bt-init])');
+    tiles.forEach((el) => {
+      el.setAttribute('data-bt-init', '1');
+      new IntersectionObserver(
+        (entries, obs) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              el.classList.add('is-active');
+              // Speed gauge: animate stroke-dashoffset from 12 → all the way filled to ~92
+              const gauge = el.querySelector<SVGPathElement>('.gauge-fill');
+              if (gauge) {
+                // 100 - 8 = 92 filled (leaves a small tip)
+                gauge.style.strokeDashoffset = '8';
+              }
+              obs.unobserve(el);
+            }
+          }
+        },
+        { threshold: 0.3 }
+      ).observe(el);
+    });
+  }
+
+
   async function initHeroGem() {
     const canvas = document.getElementById('k-hero-canvas') as HTMLCanvasElement | null;
     if (!canvas || canvas.dataset.init) return;
@@ -1106,6 +1575,8 @@ const steps = [
   function bootLanding() {
     if (!document.querySelector('.kaira-landing')) return;
     initTilt();
+    initCountUp();
+    initBentoActive();
     initHeroGem();
   }
   bootLanding();

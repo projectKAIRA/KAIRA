@@ -19,6 +19,10 @@
 - Inner pages reuse legacy structure but auto-adapt to the new light tokens
 
 ## Bug Fixes This Iteration
+- **[Latest]** New geometric "K" logo replaces the butterfly across nav, footer, favicon
+- **[Latest]** Bento grid section added (speed gauge, map pin, care shield, device art, palette, timeline)
+- **[Latest]** Live count-up on stats (0 → target on scroll into view)
+- **[Latest]** Device stack: floating phone alongside the hero browser mockup
 - **Invisible headline words** on landing (e.g. "small business in town?") — the reveal-words script split each word into a `<span class="w">`, but `.k-grad` used `background-clip:text` + `color:transparent`, making inner spans invisible. Fixed by renaming `.k-grad` → `.grad-text` so the script treats it as a single revealed unit.
 - Removed `body:has(.kaira-landing)` scoped overrides — no longer needed since global theme is now light.
 

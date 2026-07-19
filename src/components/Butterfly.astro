@@ -1,43 +1,50 @@
 ---
-// The KAIRA butterfly mark — spectrum wings (teal→blue up top, violet→magenta
-// below), matching branding/kaira-mark.svg and the 3D flying butterfly.
+// KAIRA "K" monogram — geometric, gradient-filled, drop-in replacement
+// for the previous butterfly mark. The file is still named Butterfly.astro
+// for import compatibility, but the mark itself is now a modern K.
 interface Props {
   class?: string;
+  /** If true, wraps the K in a rounded-square badge (Apple app-icon style). */
+  badge?: boolean;
 }
-const { class: className = 'h-9 w-9' } = Astro.props;
+const { class: className = 'h-9 w-9', badge = false } = Astro.props;
+
+// Unique gradient id per instance so multiple logos on one page keep their fills.
+const uid = 'k' + Math.random().toString(36).slice(2, 8);
 ---
 
-<svg class={className} viewBox="0 0 520 520" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<svg class={className} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
-    <linearGradient id="kbf-ul" x1="1" y1="1" x2="0" y2="0">
-      <stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#2dd4bf"/>
+    <linearGradient id={`${uid}-fill`} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"   stop-color="#0071e3"/>
+      <stop offset="0.5" stop-color="#7c3aed"/>
+      <stop offset="1"   stop-color="#ff375f"/>
     </linearGradient>
-    <linearGradient id="kbf-ur" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#38bdf8"/>
-    </linearGradient>
-    <linearGradient id="kbf-ll" x1="1" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#c4b5fd"/>
-    </linearGradient>
-    <linearGradient id="kbf-lr" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ff2d78"/>
-    </linearGradient>
-    <linearGradient id="kbf-body" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#c4b5fd"/><stop offset="1" stop-color="#7c3aed"/>
+    <linearGradient id={`${uid}-badge`} x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f5f5f7"/>
     </linearGradient>
   </defs>
-  <g stroke-linejoin="round" stroke-linecap="round">
-    <path d="M 254 244 C 210 178, 128 138, 96 170 C 66 200, 116 262, 176 268 C 210 271, 240 262, 254 244 Z"
-          fill="url(#kbf-ul)" fill-opacity="0.14" stroke="url(#kbf-ul)" stroke-width="18"/>
-    <path d="M 266 244 C 310 178, 392 138, 424 170 C 454 200, 404 262, 344 268 C 310 271, 280 262, 266 244 Z"
-          fill="url(#kbf-ur)" fill-opacity="0.14" stroke="url(#kbf-ur)" stroke-width="18"/>
-    <path d="M 252 282 C 216 320, 178 386, 204 412 C 228 436, 268 388, 262 330 C 260 310, 258 294, 252 282 Z"
-          fill="url(#kbf-ll)" fill-opacity="0.14" stroke="url(#kbf-ll)" stroke-width="18"/>
-    <path d="M 268 282 C 304 320, 342 386, 316 412 C 292 436, 252 388, 258 330 C 260 310, 262 294, 268 282 Z"
-          fill="url(#kbf-lr)" fill-opacity="0.14" stroke="url(#kbf-lr)" stroke-width="18"/>
-    <path d="M 252 208 C 240 178, 216 158, 196 150" stroke="url(#kbf-body)" stroke-width="13"/>
-    <path d="M 268 208 C 280 178, 304 158, 324 150" stroke="url(#kbf-body)" stroke-width="13"/>
-    <circle cx="193" cy="148" r="12" fill="#c4b5fd"/>
-    <circle cx="327" cy="148" r="12" fill="#c4b5fd"/>
-    <path d="M 260 212 C 270 246, 270 330, 260 366 C 250 330, 250 246, 260 212 Z" fill="url(#kbf-body)"/>
+
+  {badge && (
+    <rect x="4" y="4" width="92" height="92" rx="22" fill={`url(#${uid}-badge)`} stroke="rgba(0,0,0,0.06)"/>
+  )}
+
+  <!-- Geometric K: filled monogram with a gradient inline stroke on the diagonals.
+       Two shapes: the vertical bar (rounded rect) and a wedge forming the two arms. -->
+  <g>
+    <!-- Vertical bar -->
+    <rect x="20" y="14" width="15" height="72" rx="3" fill={`url(#${uid}-fill)`}/>
+
+    <!-- Upper arm (from mid-vertical up to top-right) -->
+    <path
+      d="M 35 46 L 68 14 L 84 14 L 46 50 Z"
+      fill={`url(#${uid}-fill)`}
+    />
+    <!-- Lower arm (from mid-vertical down to bottom-right) -->
+    <path
+      d="M 35 54 L 46 50 L 84 86 L 68 86 Z"
+      fill={`url(#${uid}-fill)`}
+    />
   </g>
 </svg>
