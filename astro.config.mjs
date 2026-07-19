@@ -9,7 +9,18 @@ export default defineConfig({
   site: SITE_URL,
   output: 'static',
   integrations: [sitemap()],
+  server: {
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: true,
+  },
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      host: '0.0.0.0',
+      port: 3000,
+      allowedHosts: true,
+      hmr: { clientPort: 443, protocol: 'wss' },
+    },
   },
 });
