@@ -191,6 +191,20 @@ body::after { content: none; } /* no grain on light theme */
   background-clip: text;
   color: transparent;
   display: inline-block; /* keep single-word behavior */
+  /* Prevent tall letters (K, l, d, capitals) from being clipped by
+     background-clip:text when parent line-height is tight. */
+  line-height: 1.15;
+  padding: 0.06em 0.02em;
+}
+
+/* Same clipping guard for inline gradient headings (services/pricing/about
+   use inline style backgrounds instead of the class). */
+h1[style*="background-clip"],
+h2[style*="background-clip"],
+h3[style*="background-clip"],
+p[style*="background-clip"] {
+  line-height: 1.15;
+  padding: 0.06em 0.02em;
 }
 
 /* Gradient hairline border on a light tile */
