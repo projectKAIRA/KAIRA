@@ -1,0 +1,26 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  envDir: path.resolve(__dirname, '..'),
+  envPrefix: ['VITE_', 'PUBLIC_'],
+  build: {
+    outDir: '../dist',
+    emptyOutDir: true,
+  },
+  resolve: {
+    alias: { '@': path.resolve(__dirname, './src') },
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: true,
+    hmr: { clientPort: 443, protocol: 'wss' },
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 3000,
+  },
+});

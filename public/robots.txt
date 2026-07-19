@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://trykaira.ai/sitemap-index.xml

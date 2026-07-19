@@ -8,3 +8,7 @@ env.backup
 env.bak
 !.env.example
 .wrangler/
+credentials.json
+*.pem
+*.key
+.credentials
