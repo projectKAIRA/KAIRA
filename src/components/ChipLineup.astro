@@ -1,0 +1,54 @@
+---
+// Apple "M5 family" homage: a row of glowing gradient tiles, each with its own
+// spectrum accent, revealed one-by-one. Used on Home (services) and Pricing (tiers).
+interface Tile {
+  kicker: string; // small mono label above the name, e.g. "BUILD"
+  name: string; // big tile name, e.g. "Website Build"
+  detail: string; // one-liner under the name
+  a: string; // gradient accent start (css color)
+  b: string; // gradient accent end
+  href?: string;
+  price?: string; // optional price line (pricing page)
+}
+interface Props {
+  tiles: Tile[];
+  class?: string;
+}
+const { tiles, class: className = '' } = Astro.props;
+---
+
+<div class={`grid gap-6 md:grid-cols-3 ${className}`}>
+  {
+    tiles.map((t, i) => {
+      const inner = (
+        <>
+          <div
+            aria-hidden="true"
+            class="pointer-events-none absolute inset-0 rounded-[inherit] opacity-65 transition-opacity duration-500 group-hover:opacity-90"
+            style={`background: radial-gradient(120% 90% at 50% 110%, color-mix(in srgb, ${t.a} 32%, transparent) 0%, color-mix(in srgb, ${t.b} 13%, transparent) 45%, transparent 75%);`}
+          />
+          <p class="hud-label relative">{t.kicker}</p>
+          <p
+            class="relative mt-4 text-3xl font-bold tracking-tight sm:text-4xl"
+            style={`background: linear-gradient(115deg, ${t.a}, ${t.b}); -webkit-background-clip: text; background-clip: text; color: transparent;`}
+          >
+            {t.name}
+          </p>
+          {t.price && <p class="stat-num relative mt-2 text-lg font-semibold text-ink">{t.price}</p>}
+          <p class="relative mt-3 text-sm leading-relaxed text-ink-muted">{t.detail}</p>
+        </>
+      );
+      const cls = `grad-border group relative overflow-hidden rounded-3xl p-8 text-center transition-transform duration-300 ease-(--ease-enter) hover:-translate-y-1.5 reveal ${i > 0 ? `reveal-delay-${Math.min(i, 3)}` : ''}`;
+      const style = `--tile-a: ${t.a}; --tile-b: ${t.b};`;
+      return t.href ? (
+        <a href={t.href} class={cls} style={style}>
+          {inner}
+        </a>
+      ) : (
+        <div class={cls} style={style}>
+          {inner}
+        </div>
+      );
+    })
+  }
+</div>

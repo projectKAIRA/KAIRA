@@ -1,0 +1,237 @@
+---
+import Base from '../layouts/Base.astro';
+import Butterfly from '../components/Butterfly.astro';
+import HeroScene from '../components/HeroScene.astro';
+import BigStatement from '../components/BigStatement.astro';
+import ChipLineup from '../components/ChipLineup.astro';
+import ScrollScene from '../components/ScrollScene.astro';
+import RenderScene from '../components/RenderScene.astro';
+
+const pillarTiles = [
+  {
+    kicker: 'DESIGN.CORE',
+    name: 'Websites',
+    detail:
+      'Custom-designed, mobile-first websites built to load fast, look sharp, and turn visitors into customers.',
+    a: '#2dd4bf',
+    b: '#38bdf8',
+    href: '/services',
+  },
+  {
+    kicker: 'SEARCH.SYS',
+    name: 'SEO',
+    detail:
+      'Clean structure, local search optimization, and the technical groundwork Google rewards — built in from day one.',
+    a: '#38bdf8',
+    b: '#a78bfa',
+    href: '/services',
+  },
+  {
+    kicker: 'CARE.LOOP',
+    name: 'Care',
+    detail:
+      'Updates, security, backups, and small changes handled for you — so your site stays fresh without lifting a finger.',
+    a: '#a78bfa',
+    b: '#ff2d78',
+    href: '/services',
+  },
+];
+
+const steps = [
+  { n: '01', title: 'Discovery', body: 'A short call to understand your business, customers, and goals.' },
+  { n: '02', title: 'Design & Build', body: 'We design and build your site, sharing progress along the way.' },
+  { n: '03', title: 'Launch', body: 'Your site goes live — fast, polished, and ready to be found.' },
+  { n: '04', title: 'Grow', body: 'Optional maintenance and SEO keep it improving month after month.' },
+].map((s, i, arr) => ({
+  ...s,
+  a: i === 0 ? -0.2 : i / arr.length,
+  b: i === arr.length - 1 ? 1.2 : (i + 1) / arr.length,
+}));
+
+const telemetry = [
+  { label: 'SEO.SCORE', value: '98/100', pos: 'left-[8%] top-[120px]' },
+  { label: 'LOAD.TIME', value: '0.4s', pos: 'right-[9%] top-[150px]' },
+  { label: 'UPTIME', value: '99.9%', pos: 'left-[12%] top-[360px]' },
+  { label: 'SIGNAL', value: 'STRONG', pos: 'right-[13%] top-[340px]' },
+];
+---
+
+<Base
+  title="KAIRA — Modern Websites for Local Businesses"
+  description="KAIRA builds professional websites with SEO fundamentals and ongoing maintenance for local businesses. Websites starting at $1,000."
+>
+  <!-- ============ HERO ============ -->
+  <section class="mesh-bg relative overflow-hidden">
+    <HeroScene />
+
+    <!-- HUD telemetry around the orb (decorative) -->
+    <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 top-0 hidden lg:block">
+      {
+        telemetry.map((t) => (
+          <div class={`absolute ${t.pos} flex items-center gap-3`}>
+            <span class="h-px w-6 bg-white/15" />
+            <span class="hud-label">{t.label} <span class="text-purple">{t.value}</span></span>
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="relative z-[1] mx-auto max-w-6xl px-5 pb-24 pt-[430px] text-center sm:pt-[460px] md:pb-28">
+      <p class="reveal hud-label mb-5 !text-ink-muted">
+        KAIRA <span class="text-white/25">//</span> WEB DESIGN STUDIO <span class="text-white/25">//</span> EST. 2026
+      </p>
+
+      <p class="reveal mx-auto inline-flex items-center gap-2 rounded-full border border-purple/25 bg-white/[0.04] px-4 py-1.5 text-xs font-semibold tracking-widest text-purple backdrop-blur">
+        <span class="status-dot"></span> WEBSITES STARTING AT $1,000
+      </p>
+
+      <h1 class="reveal-words mx-auto mt-6 max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight text-ink sm:text-5xl md:text-6xl">
+        The web presence your business
+        <span class="grad-text">was meant to have.</span>
+      </h1>
+
+      <p class="reveal reveal-delay-2 mx-auto mt-6 max-w-xl text-lg leading-relaxed text-ink-soft">
+        Designed to impress. Engineered to be found. Maintained so it stays that way.
+      </p>
+
+      <div class="reveal reveal-delay-3 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+        <a
+          href="/contact"
+          class="w-full rounded-full bg-violet px-8 py-3.5 text-base font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98] sm:w-auto"
+        >
+          Get a Free Quote
+        </a>
+        <a
+          href="/portfolio"
+          class="glass w-full rounded-full px-8 py-3.5 text-base font-semibold text-ink transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98] sm:w-auto"
+        >
+          See Our Work
+        </a>
+      </div>
+
+      <!-- Stat counters -->
+      <div class="reveal reveal-delay-3 glass mx-auto mt-16 grid max-w-2xl grid-cols-3 divide-x divide-white/[0.07] rounded-2xl">
+        {
+          [
+            { n: '<1s', l: 'LOAD TIMES' },
+            { n: '95+', l: 'LIGHTHOUSE SCORES' },
+            { n: '24/7', l: 'SITE MONITORING' },
+          ].map((s) => (
+            <div class="px-2 py-6 sm:py-7">
+              <p class="stat-num text-2xl font-bold text-ink sm:text-3xl">{s.n}</p>
+              <p class="hud-label mt-2">{s.l}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BIG STATEMENT ============ -->
+  <BigStatement
+    lead="Websites that feel"
+    punch="impossibly fast."
+    sub="Every KAIRA site is engineered like a product — sub-second loads, buttery scrolling, and detail everywhere you look."
+  />
+
+  <!-- ============ PILLARS (chip lineup) ============ -->
+  <section class="relative mx-auto max-w-6xl px-5 pb-20 md:pb-28" aria-labelledby="pillars-heading">
+    <div class="reveal flex items-center justify-between border-b border-white/[0.07] pb-4">
+      <p class="hud-label">SERVICES <span class="text-white/25">//</span> 3 MODULES</p>
+      <p class="pill"><span class="status-dot"></span> ALL SYSTEMS ACTIVE</p>
+    </div>
+
+    <h2 id="pillars-heading" class="reveal-words mt-10 text-center text-3xl font-bold tracking-tight text-ink md:text-5xl">
+      Websites. SEO. Care. <span class="grad-text">One big, powerful family.</span>
+    </h2>
+    <p class="reveal mx-auto mt-4 max-w-lg text-center text-ink-muted">
+      Three services, one goal — making sure customers find you and choose you.
+    </p>
+
+    <ChipLineup tiles={pillarTiles} class="mt-14" />
+
+    <p class="reveal mt-10 text-center">
+      <a href="/services" class="font-semibold text-purple hover:underline">Explore all services →</a>
+    </p>
+  </section>
+
+  <!-- ============ SHOWCASE (cinematic media slot) ============ -->
+  <section class="mx-auto max-w-6xl px-5 pb-20 md:pb-28">
+    <div class="scrub scrub-fade">
+      <RenderScene label="KAIRA // LIVE RENDER" class="shadow-(--shadow-glass-lg)" />
+    </div>
+  </section>
+
+  <!-- ============ PROCESS (pinned scroll scene) ============ -->
+  <ScrollScene mult={3.4} class="border-y border-white/[0.06] bg-[#060607]">
+    <div class="relative mx-auto w-full max-w-3xl px-5 text-center">
+      <p class="hud-label">PROCESS <span class="text-white/25">//</span> 4 STEPS <span class="text-white/25">//</span> KEEP SCROLLING</p>
+
+      <div class="relative mt-8 h-72 sm:h-64">
+        {
+          steps.map((s) => (
+            <div
+              class="process-step pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
+              style={`--a:${s.a};--b:${s.b};`}
+            >
+              <span class="grad-text stat-num text-7xl font-bold tracking-tight sm:text-8xl">{s.n}</span>
+              <h3 class="mt-4 text-2xl font-semibold text-white sm:text-3xl">{s.title}</h3>
+              <p class="mx-auto mt-3 max-w-md text-base leading-relaxed text-white/55">{s.body}</p>
+            </div>
+          ))
+        }
+      </div>
+
+      <div class="mx-auto mt-8 h-1 w-56 overflow-hidden rounded-full bg-white/10">
+        <div
+          class="h-full rounded-full bg-gradient-to-r from-spark-teal via-spark-blue to-magenta"
+          style="width: calc(var(--p) * 100%);"
+        >
+        </div>
+      </div>
+      <p class="hud-label mt-4">AVG. TIMELINE <span class="text-purple">2–4 WEEKS</span></p>
+    </div>
+  </ScrollScene>
+
+  <!-- ============ CTA ============ -->
+  <section class="relative overflow-hidden" aria-labelledby="cta-heading">
+    <div aria-hidden="true" class="pointer-events-none absolute inset-0">
+      <div class="absolute -bottom-40 left-1/2 h-[480px] w-[720px] -translate-x-1/2 rounded-full opacity-30 blur-3xl"
+        style="background: radial-gradient(closest-side, rgba(139,92,246,0.55), rgba(56,189,248,0.25) 55%, transparent);">
+      </div>
+    </div>
+    <div class="relative mx-auto max-w-3xl px-5 py-20 text-center md:py-28">
+      <Butterfly class="reveal animate-float mx-auto mb-8 h-14 w-14 opacity-70" />
+      <h2 id="cta-heading" class="reveal-words text-3xl font-bold tracking-tight text-ink md:text-5xl">
+        Ready to look as good online <span class="grad-text">as you are in person?</span>
+      </h2>
+      <p class="reveal reveal-delay-1 mt-4 text-lg text-ink-soft">
+        Tell us about your business and get a free, no-pressure quote within one business day.
+      </p>
+      <a
+        href="/contact"
+        class="reveal reveal-delay-2 mt-8 inline-block rounded-full bg-violet px-8 py-3.5 text-base font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98]"
+      >
+        Get Your Free Quote
+      </a>
+      <p class="reveal reveal-delay-3 hud-label mt-8">NO PRESSURE <span class="text-white/25">//</span> NO OBLIGATION <span class="text-white/25">//</span> REPLY IN 1 BUSINESS DAY</p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* Crossfade each process step through its --p window [--a, --b] */
+  .process-step {
+    --t: clamp(0, min(calc((var(--p) - var(--a)) / 0.05), calc((var(--b) - var(--p)) / 0.05)), 1);
+    opacity: var(--t);
+    transform: translateY(calc((1 - var(--t)) * 18px));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* No pinned theatre: lay the steps out as a plain stacked list */
+    :global(.scroll-scene) { height: auto !important; }
+    :global(.scroll-scene__stage) { position: static; height: auto; padding: 5rem 0; }
+    .process-step { position: static; opacity: 1; transform: none; margin-top: 2.5rem; }
+    .process-step + .process-step { margin-top: 3rem; }
+  }
+</style>
