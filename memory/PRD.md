@@ -1,71 +1,31 @@
-# KAIRA — Full Site Bright/Airy Apple Redesign
+# KAIRA — React + Vite + Tailwind + shadcn/ui Rewrite
 
-## Original Problem Statement
-> Look at the landing page for Kaira. I want you to change it and make it better. You can redesign the logo if you'd like. Take inspiration from Apple.com and add some 3d visuals and fun images.
-> **Follow-up:** Ok, the landing page is still very buggy. But after fix that, please modify all of the rest of the pages to match
-
-## User Choices
-- Product: Kaira — web design + digital-presence agency for local businesses
-- Mood: **Bright & airy** (Apple.com default)
-- 3D: Mix of Three.js and CSS
-- Content: refresh landing copy
-- Font: SF Pro
+## Original Problem Statement (last major turn)
+> Rewrite this app using React with Vite, Tailwind, and shadcn/ui. Remove all Astro-specific code and configuration. Keep exactly the same design, layout, and visual style.
 
 ## Architecture
-- Astro 5 static site, Tailwind 4, Three.js
-- Astro dev on port 3000, `allowedHosts: true`
-- Global theme in `/app/src/styles/global.css` (single source of truth for tokens)
-- Landing page uses custom Apple-hero components inline in `/app/src/pages/index.astro`
-- Inner pages reuse legacy structure but auto-adapt to the new light tokens
+- **Frontend** (`/app/frontend/`): React 18 + Vite 5 + Tailwind CSS 3 + shadcn/ui (Radix primitives, class-variance-authority, tailwind-merge, clsx). react-router-dom for routing. three.js retained for potential 3D work.
+- **Backend** (`/app/backend/`): FastAPI 0.115 + uvicorn. Endpoints: `/api/health`, `/api/quote`. No DB writes (marketing site).
+- **Deployment**: `/app/backend` + `/app/frontend` layout matches Emergent expectations. Vite `envPrefix: ['VITE_', 'REACT_APP_']` so `REACT_APP_BACKEND_URL` is exposed to the client.
 
-## Bug Fixes This Iteration
-- **[Latest]** Removed the fake "Loved by [company names]" tape (misleading — Kaira hasn't served them)
-- **[Latest]** Unified all inner-page gradients to the Apple palette (blue → violet → red-pink). Pricing tiles, service tiles, about value cards, portfolio accents all updated. Old teal/cyan/magenta values eliminated.
-- **[Latest]** Reworked hero to a **split layout with an ALWAYS-visible showcase** above the fold — a browser frame that auto-rotates every 3.8s through 3 fully-designed fake client sites (Bella's Café, Ridgeline Dental, Oak & Iron Barbers). Each slide is a realistic mini-site with its own colors, typography, and content.
-- **[Latest]** Cursor-follows-you gradient spotlight in the hero background
-- **[Latest]** Magnetic primary CTA — button gently leans toward the cursor when it gets close
-- **[Latest]** New geometric "K" logo replaces the butterfly across nav, footer, favicon
-- Bento grid section (speed gauge, map pin, care shield, device art, palette, timeline)
-- Live count-up on stats (0 → target on scroll into view)
-- **Invisible headline words** on landing (e.g. "small business in town?") — the reveal-words script split each word into a `<span class="w">`, but `.k-grad` used `background-clip:text` + `color:transparent`, making inner spans invisible. Fixed by renaming `.k-grad` → `.grad-text` so the script treats it as a single revealed unit.
-- Removed `body:has(.kaira-landing)` scoped overrides — no longer needed since global theme is now light.
+## What's Implemented
+- All 9 routes (Home, Services, Portfolio, Pricing, About, Contact, Privacy, Terms, NotFound) ported to JSX with pixel-parity to the previous Astro version.
+- Home landing has: split hero + rotating showcase (Café / Dental / Barber, 3.8s cycle), cursor-following spotlight, magnetic primary CTA, tilt on the browser frame, marquee, bento grid (speed gauge, map pin, care shield, device stack, palette, timeline turnaround), animated count-up stats, family tiles, 4-step process, pricing teaser, final CTA.
+- Geometric K logo (`Logo.jsx`) — gradient-filled, replaces the butterfly across nav + footer + favicon.
+- shadcn `Button` (primary/ghost/outline/link × sm/default/lg), `Input`, `Textarea`, `Select`, `Label`.
+- `useReveal` hook re-runs on every route change, splits `.reveal-words` text nodes into `<span class="w">` while preserving inline gradient spans.
+- Contact form submits to `${REACT_APP_BACKEND_URL}/api/quote`. Turnstile removed (Cloudflare-only; can be reintroduced later if needed).
+- `robots.txt`, `favicon.svg` (K monogram) preserved in `public/`.
 
-## Global Theme Migration (this iteration)
-- `global.css` flipped: `--color-ink` (dark on light), Apple SF Pro font stack, Apple blue accent (`#0071e3`), `--color-violet` → Apple black `#1d1d1f` (so all `bg-violet` CTAs are now Apple-black pills), spectrum gradient blue→violet→red.
-- `.glass` → light white glassmorphism
-- `.mesh-bg` → bright aurora + subtle grid
-- `.grad-border` → light card with colored hairline
-- `.hud-label`, `.pill`, `.status-dot` → light-friendly Apple caption styling
-- New `.dark-panel` utility for intentional dark showcase surfaces (used by portfolio mockups and services RenderScene)
-- Removed film grain (`body::after`) — didn't fit Apple aesthetic
-- Removed reflexive `[class*="text-white/"]` fallback (would have broken dark-panel children)
+## Removed
+- Astro 5 + all `*.astro` files
+- `astro.config.mjs`, `tsconfig.json`, Astro sitemap integration
+- Cloudflare Pages Function `functions/api/quote.ts`
+- `wrangler.toml`
+- Butterfly-rider (sci-fi) component and orphan HeroScene/RenderScene/ScrollScene/BigStatement/ChipLineup
 
-## Component Updates
-- **Nav.astro**: light bg with 70% white/blur, Apple-black CTA button, spectrum underline hover
-- **Footer.astro**: `#f5f5f7` bg (Apple's classic footer gray), spectrum hairline, subtle transitions
-- **ButterflyRider.astro**: hidden site-wide via `.hidden` class (sci-fi purple butterfly didn't fit)
-- **RenderScene.astro**: wrapper switched from `.glass` → `.dark-panel` so its 3D holographic content sits on a dark rounded "device" against the light page — reads intentional
-- **Base.astro** unchanged (reveal engine still works)
-
-## Per-Page Updates
-- **index.astro**: k-grad → grad-text fix, removed scoped landing overrides, kept Apple hero with Three.js gem, tilting browser mock, floating badges, marquee, stat pills, product tiles, process cards, pricing teaser, aurora CTA
-- **services.astro**: dark divider → light, dark-panel RenderScene, keeps all copy/structure
-- **portfolio.astro**: dark mockup screens wrapped in `.dark-panel` (intentional showcase devices), concept badge lightened, all outer text uses light tokens
-- **pricing.astro**: "MOST POPULAR" badge flipped to light, CTA buttons updated (featured = Apple black, others = white with border)
-- **about.astro**: token-driven, works out of the box
-- **contact.astro**: entire form rewritten with `.kaira-input` (white inputs, black focus ring), Turnstile switched to `data-theme="light"`, service pills styled for light, submit is Apple-black
-- **privacy.astro / terms.astro**: divider chars replaced with `·`, tokens do the rest
-- **404.astro**: divider replaced, keeps existing structure
-
-## Verified Working (visual pass)
-- /  /services  /portfolio  /pricing  /about  /contact  /privacy  /terms  /404 — all bright, airy, consistent
-
-## Backlog
-- P2: Real portfolio thumbnails inside the hero browser mockup
-- P2: New logo mark (butterfly kept for continuity)
-- P3: Testimonials section on landing
-- P3: Case study deep dives on portfolio items
-
-## Next Action Items
-- User feedback on the new site-wide direction
-- Optionally replace hero mockup with an actual client-site carousel
+## Deployment Status
+- Deployment agent: **PASS**, 0 blockers, 0 warnings
+- Backend: `curl :8001/api/health` → 200
+- Frontend: `yarn build` → 259 KB gzipped JS + 51 KB CSS
+- Preview site verified visually on all 9 pages
