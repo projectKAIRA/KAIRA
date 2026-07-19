@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Nav from './Nav';
 import Footer from './Footer';
+import Butterfly from './Butterfly';
 import { useReveal } from '@/hooks/useReveal';
 
 export default function Layout({ children }) {
@@ -18,6 +19,7 @@ export default function Layout({ children }) {
   return (
     <div className="flex min-h-screen flex-col">
       <Nav />
+      <Butterfly />
       <main className="relative z-[2] flex-1">{children}</main>
       <Footer />
     </div>
