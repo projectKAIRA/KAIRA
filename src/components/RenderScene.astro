@@ -12,7 +12,7 @@ const { label, class: className = '', ratio = '16 / 9' } = Astro.props;
 ---
 
 <div
-  class={`glass relative overflow-hidden rounded-3xl ${className}`}
+  class={`dark-panel relative overflow-hidden ${className}`}
   style={`aspect-ratio: ${ratio};`}
 >
   <canvas data-render-scene class="absolute inset-0 h-full w-full"></canvas>

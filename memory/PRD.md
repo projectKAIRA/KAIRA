@@ -1,50 +1,63 @@
-# KAIRA — Landing Page Redesign
+# KAIRA — Full Site Bright/Airy Apple Redesign
 
 ## Original Problem Statement
 > Look at the landing page for Kaira. I want you to change it and make it better. You can redesign the logo if you'd like. Take inspiration from Apple.com and add some 3d visuals and fun images.
+> **Follow-up:** Ok, the landing page is still very buggy. But after fix that, please modify all of the rest of the pages to match
 
 ## User Choices
-- Product: Kaira is a web design + digital-presence agency for local businesses (sites from $1,000, care from $75/mo, SEO). Astro + Tailwind on Cloudflare Pages, `trykaira.ai`.
+- Product: Kaira — web design + digital-presence agency for local businesses
 - Mood: **Bright & airy** (Apple.com default)
-- 3D: **Mix of Three.js and CSS/animated 3D**
-- Content: **Refresh landing copy** — do NOT touch anything else besides the landing page
-- Type: **SF Pro** (Apple system font stack)
+- 3D: Mix of Three.js and CSS
+- Content: refresh landing copy
+- Font: SF Pro
 
 ## Architecture
-- Astro 5 static site + Tailwind 4 + Three.js (already installed)
-- Astro dev server on port 3000, `allowedHosts: true` (added for Emergent preview)
-- All changes limited to `/app/src/pages/index.astro` (and `astro.config.mjs` for host allow)
-- Landing-only style overrides scoped via `body:has(.kaira-landing)` selectors → other pages untouched
+- Astro 5 static site, Tailwind 4, Three.js
+- Astro dev on port 3000, `allowedHosts: true`
+- Global theme in `/app/src/styles/global.css` (single source of truth for tokens)
+- Landing page uses custom Apple-hero components inline in `/app/src/pages/index.astro`
+- Inner pages reuse legacy structure but auto-adapt to the new light tokens
 
-## What's Implemented (2026-01-19)
-- New Apple-inspired bright/airy hero: big serif-less display type, gradient accent word "inevitable.", soft aurora blobs, subtle grid mask, animated CTA row, status pill "Now booking Spring '26 projects"
-- **3D hero stage**:
-  - Three.js: iridescent shader gem + wire icosahedron + two orbit rings + 3 orbiting spheres + particle field, pointer parallax
-  - CSS 3D tilting mock browser window (perspective + mousemove) showing a mini KAIRA site
-  - Three floating glass badges (Lighthouse 98, First-paint 0.4s, SEO #1)
-- Marquee of local-business types (Cafés, Barbershops, Dentists…) — infinite scroll
-- Big statement moment: "Your storefront never sleeps. Make it worth showing up to."
-- Stat pill row: $1,000 · <1s · 95+ · 24/7 (gradient numbers, tabular)
-- "Kaira family" product tiles (Websites, Local SEO, Care Plans) — Apple product-lineup style with custom gradient SVG illustrations + tilt-on-hover
-- 4-step process cards (Discovery → Grow) with gradient step numbers
-- Pricing teaser card ($1,000/site) with light pastel gradient
-- Final CTA section with aurora blob backdrop
-- Light-adapted Nav + Footer (only on landing) via `:has()` scoped overrides
-- ButterflyRider hidden on landing for Apple-clean feel
-- SF Pro Display font stack, refined type scale, text-wrap balance
-- `prefers-reduced-motion` respected across all animations
-- data-testid attributes on all interactive/critical elements
+## Bug Fixes This Iteration
+- **Invisible headline words** on landing (e.g. "small business in town?") — the reveal-words script split each word into a `<span class="w">`, but `.k-grad` used `background-clip:text` + `color:transparent`, making inner spans invisible. Fixed by renaming `.k-grad` → `.grad-text` so the script treats it as a single revealed unit.
+- Removed `body:has(.kaira-landing)` scoped overrides — no longer needed since global theme is now light.
 
-## Pages Untouched (verified)
-- /services, /portfolio, /pricing, /about, /contact, /privacy, /terms — all keep original dark theme
+## Global Theme Migration (this iteration)
+- `global.css` flipped: `--color-ink` (dark on light), Apple SF Pro font stack, Apple blue accent (`#0071e3`), `--color-violet` → Apple black `#1d1d1f` (so all `bg-violet` CTAs are now Apple-black pills), spectrum gradient blue→violet→red.
+- `.glass` → light white glassmorphism
+- `.mesh-bg` → bright aurora + subtle grid
+- `.grad-border` → light card with colored hairline
+- `.hud-label`, `.pill`, `.status-dot` → light-friendly Apple caption styling
+- New `.dark-panel` utility for intentional dark showcase surfaces (used by portfolio mockups and services RenderScene)
+- Removed film grain (`body::after`) — didn't fit Apple aesthetic
+- Removed reflexive `[class*="text-white/"]` fallback (would have broken dark-panel children)
 
-## Backlog / Future
-- P1: Extend the Apple-airy aesthetic to inner pages if the user likes the new direction
-- P2: Add real portfolio thumbnails inside the hero browser mockup
-- P2: Redesign logo mark (user offered) — currently the butterfly is unchanged on inner pages
-- P3: Add case study cards / testimonials section on landing
-- P3: Lottie or GLB models for even richer 3D on wider viewports
+## Component Updates
+- **Nav.astro**: light bg with 70% white/blur, Apple-black CTA button, spectrum underline hover
+- **Footer.astro**: `#f5f5f7` bg (Apple's classic footer gray), spectrum hairline, subtle transitions
+- **ButterflyRider.astro**: hidden site-wide via `.hidden` class (sci-fi purple butterfly didn't fit)
+- **RenderScene.astro**: wrapper switched from `.glass` → `.dark-panel` so its 3D holographic content sits on a dark rounded "device" against the light page — reads intentional
+- **Base.astro** unchanged (reveal engine still works)
+
+## Per-Page Updates
+- **index.astro**: k-grad → grad-text fix, removed scoped landing overrides, kept Apple hero with Three.js gem, tilting browser mock, floating badges, marquee, stat pills, product tiles, process cards, pricing teaser, aurora CTA
+- **services.astro**: dark divider → light, dark-panel RenderScene, keeps all copy/structure
+- **portfolio.astro**: dark mockup screens wrapped in `.dark-panel` (intentional showcase devices), concept badge lightened, all outer text uses light tokens
+- **pricing.astro**: "MOST POPULAR" badge flipped to light, CTA buttons updated (featured = Apple black, others = white with border)
+- **about.astro**: token-driven, works out of the box
+- **contact.astro**: entire form rewritten with `.kaira-input` (white inputs, black focus ring), Turnstile switched to `data-theme="light"`, service pills styled for light, submit is Apple-black
+- **privacy.astro / terms.astro**: divider chars replaced with `·`, tokens do the rest
+- **404.astro**: divider replaced, keeps existing structure
+
+## Verified Working (visual pass)
+- /  /services  /portfolio  /pricing  /about  /contact  /privacy  /terms  /404 — all bright, airy, consistent
+
+## Backlog
+- P2: Real portfolio thumbnails inside the hero browser mockup
+- P2: New logo mark (butterfly kept for continuity)
+- P3: Testimonials section on landing
+- P3: Case study deep dives on portfolio items
 
 ## Next Action Items
-- Wait for user feedback on the new landing direction; iterate on copy/visuals if needed
-- Optionally propagate the light theme to inner pages (currently dark)
+- User feedback on the new site-wide direction
+- Optionally replace hero mockup with an actual client-site carousel

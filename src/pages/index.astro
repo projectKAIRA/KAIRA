@@ -77,7 +77,7 @@ const steps = [
 
         <h1 class="k-h1 reveal-words" data-testid="hero-title">
           Websites that make your business look
-          <span class="k-grad">inevitable.</span>
+          <span class="grad-text">inevitable.</span>
         </h1>
 
         <p class="k-lead reveal reveal-delay-2" data-testid="hero-lead">
@@ -164,7 +164,7 @@ const steps = [
     <section class="k-statement" data-testid="statement-section">
       <div class="k-container narrow">
         <h2 class="k-h2 reveal-words">
-          Your storefront never sleeps. <span class="k-grad">Make it worth showing up to.</span>
+          Your storefront never sleeps. <span class="grad-text">Make it worth showing up to.</span>
         </h2>
         <p class="k-sub reveal">
           72% of local customers check your website before they visit. We make sure the first impression
@@ -196,7 +196,7 @@ const steps = [
       <div class="k-container">
         <p class="k-kicker reveal">The Kaira family</p>
         <h2 id="family-heading" class="k-h2 reveal-words">
-          Three services. <span class="k-grad">One quiet obsession.</span>
+          Three services. <span class="grad-text">One quiet obsession.</span>
         </h2>
         <p class="k-sub reveal">
           Websites, SEO, and care — designed to work together so your business shows up, stands out, and keeps improving.
@@ -279,7 +279,7 @@ const steps = [
       <div class="k-container">
         <p class="k-kicker reveal">How it works</p>
         <h2 class="k-h2 reveal-words">
-          Four steps. <span class="k-grad">Zero surprises.</span>
+          Four steps. <span class="grad-text">Zero surprises.</span>
         </h2>
 
         <ol class="k-steps">
@@ -325,7 +325,7 @@ const steps = [
       </div>
       <div class="k-container">
         <h2 class="k-h2 reveal-words">
-          Ready to look like the biggest <span class="k-grad">small business in town?</span>
+          Ready to look like the biggest <span class="grad-text">small business in town?</span>
         </h2>
         <p class="k-sub reveal">
           Tell us about your business. We'll come back with a free, no-pressure quote within one business day.
@@ -344,56 +344,8 @@ const steps = [
      STYLES — scoped to landing only via :has(.kaira-landing)
 ============================================================ -->
 <style is:global>
-  /* ---------- Reset the site-wide dark theme for this page only ---------- */
-  html:has(.kaira-landing),
-  body:has(.kaira-landing) {
-    background: #fbfbfd !important;
-    color: #1d1d1f !important;
-    color-scheme: light !important;
-  }
-  body:has(.kaira-landing)::before,
-  body:has(.kaira-landing)::after { display: none !important; }
-
-  /* Recolor the sticky Nav on the landing page */
-  body:has(.kaira-landing) header {
-    background: rgba(251, 251, 253, 0.72) !important;
-    border-color: rgba(0, 0, 0, 0.08) !important;
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    backdrop-filter: saturate(180%) blur(20px);
-  }
-  body:has(.kaira-landing) header .text-ink,
-  body:has(.kaira-landing) header span.uppercase {
-    color: #1d1d1f !important;
-  }
-  body:has(.kaira-landing) header .nav-link { color: #1d1d1f !important; opacity: 0.85; }
-  body:has(.kaira-landing) header .nav-link:hover { opacity: 1; }
-  body:has(.kaira-landing) header .pill {
-    color: #1d1d1f !important;
-    background: rgba(0, 0, 0, 0.04) !important;
-    border-color: rgba(0, 0, 0, 0.08) !important;
-  }
-  body:has(.kaira-landing) header a[href="/contact"] {
-    background: #1d1d1f !important;
-    box-shadow: 0 6px 20px -8px rgba(0, 0, 0, 0.45) !important;
-  }
-
-  /* Footer light adaptation on landing */
-  body:has(.kaira-landing) footer {
-    background: #f5f5f7 !important;
-    color: #1d1d1f !important;
-  }
-  body:has(.kaira-landing) footer .text-ink,
-  body:has(.kaira-landing) footer p.font-semibold { color: #1d1d1f !important; }
-  body:has(.kaira-landing) footer a,
-  body:has(.kaira-landing) footer .text-ink-muted { color: #6e6e73 !important; }
-  body:has(.kaira-landing) footer a:hover { color: #0071e3 !important; }
-  body:has(.kaira-landing) footer .hud-label { color: #6e6e73 !important; }
-  body:has(.kaira-landing) footer .border-t { border-color: rgba(0,0,0,0.08) !important; }
-
-  /* Butterfly rider decorative element — hide entirely on landing (Apple-clean) */
-  body:has(.kaira-landing) #bf-rider,
-  body:has(.kaira-landing) .butterfly-rider,
-  body:has(.kaira-landing) [class*="butterfly-rider"] { display: none !important; }
+  /* Landing hides the site-wide butterfly for a cleaner Apple-style hero */
+  body:has(.kaira-landing) #bf-rider { display: none !important; }
 </style>
 
 <style>
@@ -493,7 +445,7 @@ const steps = [
   }
 
   /* Apple-style spectrum gradient — juicy but restrained */
-  .k-grad {
+  .kaira-landing .grad-text {
     background: linear-gradient(100deg, #0071e3 0%, #7c3aed 45%, #ff375f 85%);
     -webkit-background-clip: text;
     background-clip: text;

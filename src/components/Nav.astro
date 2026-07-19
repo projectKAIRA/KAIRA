@@ -11,10 +11,10 @@ const current = Astro.url.pathname;
 ---
 
 <header
-  class="sticky top-0 z-40 border-b border-white/[0.07] bg-[#0a0a0c]/65 backdrop-blur-xl backdrop-saturate-150"
+  class="sticky top-0 z-40 border-b border-black/[0.06] bg-white/70 backdrop-blur-xl backdrop-saturate-150"
 >
   <nav aria-label="Main" class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
-    <a href="/" class="flex items-center gap-2.5">
+    <a href="/" class="flex items-center gap-2.5" data-testid="nav-logo">
       <Butterfly class="h-9 w-9" />
       <span class="text-lg font-bold tracking-[0.2em] text-ink uppercase">Kaira</span>
       <span class="pill ml-2 hidden sm:inline-flex"><span class="status-dot"></span> Accepting projects</span>
@@ -31,6 +31,7 @@ const current = Astro.url.pathname;
                 'nav-link text-sm font-medium transition-colors duration-150',
                 current.startsWith(l.href) ? 'text-ink' : 'text-ink-soft hover:text-ink',
               ]}
+              data-testid={`nav-link-${l.label.toLowerCase()}`}
             >
               {l.label}
             </a>
@@ -42,7 +43,9 @@ const current = Astro.url.pathname;
     <div class="flex items-center gap-3">
       <a
         href="/contact"
-        class="hidden rounded-full bg-violet px-5 py-2 text-sm font-semibold text-white shadow-(--shadow-cta) transition-transform duration-150 ease-(--ease-press) hover:scale-[1.03] active:scale-[0.98] md:inline-block"
+        class="hidden rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white transition-all duration-150 ease-(--ease-press) hover:scale-[1.03] hover:shadow-lg active:scale-[0.98] md:inline-block"
+        style="background-color: #1d1d1f;"
+        data-testid="nav-cta"
       >
         Get a Quote
       </a>
@@ -54,6 +57,7 @@ const current = Astro.url.pathname;
         aria-expanded="false"
         aria-controls="mobile-menu"
         aria-label="Open menu"
+        data-testid="nav-toggle"
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
           <path class="menu-open" d="M4 7h16M4 12h16M4 17h16" />
@@ -63,19 +67,19 @@ const current = Astro.url.pathname;
     </div>
   </nav>
 
-  <div id="mobile-menu" class="hidden border-t border-white/[0.07] bg-[#0a0a0c]/95 px-5 pb-5 pt-3 backdrop-blur-xl md:hidden">
+  <div id="mobile-menu" class="hidden border-t border-black/[0.06] bg-white/95 px-5 pb-5 pt-3 backdrop-blur-xl md:hidden">
     <ul class="flex flex-col gap-1">
       {
         links.map((l) => (
           <li>
-            <a href={l.href} class="block rounded-lg px-3 py-2.5 text-base font-medium text-ink-soft hover:bg-purple-ghost hover:text-purple">
+            <a href={l.href} class="block rounded-lg px-3 py-2.5 text-base font-medium text-ink-soft hover:bg-black/[0.04] hover:text-ink">
               {l.label}
             </a>
           </li>
         ))
       }
       <li class="mt-2">
-        <a href="/contact" class="block rounded-full bg-violet px-5 py-2.5 text-center text-base font-semibold text-white">
+        <a href="/contact" class="block rounded-full px-5 py-2.5 text-center text-base font-semibold text-white" style="background-color: #1d1d1f;">
           Get a Quote
         </a>
       </li>
@@ -84,7 +88,6 @@ const current = Astro.url.pathname;
 </header>
 
 <style>
-  /* Spectrum underline that sweeps in on hover / stays on the active page */
   .nav-link {
     position: relative;
   }
@@ -96,7 +99,7 @@ const current = Astro.url.pathname;
     bottom: -5px;
     height: 1.5px;
     border-radius: 1px;
-    background: linear-gradient(90deg, #2dd4bf, #38bdf8, #a78bfa, #ff2d78);
+    background: linear-gradient(90deg, #0071e3, #7c3aed, #ff375f);
     transform: scaleX(0);
     transform-origin: left;
     transition: transform 0.25s var(--ease-enter);
