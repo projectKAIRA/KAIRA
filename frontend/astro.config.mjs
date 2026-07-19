@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 
-const SITE_URL = 'https://trykaira.ai';
+const SITE_URL = process.env.PUBLIC_SITE_URL || 'https://trykaira.ai';
 
 export default defineConfig({
   site: SITE_URL,
